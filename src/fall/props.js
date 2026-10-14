@@ -41,36 +41,49 @@ export function chain(A, from, to, link = 26, thick = 5.5) {
   }
 }
 
-// The lantern: an iron cage, eight sides, glass panes lit from inside, a cap and a ring. `top` is the ring,
-// `up` the axis from the lantern toward the chain.
+// The lantern: a tall iron cage of twelve narrow panes with a mid-band, a steep cap with a spire and a hook
+// ring, a basin and a pointed drip under it, a flame inside seen through the glass. `top` is the hook ring,
+// `up` the axis from the lantern toward the chain, `size` its height from the ring to the drip.
 export function lantern(A, top, up, size = 64, t = 0) {
   up = nrm(up);
   let X = nrm(crs(up, [0, 0, 1])); if (Math.hypot(...crs(up, [0, 0, 1])) < 1e-3) X = [1, 0, 0];
   const Z = crs(X, up);
   const P = (x, y, z) => add(top, add(add(scl(X, x), scl(up, y)), scl(Z, z)));
-  const H = size, R = size * 0.34, rC = R * 1.15;
-  const yTop = -H * 0.2, yBot = -H * 0.9, yBase = -H * 0.97;
-  const ring = (y, r, k) => { const a = (k / 8) * Math.PI * 2; return P(Math.cos(a) * r, y, Math.sin(a) * r); };
-  const ctr = P(0, (yTop + yBot) / 2, 0);
-  for (let k = 0; k < 8; k++) {
-    // glass
-    quad(A, ring(yBot, R, k), ring(yBot, R, k + 1), ring(yTop, R, k + 1), ring(yTop, R, k), M.G_GLASS, [0, 0], [1, 0], [1, 1], [0, 1], 0, ctr);
-    // corner bars
-    const c0 = ring(yBot - 2, R + 1.5, k), c1 = ring(yTop + 2, R + 1.5, k);
-    bar(A, c0, c1, 2.6, 2.6, nrm(sub(c0, P(0, yBot, 0))), M.G_CAGE);
-    // a cross bar half way
-    bar(A, ring((yTop + yBot) / 2, R + 1.4, k), ring((yTop + yBot) / 2, R + 1.4, k + 1), 1.4, 1.4, up, M.G_CAGE);
-    // cap: a stepped roof
-    quad(A, ring(yTop, rC, k), ring(yTop, rC, k + 1), ring(yTop + H * 0.1, rC * 0.7, k + 1), ring(yTop + H * 0.1, rC * 0.7, k), M.G_CAGE, [0, 0], [1, 0], [1, 1], [0, 1], 0, P(0, yTop - 5, 0));
-    tri(A, ring(yTop + H * 0.1, rC * 0.7, k), ring(yTop + H * 0.1, rC * 0.7, k + 1), P(0, -H * 0.04, 0), M.G_CAGE, [0, 0], [1, 0], [0.5, 1], 0, P(0, yTop - 5, 0));
-    // base: a basin
-    quad(A, ring(yBot, R * 1.05, k), ring(yBot, R * 1.05, k + 1), ring(yBase, R * 0.5, k + 1), ring(yBase, R * 0.5, k), M.G_CAGE, [0, 0], [1, 0], [1, 1], [0, 1], 0, P(0, yBot + 5, 0));
+  const N = 12, TAU = Math.PI * 2, H = size, R = size * 0.15, C = M.G_CAGE;
+  const yPeak = -H * 0.2, yCone = -H * 0.27, yRim = -H * 0.31, yTop = -H * 0.33, yMid = -H * 0.55, yBot = -H * 0.77, yBase = -H * 0.84, yTip = -H * 0.92;
+  const ring = (y, r, k) => { const a = (k / N) * TAU; return P(Math.cos(a) * r, y, Math.sin(a) * r); };
+  const ctr = P(0, (yTop + yBot) / 2, 0), uv4 = [[0, 0], [1, 0], [1, 1], [0, 1]];
+  const Q = (a, b, c, d, m, hint) => quad(A, a, b, c, d, m, ...uv4, 0, hint);
+  for (let k = 0; k < N; k++) {
+    // a pane: uv runs 0..1 across and 0..1 up, so the shader can light it from the flame
+    quad(A, ring(yBot, R, k), ring(yBot, R, k + 1), ring(yTop, R, k + 1), ring(yTop, R, k), M.G_GLASS, [0, 0], [1, 0], [1, 1], [0, 1], k, ctr);
+    // a corner bar a metre thick, and three rails: under the cap, a band half way, over the basin
+    const c0 = ring(yBot - 0.6, R + 0.55, k), c1 = ring(yTop + 0.6, R + 0.55, k);
+    bar(A, c0, c1, 0.5, 0.5, nrm(sub(c0, P(0, yBot, 0))), C);
+    for (const [y, w] of [[yTop + 0.3, 0.55], [yMid, 0.42], [yBot - 0.3, 0.55]]) bar(A, ring(y, R + 0.5, k), ring(y, R + 0.5, k + 1), w, w, up, C);
+    // the cap: a lip, an overhanging slope, then a steep roof to the peak
+    Q(ring(yTop, R * 1.3, k), ring(yTop, R * 1.3, k + 1), ring(yRim, R * 1.3, k + 1), ring(yRim, R * 1.3, k), C, P(0, yRim, 0));
+    Q(ring(yRim, R * 1.3, k), ring(yRim, R * 1.3, k + 1), ring(yCone, R * 0.72, k + 1), ring(yCone, R * 0.72, k), C, P(0, yRim - 6, 0));
+    tri(A, ring(yCone, R * 0.72, k), ring(yCone, R * 0.72, k + 1), P(0, yPeak, 0), C, [0, 0], [1, 0], [0.5, 1], 0, P(0, yCone - 6, 0));
+    // the base: a basin closing to a point
+    Q(ring(yBot, R * 1.12, k), ring(yBot, R * 1.12, k + 1), ring(yBase, R * 0.45, k + 1), ring(yBase, R * 0.45, k), C, P(0, yBot + 6, 0));
+    tri(A, ring(yBase, R * 0.45, k), ring(yBase, R * 0.45, k + 1), P(0, yTip, 0), C, [0, 0], [1, 0], [0.5, 1], 0, P(0, yBase + 6, 0));
   }
-  // the flame inside, seen through the glass
-  const f = P(0, (yTop + yBot) / 2 - 2, 0), fr = R * 0.38 * (1 + 0.08 * Math.sin(t * 9));
-  for (let k = 0; k < 6; k++) { const a0 = (k / 6) * Math.PI * 2, a1 = ((k + 1) / 6) * Math.PI * 2; tri(A, add(f, add(scl(X, Math.cos(a0) * fr), scl(Z, Math.sin(a0) * fr))), add(f, add(scl(X, Math.cos(a1) * fr), scl(Z, Math.sin(a1) * fr))), add(f, scl(up, R * 0.9)), M.G_FLAME, [0, 0], [1, 0], [0.5, 1], 0, f); }
-  // the ring at the top
-  for (let k = 0; k < 6; k++) { const a0 = (k / 6) * Math.PI * 2, a1 = ((k + 1) / 6) * Math.PI * 2; bar(A, add(top, add(scl(up, -4 + Math.sin(a0) * 6), scl(X, Math.cos(a0) * 6))), add(top, add(scl(up, -4 + Math.sin(a1) * 6), scl(X, Math.cos(a1) * 6))), 1.4, 1.4, Z, M.G_CAGE); }
+  // the spire over the cap, with a knop, up to the hook ring
+  const sp = (y, r, k) => { const a = (k / 4) * TAU + Math.PI / 4; return P(Math.cos(a) * r, y, Math.sin(a) * r); };
+  for (let k = 0; k < 4; k++) {
+    Q(sp(yPeak, R * 0.22, k), sp(yPeak, R * 0.22, k + 1), sp(-H * 0.16, R * 0.09, k + 1), sp(-H * 0.16, R * 0.09, k), C, P(0, yPeak - 4, 0));
+    Q(sp(-H * 0.16, R * 0.09, k), sp(-H * 0.16, R * 0.09, k + 1), sp(-H * 0.1, R * 0.07, k + 1), sp(-H * 0.1, R * 0.07, k), C, P(0, -H * 0.2, 0));
+  }
+  bar(A, P(0, -H * 0.175, 0), P(0, -H * 0.145, 0), R * 0.2, R * 0.2, X, C);
+  // the hook ring at the top, where the chain ends
+  for (let k = 0; k < 8; k++) { const a0 = (k / 8) * TAU, a1 = ((k + 1) / 8) * TAU, rr = H * 0.1; bar(A, add(top, add(scl(up, -H * 0.06 + Math.sin(a0) * rr), scl(X, Math.cos(a0) * rr))), add(top, add(scl(up, -H * 0.06 + Math.sin(a1) * rr), scl(X, Math.cos(a1) * rr))), H * 0.013, H * 0.013, Z, C); }
+  // the flame: a fan of tongues, white-hot at the root, amber at the tips (the shader reads v)
+  const f = P(0, yMid - R * 0.45, 0), fr = R * 0.5 * (1 + 0.08 * Math.sin(t * 9)), fh = R * 1.35 * (1 + 0.1 * Math.sin(t * 7 + 1));
+  for (let k = 0; k < 8; k++) {
+    const a0 = (k / 8) * TAU, a1 = ((k + 1) / 8) * TAU, lean = 0.12 * Math.sin(t * 11 + k);
+    tri(A, add(f, add(scl(X, Math.cos(a0) * fr), scl(Z, Math.sin(a0) * fr))), add(f, add(scl(X, Math.cos(a1) * fr), scl(Z, Math.sin(a1) * fr))), add(f, add(scl(up, fh), scl(X, lean * fh))), M.G_FLAME, [0, 0], [1, 0], [0.5, 1], 0, f);
+  }
 }
 
 // A small person: legs, a long coat, a hood or bare head, a scarf. `run` 0..1, `ph` the stride phase,

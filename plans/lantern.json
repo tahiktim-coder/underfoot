@@ -1,0 +1,14 @@
+[
+  {"eval": "__v16.hold=true; const g=__v16.game; __v16.force('search'); g.S.cycle=1; for(let i=0;i<160;i++){ g.update(0.05); g.S.player.seen=Math.min(g.S.player.seen,0.25);} g.render(); return [g.S.lan.pos.map(v=>v|0)]"},
+  {"shot": "search", "sel": "canvas"},
+  {"eval": "const g=__v16.game; g.S.noUI=true; const L=g.S.lan.pos, c=[L[0],L[1]-22,L[2]]; g.S.view={...g.lookFrom([c[0]+90,c[1]+10,c[2]+70],c,0.55),near:2,far:60000,snap:0}; g.S.cam=g.S.view; g.render();"},
+  {"shot": "lantern_near", "sel": "canvas"},
+  {"eval": "const g=__v16.game; const L=g.S.lan.pos, c=[L[0],L[1]-22,L[2]]; g.S.view={...g.lookFrom([c[0]+150,c[1]-55,c[2]+120],[c[0],c[1]-20,c[2]],0.9),near:2,far:60000,snap:0}; g.S.cam=g.S.view; g.render();"},
+  {"shot": "lantern_below", "sel": "canvas"},
+  {"eval": "const g=__v16.game; const L=g.S.lan.pos, P=g.S.player; const py=g.S.cam.y; g.S.view={...g.lookFrom([P.x+60,py+6,P.z+60],[L[0],L[1]-22,L[2]],1.2),near:2,far:60000,snap:0}; g.S.cam=g.S.view; g.render();"},
+  {"shot": "lantern_street", "sel": "canvas"},
+  {"eval": "const g=__v16.game; __v16.view('look'); g.S.cam=g.S.view; g.render();"},
+  {"shot": "look", "sel": "canvas"},
+  {"eval": "const g=__v16.game; __v16.view('up'); g.S.cam=g.S.view; g.render(); return __v16.errors"},
+  {"shot": "up", "sel": "canvas"}
+]

@@ -150,7 +150,7 @@ export function createRenderer(canvas, giantMesh) {
     const c = xform(view.VP, p);
     const x = (c[0] / c[3] * 0.5 + 0.5) * LW - 1 - view.frac[0];
     const y = VH + 1 + view.frac[1] - (c[1] / c[3] * 0.5 + 0.5) * LH;
-    return [x, y, c[3] > 0 && x > -8 && x < VW + 8 && y > -8 && y < VH + 8, c[2] / c[3] * 0.5 + 0.5];
+    return [x, y, c[3] > 0 && x > -8 && x < VW + 8 && y > -8 && y < VH + 8, c[2] / c[3] * 0.5 + 0.5, c[3] > 0];
   }
 
   function drawTerrain(PL, rings) {
@@ -317,7 +317,8 @@ export function createRenderer(canvas, giantMesh) {
     const facing = fw[0] * sun[0] + fw[1] * sun[1] + fw[2] * sun[2];
     const shafts = sunP[3] > 0 ? Math.max(0, Math.min(1, (facing - 0.25) / 0.5)) * (scene.shafts ?? 1) * Math.min(1, Math.max(0, (cam.hh - 60) / 200)) : 0;
     const sunScr = sunP[3] > 0 ? [(sunP[0] / sunP[3] * 0.5 + 0.5) * LW, (sunP[1] / sunP[3] * 0.5 + 0.5) * LH, shafts] : [0, 0, 0];
-    P.quant.use().set('uSunScr', sunScr).set('uGlowA', gA).set('uGlowB', gB).set('uNGlow', gl4.length).tex('uDepth', tSceneD, 1).tex('uSrc', src, 0).set('uRamp', PAL.ramp).set('uRampL', PAL.rampL).set('uHueDir', PAL.hueDir).set('uNGrey', PAL.nGrey).set('uNHue', PAL.nHue).set('uDither', scene.dither ?? 0).set('uBloom', scene.bloom ?? 0).set('uLanGlow', scene.lanGlow || [1.0, 0.7, 0.38])
+    const ls = scene.lanShaft;
+    P.quant.use().set('uSunScr', sunScr).set('uLanScr', ls ? [ls.x + frac[0], ls.y - frac[1], ls.zNear, ls.strength] : [0, 0, 0, 0]).set('uLanBeam', ls ? [ls.beam[0], ls.beam[1], ls.zFar, 0] : [0, 1, 1, 0]).set('uGlowA', gA).set('uGlowB', gB).set('uNGlow', gl4.length).tex('uDepth', tSceneD, 1).tex('uSrc', src, 0).set('uRamp', PAL.ramp).set('uRampL', PAL.rampL).set('uHueDir', PAL.hueDir).set('uNGrey', PAL.nGrey).set('uNHue', PAL.nHue).set('uDither', scene.dither ?? 0).set('uBloom', scene.bloom ?? 0).set('uLanGlow', scene.lanGlow || [1.0, 0.7, 0.38])
       .set('uChromaLo', scene.chromaLo ?? 0.05).set('uChromaHi', scene.chromaHi ?? 0.14).set('uContrast', scene.contrast ?? 1.05).set('uLift', scene.lift ?? 0).set('uGamma', scene.gamma ?? 1);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     const uiOn = scene.ui ? scene.ui(uictx, api) : false;

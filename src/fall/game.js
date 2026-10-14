@@ -583,11 +583,29 @@ export function createGame(canvas, opts = {}) {
     return true;
   }
 
-  // screen glows: the lantern in the air, the eyes when they burn
+  // where the lantern's glass is, how big it is on screen (pixels), and the depths just in front of and
+  // behind it. The halo is only hidden by things nearer than its front, so the cage never dims it.
+  function lanScreen() {
+    const up_ = nrm(sub(G.W.gripR, S.lan.pos)), c = add(S.lan.pos, scl(up_, -LAN * 0.55));
+    const cp = R.project(c);
+    if (!cp[4]) return null;
+    const toC = nrm(sub(c, R.view.eye));
+    const a = R.project(add(c, scl(up_, LAN * 0.5))), b = R.project(add(c, scl(up_, -LAN * 0.4)));
+    const size = Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const zNear = R.project(sub(c, scl(toC, LAN * 0.7)))[3], zFar = R.project(add(c, scl(toC, LAN * 0.7)))[3];
+    const bp = R.project(add(c, scl(lanLight().dir, 300)));
+    const beam = nrm([bp[0] - cp[0], -(bp[1] - cp[1]), 0]);
+    const onScreen = cp[0] > -size && cp[0] < VW + size && cp[1] > -size && cp[1] < VH + size;
+    return { x: cp[0], y: cp[1], size, zNear, zFar, beam, onScreen };
+  }
+  // screen glows: the lantern in the air (a wide warm halo and a hot core), the eyes when they burn
   function glows() {
     const out = [];
-    const lp = R.project(S.lan.pos);
-    if (lp[2]) out.push([lp[0], lp[1], lp[3], Math.max(6, 900 / Math.max(60, len(sub(S.lan.pos, R.view.eye)))) , 0.55, 1]);
+    const ls = lanScreen();
+    if (ls && ls.onScreen && S.lan.on > 0) {
+      out.push([ls.x, ls.y, ls.zNear, Math.max(8, ls.size * 1.4), 0.22, 1]);
+      out.push([ls.x, ls.y, ls.zNear, Math.max(4, ls.size * 0.5), 0.12, 1]);
+    }
     if (S.eye > 1.05 && G.W.eyes) for (const e of G.W.eyes) { const ep = R.project(e); if (ep[2]) out.push([ep[0], ep[1], ep[3], 1.5 + 1.4 * (S.eye - 1), 0.14 * (S.eye - 1), 2]); }
     return out;
   }
@@ -632,11 +650,12 @@ export function createGame(canvas, opts = {}) {
     A.hull();
     person(A, P.x, py, P.z, P.yaw, P.ph, P.run, { crouch: P.crouch, inflate: clamp((2 * S.cam.hh / VH) * 1.1, 0.06, 0.5), mat: M.P_OUTLINE });
     const sh = S.phase === 'caught' ? 0 : S.shake;
-    const ll = lanLight();
+    const ll = lanLight(), ls = lanScreen();
     R.render({
       t: S.t, cam: S.cam, light: dimmed(S.dim),
       giant: { bones: G.bones, sway: [0, 0, 0] },
       lantern: { ...ll, I: ll.I * LK.lanI / 1.5 }, lanGlow: LK.light.lanCol,
+      lanShaft: ls && S.lan.on > 0 ? { ...ls, strength: (LK.lanShaft ?? 1) * LK.lanI / 1.5 } : null,
       glows,
       windows: Math.max(LK.winMin, S.windows), prints: S.prints, player: LK.player ? [...LK.player.coat, ...LK.player.hood, ...LK.player.scarf, LK.player.fill || 0, 0, 0] : null,
       cloudK: S.cam.hh > 120 ? Math.min(1, (S.cam.hh - 120) / 400) : 0, holeC: [-300, 0], cloudCov: LK.cloudCov,

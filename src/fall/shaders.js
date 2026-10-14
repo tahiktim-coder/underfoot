@@ -509,9 +509,17 @@ void main(){
   } else if (m == 37 || m == 39){
     alb = vec3(0.09, 0.085, 0.08)*(0.8 + 0.4*N2L(T.xz + T.y*0.6, 3.0));
   } else if (m == 38){
-    alb = vec3(0.0); emit = uLanCol*uLanCol*1.05*(0.95 + 0.1*sin(uTime*7.0) + 0.06*sin(uTime*13.0));
+    // a pane of the lantern: lit by the flame a little below its middle, a hot core fading toward the
+    // frame, peaking where the tone curve gives about 0.75 so it stays inside the amber ramp. Dithered
+    // away by half so the flame shows through; the far side of the cage fills the other half, dimmer.
+    vec2 g = (vUV - vec2(0.5, 0.4))*vec2(1.0, 0.7);
+    float hot = 0.42 + 0.58*exp(-dot(g, g)*5.0);
+    float flick = 0.96 + 0.05*sin(uTime*7.0) + 0.03*sin(uTime*13.0 + vS);
+    if (bayerF(gl_FragCoord.xy + (inside ? vec2(1.0, 0.0) : vec2(0.0))) < 0.5) discard;
+    alb = vec3(0.0); emit = uLanCol*(0.78/uExposure)*hot*flick*(inside ? 0.72 : 1.0);
   } else if (m == 40){
-    alb = vec3(0.0); emit = vec3(1.0, 0.8, 0.5)*5.0;
+    // the flame: white-hot at the root, the lantern's colour at the tips
+    alb = vec3(0.0); emit = mix(vec3(1.0, 0.9, 0.7)*(2.6/uExposure), uLanCol*(1.1/uExposure), smoothstep(0.15, 0.85, vUV.y));
   } else if (m == 41){
     alb = vec3(0.1, 0.13, 0.1)*(0.8 + 0.4*N3L(T.xz + T.y, 6.0));
   // ---------------------------------------------------------------- people
@@ -754,6 +762,8 @@ uniform float uChromaLo, uChromaHi, uContrast, uLift, uGamma;
 uniform sampler2D uDepth;
 uniform vec4 uGlowA[4]; uniform vec4 uGlowB[4]; uniform int uNGlow;   // A: screen x, y (low-res, top-left origin), depth, radius; B: intensity, kind
 uniform vec3 uSunScr;          // the sun in low-res pixels (bottom-left origin) and how strong its shafts are
+uniform vec4 uLanScr;          // the lantern's glass on screen (as the glows: low-res, top-left origin), its near depth, shaft strength
+uniform vec4 uLanBeam;         // its beam's direction on screen (unit, y up), its far depth, 0
 uniform int uNGrey, uNHue;     // how many neutral steps (2..8) and hue ramps (0..4) the look uses
 uniform int uDither;           // 0: flat inside a band, dithered at its edges; 1: ordered 8x8 dither all the way; 2: three flat levels
 uniform float uBloom;
@@ -804,6 +814,25 @@ void main(){
       w *= 0.955;
     }
     s += vec3(1.0, 0.95, 0.88)*acc*uSunScr.z*0.05;
+  }
+  if (uLanScr.w > 0.0){
+    // the lantern's shaft: walk toward the lantern; every step that lands on its glass adds light, so the
+    // air round it and down its beam glows, fading with distance (fewer steps land on it from far away)
+    vec2 lc = vec2(uLanScr.x + 1.0, sz.y - 1.0 - uLanScr.y);
+    vec2 pp = gl_FragCoord.xy, toL = lc - pp; float L = max(length(toL), 1.0);
+    float cone = 0.12 + 0.88*smoothstep(0.15, 0.8, dot(-toL/L, uLanBeam.xy));
+    vec2 d = toL/28.0; pp += d*bayer4(p);
+    float acc = 0.0, w = 1.0;
+    for (int i = 0; i < 28; i++){
+      pp += d;
+      ivec2 q = ivec2(clamp(pp, vec2(0.0), sz - 1.0));
+      float dz = texelFetch(uDepth, q, 0).r;
+      float onLan = step(uLanScr.z, dz)*step(dz, uLanBeam.z);
+      vec3 c = texelFetch(uSrc, q, 0).rgb;
+      acc += onLan*max(dot(c, vec3(0.333)) - 0.3, 0.0)*w;
+      w *= 0.97;
+    }
+    s += uLanGlow*acc*uLanScr.w*cone*0.035;
   }
   if (uBloom > 0.0){
     // a soft glow round bright things: a spiral of taps over the scene, brightness above a knee
