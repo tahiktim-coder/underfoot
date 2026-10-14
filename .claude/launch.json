@@ -4,7 +4,7 @@
     {
       "name": "underfoot-dist",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-I", "-m", "http.server", "8765", "--bind", "127.0.0.1", "--directory", "C:/Users/farha/AppData/Local/Temp/claude/C--Users-farha-Claude-Project-giants/029311b0-481d-4c6b-b5bb-c2c1a7678321/scratchpad/underfoot/underfoot/dist"],
+      "runtimeArgs": ["-m", "http.server", "8765", "--bind", "127.0.0.1", "--directory", "dist"],
       "port": 8765
     }
   ]
