@@ -116,7 +116,7 @@ Steps 1 to 6 above were made, one commit each, on top of the untouched 1.2 sourc
 | The leave at 17 s | `docs/pass/before/leave17.png` | `docs/pass/after/leave17.png` | the checkerboard was a footfall dust billboard in front of the lens; dust never spawns near you or over the town now, and a puff wider than the frame is dropped |
 | The lantern, close | `docs/pass/before/lantern.png` | `docs/pass/after/lantern.png` | twelve narrow panes, a mid-band, a spire, a hook ring, a drip; amber glass in a gradient from a hot core, dithered so the flame shows; a halo the cage cannot hide; a shaft of light in the air under it |
 | Its face (street camera) | `docs/pass/before/face.png` | `docs/pass/after/face.png` | flat plates instead of dither mush; the mask a step paler; embers always lit; the lantern lighting the forearm, chest and face from below |
-| Looking up (`up3`) | `docs/pass/before/up3.png` | `docs/pass/after/up3.png` | plate seams with a lit lip, a flared cloak in the wind, amber on the chest and arm |
+| Looking up (`up3`) | `docs/pass/before/up3.png` | `docs/pass/after/up3.png` | flat plates with a dark seam and a narrow lip that only lifts the plate's own colour (1.6x, 3 m wide, fading with distance), so edges catch the lantern without drawing orange lines across the body; a flared cloak in the wind; amber on the forearm and face |
 | The hero camera | `docs/pass/before/hero.png` | `docs/pass/after/hero.png` | the silhouette reads as armour and a cloak, not a pillar; two embers mark the eyes at any distance |
 | The town from above | `docs/pass/before/town.png` | `docs/pass/after/town.png` | streets and square pale under the moon, the lantern's pool amber over the square, a ring of warm light at the foot of every lit house, the taller tower |
 

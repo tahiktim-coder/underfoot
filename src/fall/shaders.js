@@ -433,9 +433,10 @@ void main(){
     cl = mix(cl, vec3(0.8, 0.81, 0.84), smoothstep(2750.0, 2950.0, T.y)*up*smoothstep(0.3, 0.55, N1(T.xz, 70.0)));
     alb = m == 31 ? vec3(0.06, 0.05, 0.045) : cl;
   } else if (m == 43 || m == 44){
-    // old iron plate, near black: seams every ~100 m with a lip that catches the light, rust bleeding down
-    // from them, moss where it faces up; the feet are lames with rivets, caked with dried mud
-    float lw = lodF(7.0);
+    // old iron plate, near black: seams every ~100 m, each with a narrow lip that catches a little more of
+    // whatever light reaches it (a lift of the plate's own colour, never a line of its own), rust bleeding
+    // down from them, moss where it faces up; the feet are lames with rivets, caked with dried mud
+    float lw = lodF(5.0);
     vec3 base = vec3(0.1, 0.097, 0.093)*(0.85 + 0.3*N1(T.xz + T.y*0.5, 70.0));
     float ax = abs(T.x) - 180.0;
     bool foot = T.y < 140.0 && abs(ax) < 140.0 && T.z > -150.0;
@@ -446,13 +447,13 @@ void main(){
       for (int i = 0; i < 7; i++){
         float d = T.z - LAME[i];
         seam = max(seam, step(-5.0, d)*step(d, 0.0));
-        lip = max(lip, step(0.0, d)*step(d, 3.5));
+        lip = max(lip, step(0.0, d)*step(d, 2.0));
         riv = max(riv, 1.0 - smoothstep(2.6, 3.8, length(vec2(ra, d - 10.0))));
       }
       below = 0.5;
     } else {
       float fy = mod(T.y - 40.0, 104.0);
-      seam = step(fy, 4.0); lip = step(4.0, fy)*step(fy, 10.0);
+      seam = step(fy, 3.5); lip = step(3.5, fy)*step(fy, 6.5);
       below = smoothstep(50.0, 103.0, fy);
     }
     float streak = N2(vec2(T.x*0.7 + T.z*0.7, T.y*0.07), 16.0);
@@ -464,7 +465,7 @@ void main(){
     mud = max(mud, step(0.78, N3(T.xz + T.y*0.8, 6.0))*(1.0 - smoothstep(60.0, 300.0, T.y))*0.9);
     base = mix(base, vec3(0.33, 0.3, 0.26)*(0.85 + 0.3*N2(T.xz + T.y, 11.0)), mud*0.92);
     base = mix(base, vec3(0.022), seam*lw*(1.0 - mud*0.6));
-    base = mix(base, vec3(0.3, 0.285, 0.27), lip*lw*(1.0 - mud));
+    base *= 1.0 + 0.6*lip*lw*(1.0 - mud);
     base = mix(base, vec3(0.3, 0.28, 0.25), riv*lw*(1.0 - mud*0.5));
     alb = base;
     spec = 1.0 - mud*0.85;
