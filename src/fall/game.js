@@ -204,18 +204,28 @@ export function createGame(canvas, opts = {}) {
   window.addEventListener('keydown', (e) => onKey(e, true));
   window.addEventListener('keyup', (e) => onKey(e, false));
   window.addEventListener('blur', () => { keys.clear(); S.lookHeld = false; });
-  let ptr = null;
+  // one pointer walks (the mouse held where you want to go, or a finger dragged as a stick); the right
+  // button, or a second finger, looks up. The look-up follows the buttons actually down, so it never sticks.
+  let ptr = null, lookPtr = null;
   canvas.addEventListener('pointerdown', (e) => {
     canvas.focus({ preventScroll: true });
     S.idle = 0; if (S.played) S.auto = false;
     if (gesture('go')) return;
     try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
-    if (e.button === 2) { S.lookHeld = true; return; }
+    if (e.button === 2 || (ptr && e.pointerType === 'touch')) { lookPtr = e.pointerId; S.lookHeld = true; return; }
+    if (ptr) return;
     ptr = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, touch: e.pointerType === 'touch' };
   });
-  canvas.addEventListener('pointermove', (e) => { if (ptr && e.pointerId === ptr.id) { ptr.x = e.clientX; ptr.y = e.clientY; } });
-  const up = (e) => { if (e.button === 2 || !(e.buttons & 2)) S.lookHeld = false; if (ptr && e.pointerId === ptr.id) ptr = null; };
+  canvas.addEventListener('pointermove', (e) => {
+    if (ptr && e.pointerId === ptr.id) { ptr.x = e.clientX; ptr.y = e.clientY; }
+    if (e.pointerType === 'mouse' && S.lookHeld && !(e.buttons & 2)) { S.lookHeld = false; lookPtr = null; }
+  });
+  const up = (e) => {
+    if (e.pointerId === lookPtr || e.button === 2 || (e.pointerType === 'mouse' && !(e.buttons & 2))) { S.lookHeld = false; lookPtr = null; }
+    if (ptr && e.pointerId === ptr.id) ptr = null;
+  };
   canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up); canvas.addEventListener('lostpointercapture', up);
+  canvas.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') up(e); });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   function readInput() {
     let x = 0, y = 0;
