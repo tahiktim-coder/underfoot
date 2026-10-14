@@ -115,7 +115,7 @@ export function createGame(canvas, opts = {}) {
       const P = S.player, a = Math.atan2(TOWN.z - P.z, TOWN.x - P.x) + (rnd() - 0.5) * 1.2;
       S.attn = [P.x + Math.cos(a) * 48, P.z + Math.sin(a) * 48]; S.aim = S.attn.slice(); S.aimS = S.attn.slice(); S.aimT = 3;
       AP.t = 0; AP.goal = null;
-      S.people = []; S.spawned = 0; S.take = null; S.act = null; S.lostT = LOST_AFTER; S.nextCheck = 0;
+      S.people = []; S.spawned = 0; S.take = null; S.act = null; S.lostT = 0; S.nextCheck = 0;
     }
     if (p === 'caught') { snd.caught(); S.hitDone = false; S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.aim = [S.player.x, S.player.z]; }
   }
@@ -213,8 +213,23 @@ export function createGame(canvas, opts = {}) {
     if (gesture('go')) return;
     try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
     if (e.button === 2) { S.lookHeld = true; return; }
-    ptr = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, touch: e.pointerType === 'touch' };
+    ptr = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, touch: e.pointerType === 'touch', house: null };
+    // pressed on a lit house: hold, and you walk to its door and put its light out (the whole game on a mouse)
+    const r = canvas.getBoundingClientRect();
+    ptr.house = houseAt(((e.clientX - r.left) / r.width) * VW, ((e.clientY - r.top) / r.height) * VH);
   });
+  // the lit house under a screen point (low-res pixels): inside its footprint, or within a few pixels of its door
+  function houseAt(sx, sy) {
+    if (!(S.phase === 'search' || S.phase === 'plant') || S.card) return null;
+    const ppm = VH / (2 * S.cam.hh);
+    let best = null, bd = 1;
+    for (const H of HM.targets()) {
+      const c = R.project([H.x, standY(H.x, H.z) + H.h * 0.5, H.z]), d = R.project([H.door[0], standY(H.door[0], H.door[1]) + 1, H.door[1]]);
+      const m = Math.min(Math.hypot(c[0] - sx, c[1] - sy) / (Math.max(H.w, H.d) * 0.55 * ppm + 4), Math.hypot(d[0] - sx, d[1] - sy) / 10);
+      if (m < bd) { bd = m; best = H; }
+    }
+    return best;
+  }
   canvas.addEventListener('pointermove', (e) => { if (ptr && e.pointerId === ptr.id) { ptr.x = e.clientX; ptr.y = e.clientY; } });
   const up = (e) => { if (e.button === 2 || !(e.buttons & 2)) S.lookHeld = false; if (ptr && e.pointerId === ptr.id) ptr = null; };
   canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up); canvas.addEventListener('lostpointercapture', up);
@@ -225,7 +240,14 @@ export function createGame(canvas, opts = {}) {
     if (keys.has('right')) x += 1;
     if (keys.has('up')) y += 1;
     if (keys.has('down')) y -= 1;
-    if (ptr && !S.card) {
+    let actPtr = false;
+    if (ptr && ptr.house && (ptr.house.state !== 'lit' || Math.hypot(ptr.x - ptr.x0, ptr.y - ptr.y0) > (ptr.touch ? 10 : 24))) ptr.house = null;
+    if (ptr && ptr.house && !S.card) {
+      // walking to the house's door; there, holding is the action
+      const H = ptr.house, dx = H.door[0] - S.player.x, dz = H.door[1] - S.player.z, d = Math.hypot(dx, dz);
+      if (d > DOOR_REACH * 0.6) { const yaw = Math.PI / 4, rx = Math.cos(yaw), rz = -Math.sin(yaw), fx = -Math.sin(yaw), fz = -Math.cos(yaw); x += (dx * rx + dz * rz) / d; y += (dx * fx + dz * fz) / d; }
+      else actPtr = true;
+    } else if (ptr && !S.card) {
       const r = canvas.getBoundingClientRect();
       let dx, dy;
       if (ptr.touch) { dx = ptr.x - ptr.x0; dy = ptr.y - ptr.y0; const m = Math.hypot(dx, dy); if (m < 8) { dx = 0; dy = 0; } else { const k = Math.min(1, m / 40) / m; dx *= k; dy *= k; } }
@@ -236,10 +258,11 @@ export function createGame(canvas, opts = {}) {
       }
       x += dx; y -= dy;
     }
+    if (S.drive) { x = S.drive.x; y = S.drive.y; }   // the headless tools steer you through this
     const m = Math.hypot(x, y); if (m > 1) { x /= m; y /= m; }
     S.input.x = x; S.input.y = y;
     S.input.look = keys.has('look') || !!S.lookHeld || !!S.lookButton;
-    S.input.act = keys.has('act') || !!S.actButton;
+    S.input.act = keys.has('act') || !!S.actButton || actPtr;
   }
 
   // ---------------------------------------------------------------------------------- the lantern
@@ -393,7 +416,7 @@ export function createGame(canvas, opts = {}) {
       const lu = !onYou && (S.lostT > LOST_AFTER || curious || (S.pt > NT.check && S.pt > S.nextCheck)) ? lure() : null;
       if (lu && lu.house && !S.take && Math.hypot(lu.pos[0] - S.attn[0], lu.pos[1] - S.attn[1]) < 5) takeHouse(lu.house);
       const want = S.take ? S.take.pos : onYou ? [P.x, P.z] : lu ? lu.pos : back;
-      const dx = want[0] - S.attn[0], dz = want[1] - S.attn[1], dd = Math.hypot(dx, dz), stepM = Math.min(dd, (P.seen > 0.3 || S.take ? 6.5 : lu ? 6.0 : 4.3) * dt);
+      const dx = want[0] - S.attn[0], dz = want[1] - S.attn[1], dd = Math.hypot(dx, dz), stepM = Math.min(dd, (S.take ? 6.5 : P.seen > 0.3 ? NT.hunt : NT.walk) * dt);
       if (dd > 1e-3) { S.attn[0] += (dx / dd) * stepM; S.attn[1] += (dz / dd) * stepM; }
       // the light hunts a little round that point, as if looking; on a take it holds still
       const w = S.take ? Math.max(0, 1 - S.take.t * 2) : 1;
@@ -449,7 +472,7 @@ export function createGame(canvas, opts = {}) {
     if (P.lit && was !== 'lit') snd.notice();
     if (S.phase === 'search') {
       // the eye: fills in the light, at the night's fraction of that in shallow shadow, empties in deep
-      const rate = (0.08 + 0.17 * Math.min(1.4, li.L)) * (P.run > 0.3 ? 1.2 : 1);
+      const rate = (0.08 + 0.17 * Math.min(1.4, li.L)) * (P.run > 0.3 ? 1.2 : 1) * NT.fill;
       P.seen = clamp(P.seen + (li.tier === 'lit' ? dt * rate : li.tier === 'shallow' ? dt * rate / NT.k : -dt * SHADOW_DRAIN));
       if (P.seen >= 1) { setPhase('caught'); S.stats.caught++; }
     } else if (S.phase !== 'caught') P.seen = Math.max(0, P.seen - dt * 0.5);
@@ -716,9 +739,9 @@ export function createGame(canvas, opts = {}) {
     // at a lit door: the first time, what to do; while you hold the key, how far along you are
     if (S.hintAct > 0 && S.hintAct < 1 && !S.card) {
       ctx.globalAlpha = Math.min(1, S.hintAct * 8) * (1 - ease((S.hintAct - 0.75) / 0.25));
-      const h = 'Hold E: put out the light';
-      plate(Math.round((VW - measureWisp(h)) / 2) - 6, VH - 62, measureWisp(h) + 12, 15);
-      drawWisp(h, Math.round((VW - measureWisp(h)) / 2), VH - 58, plot(C.accent));
+      const h1 = 'Put out the light:', h2 = 'hold E, or hold the mouse on the house', w = Math.max(measureWisp(h1), measureWisp(h2)) + 12;
+      plate(Math.round((VW - w) / 2), VH - 72, w, 25);
+      drawWisp(h1, Math.round((VW - measureWisp(h1)) / 2), VH - 68, plot(C.accent)); drawWisp(h2, Math.round((VW - measureWisp(h2)) / 2), VH - 58, plot(C.dim));
       ctx.globalAlpha = 1;
     }
     if (S.act) {
@@ -881,7 +904,7 @@ export function createGame(canvas, opts = {}) {
   updateGiant(0);
 
   const api = {
-    R, G, S, snd, LOOKS, LOOK_ORDER, NIGHTS, isLit, inCover, blocked, standY, lanLight, segmentBlocked, OCCLUDERS, houses, updatePeople,
+    R, G, S, snd, LOOKS, LOOK_ORDER, NIGHTS, isLit, inCover, blocked, standY, lanLight, segmentBlocked, OCCLUDERS, houses, brain, HM,
     get look() { return lookName; },
     get night() { return S.night; },
     begin, startNight, retryNight, dismissCard,

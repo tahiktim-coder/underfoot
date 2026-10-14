@@ -1,0 +1,7 @@
+[
+  {"eval": "__v16.hold=true; const g=__v16.game; g.S.played=true; g.S.auto=false; __v16.force('search'); const P=g.S.player; for(let i=0;i<30;i++){ g.update(0.05); P.seen=0; } g.render(); const H=g.HM.targets().sort((a,b)=>Math.hypot(a.door[0]-P.x,a.door[1]-P.z)-Math.hypot(b.door[0]-P.x,b.door[1]-P.z))[0]; const c=g.R.project([H.x, g.standY(H.x,H.z)+H.h*0.5, H.z]); window.H=H; window.c=c; return ['house', H.i, 'door', H.door.map(v=>v|0), 'screen', c.slice(0,2).map(v=>v|0), 'player', [P.x|0,P.z|0], 'dist', Math.hypot(H.door[0]-P.x,H.door[1]-P.z).toFixed(1)]"},
+  {"shot": "m0_before", "sel": "canvas"},
+  {"eval": "const cv=document.getElementById('fall'); const r=cv.getBoundingClientRect(); const sx=r.left+c[0]/384*r.width, sy=r.top+c[1]/216*r.height; cv.dispatchEvent(new PointerEvent('pointerdown',{clientX:sx,clientY:sy,button:0,buttons:1,pointerId:1,pointerType:'mouse',bubbles:true})); const g=__v16.game; const P=g.S.player; let log=[]; for(let i=0;i<200;i++){ g.update(0.05); P.seen=0; if(i%20===0) log.push([P.x|0,P.z|0,'d',Math.hypot(H.door[0]-P.x,H.door[1]-P.z).toFixed(1),'act',g.S.input.act,g.S.act?g.S.act.t.toFixed(2):'-',H.state].join(' ')); if(H.state==='saved') break; } g.render(); return [log, H.state, g.S.nightStats]"},
+  {"shot": "m1_saved", "sel": "canvas"},
+  {"eval": "const cv=document.getElementById('fall'); cv.dispatchEvent(new PointerEvent('pointerup',{clientX:0,clientY:0,button:0,buttons:0,pointerId:1,pointerType:'mouse',bubbles:true})); const g=__v16.game; g.update(0.05); return [g.S.input.act, g.S.act, __v16.errors]"}
+]
