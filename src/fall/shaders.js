@@ -130,6 +130,7 @@ uniform vec4 uCut;             // see-through near the player: screen xy, depth,
 uniform float uIsGiant;
 uniform float uEye;
 uniform float uSnow;
+uniform vec3 uPlayer[4];       // your coat, hood and scarf albedo, then (fill light, 0, 0), from the look
 const float LAME[7] = float[7](0.0, 60.0, 110.0, 155.0, 200.0, 245.0, 290.0);   // where the foot's lames start
 // the face mask's relief over its rounded base, in rest-pose metres (the same shape as maskZ in giant.js)
 float g2(float a, float s){ return exp(-(a/s)*(a/s)); }
@@ -290,8 +291,8 @@ vec3 fieldAlb(vec2 p, out float hedge){
 void main(){
   PXW = max(length(dFdx(vP)), length(dFdy(vP)));
   int m = int(vM + 0.5);
-  // see-through round the player when the town would hide them
-  if (uCut.w > 0.0 && m != 0 && uIsGiant < 0.5){
+  // see-through round the player when the town would hide them (never the player's own figure)
+  if (uCut.w > 0.0 && m != 0 && uIsGiant < 0.5 && (m < 50 || m > 59)){
     // the lantern and its chain get a much wider hole: they must never hide you
     bool lan = m >= 37 && m <= 40;
     vec2 dd = (gl_FragCoord.xy - uCut.xy)/(vec2(1.0, 1.25)*uCut.w*(lan ? 7.0 : 1.0));
@@ -514,11 +515,20 @@ void main(){
   } else if (m == 41){
     alb = vec3(0.1, 0.13, 0.1)*(0.8 + 0.4*N3L(T.xz + T.y, 6.0));
   // ---------------------------------------------------------------- people
-  } else if (m == 50){ alb = vec3(0.16, 0.16, 0.18);
-  } else if (m == 51){ alb = vec3(0.55, 0.2, 0.13);
+  } else if (m == 50){ alb = uPlayer[0];
+  } else if (m == 51){ alb = uPlayer[2];
   } else if (m == 52){ alb = vec3(0.62, 0.52, 0.44);
   } else if (m == 53){ alb = vec3(0.07);
   } else if (m == 54){ alb = vec3(0.6, 0.57, 0.52);
+  } else if (m == 55){ alb = uPlayer[1];
+  } else if (m == 56){
+    // the outline hull round you: the darkest grey, unlit, unfogged
+    o = vec4(0.0, 0.0, 0.0, 1.0); return;
+  } else if (m == 57){
+    // the ring on the ground under your feet: pale, soft-edged, dithered by its strength (the seed)
+    float d = length(vUV);
+    if ((1.0 - d*d)*vS < bayerF(gl_FragCoord.xy + vec2(1.0, 3.0))) discard;
+    alb = vec3(0.62, 0.62, 0.64); emit = vec3(0.1, 0.1, 0.11);
   }
   if (uSnow > 0.0 && m != 0 && m != 36 && m != 38 && m != 40 && m < 50) alb = mix(alb, vec3(0.86, 0.875, 0.9), uSnow*smoothstep(0.5, 0.85, n.y)*0.95);
   if (inside){ alb *= 0.55; ao *= 0.6; }
@@ -528,6 +538,8 @@ void main(){
   vec3 sunH = normalize(vec3(uSun.x, 0.0, uSun.z));
   vec3 amb = mix(uGndCol, uSkyCol, 0.5 + 0.5*n.y) + uSkyCol*0.4*max(dot(n, sunH), 0.0);
   vec3 col = alb*(uSunCol*max(ndl, 0.0)*sh + amb*ao);
+  // you are never darker than the look's fill light, so the figure reads on a dark street
+  if (m >= 50 && m <= 55) col = max(col, alb*uPlayer[3].x);
   float lsh; float L = lanternLight(P, n, lsh);
   col += alb*uLanCol*L;
   if (spec > 0.0){

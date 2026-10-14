@@ -74,31 +74,46 @@ export function lantern(A, top, up, size = 64, t = 0) {
 }
 
 // A small person: legs, a long coat, a hood or bare head, a scarf. `run` 0..1, `ph` the stride phase,
-// `crouch` 0..1. Built at 1.3x life size so they read at 5 px/m.
+// `crouch` 0..1. Built at 1.6x life size so they read at 5 px/m. look.inflate (metres) grows every part
+// outward and look.mat draws it all in one material: together they build the outline hull. look.ring (0..1)
+// adds a dithered disc on the ground under the feet.
 export function person(A, x, y, z, yaw, ph, run, look = {}) {
-  const k = 1.3, P0 = frame(x, y, z, yaw);
+  const k = 1.6, P0 = frame(x, y, z, yaw);
   const crouch = look.crouch || 0;
   const P = (lx, ly, lz) => P0(lx * k, ly * k * (1 - crouch * 0.25), lz * k);
   const sw = Math.sin(ph) * (0.25 + 0.35 * run), lift = Math.max(0, Math.cos(ph)) * 0.15 * run;
-  const cloak = look.cloak ?? M.P_CLOAK, skin = M.P_SKIN;
+  const only = look.mat, mat = (m) => only ?? m;
+  const o = look.inflate || 0, ol = o / k;
+  const cloak = mat(look.cloak ?? M.P_CLOAK), hood = mat(M.P_HOOD), skin = mat(M.P_SKIN), dark = mat(M.P_DARK), scarf = mat(M.P_SCARF);
   const lean = run * 0.18 + crouch * 0.3;
   const Q = (lx, ly, lz) => P(lx, ly, lz + ly * lean * 0.5);
+  // the two primitives, grown by the inflation
+  const barI = (a, b, w, d, side, m) => { const ax = nrm(sub(b, a)); bar(A, sub(a, scl(ax, o)), add(b, scl(ax, o)), w + o, d + o, side, m); };
+  const boxI = (F, x0, y0, z0, x1, y1, z1, m, seed) => box(A, F, x0 - ol, y0 - ol, z0 - ol, x1 + ol, y1 + ol, z1 + ol, m, seed);
+  if (look.ring > 0 && !only) {
+    // the ring: a flat disc 1.8 m across just over the ground, a soft edge, dithered in the shader
+    const n = 10, r = 0.9, c = P0(0, 0.12, 0), hint = P0(0, -2, 0);
+    for (let i = 0; i < n; i++) {
+      const a0 = (i / n) * Math.PI * 2, a1 = ((i + 1) / n) * Math.PI * 2;
+      tri(A, c, P0(Math.cos(a0) * r, 0.12, Math.sin(a0) * r), P0(Math.cos(a1) * r, 0.12, Math.sin(a1) * r), M.P_RING, [0, 0], [Math.cos(a0), Math.sin(a0)], [Math.cos(a1), Math.sin(a1)], look.ring, hint);
+    }
+  }
   // legs
   for (const s of [-1, 1]) {
     const a = s * sw, hip = [s * 0.11, 0.86, 0], foot = [s * 0.12, 0.05 + (s > 0 ? lift : Math.max(0, -Math.cos(ph)) * 0.15 * run), Math.sin(a) * 0.62];
-    bar(A, Q(...hip), P(...foot), 0.075 * k, 0.075 * k, [1, 0, 0], M.P_DARK);
+    barI(Q(...hip), P(...foot), 0.075 * k, 0.075 * k, [1, 0, 0], dark);
   }
   // coat: a tapered box from the shoulders to the knees
   const sway = Math.sin(ph * 2) * 0.03;
-  box(A, (lx, ly, lz) => Q(lx + sway * (1.4 - ly), ly, lz), -0.2, 0.62, -0.13, 0.2, 1.42, 0.14, cloak, 0.3);
-  box(A, (lx, ly, lz) => Q(lx * (1 + (0.9 - ly) * 0.5), ly, lz), -0.22, 0.42, -0.15, 0.22, 0.9, 0.16, cloak, 0.3);
+  boxI((lx, ly, lz) => Q(lx + sway * (1.4 - ly), ly, lz), -0.2, 0.62, -0.13, 0.2, 1.42, 0.14, cloak, 0.3);
+  boxI((lx, ly, lz) => Q(lx * (1 + (0.9 - ly) * 0.5), ly, lz), -0.22, 0.42, -0.15, 0.22, 0.9, 0.16, cloak, 0.3);
   // arms
-  for (const s of [-1, 1]) bar(A, Q(s * 0.23, 1.36, 0), Q(s * 0.26, 0.9, -Math.sin(s * sw) * 0.4 * (0.4 + run)), 0.06 * k, 0.06 * k, [0, 0, 1], cloak);
+  for (const s of [-1, 1]) barI(Q(s * 0.23, 1.36, 0), Q(s * 0.26, 0.9, -Math.sin(s * sw) * 0.4 * (0.4 + run)), 0.06 * k, 0.06 * k, [0, 0, 1], cloak);
   // head and hood
   const hy = 1.62;
-  box(A, Q, -0.1, hy - 0.12, -0.1, 0.1, hy + 0.1, 0.1, skin, 0.1);
-  if (look.hood !== false) { box(A, Q, -0.13, hy - 0.08, -0.14, 0.13, hy + 0.16, 0.08, cloak, 0.2); }
+  boxI(Q, -0.1, hy - 0.12, -0.1, 0.1, hy + 0.1, 0.1, skin, 0.1);
+  if (look.hood !== false) { boxI(Q, -0.13, hy - 0.08, -0.14, 0.13, hy + 0.16, 0.08, hood, 0.2); }
   // scarf
-  if (look.scarf !== false) { box(A, Q, -0.15, 1.38, -0.13, 0.15, 1.5, 0.15, M.P_SCARF, 0.1); bar(A, Q(0.08, 1.42, -0.13), Q(0.12 + Math.sin(ph) * 0.05, 1.05, -0.2 - run * 0.25), 0.05 * k, 0.02 * k, [0, 0, 1], M.P_SCARF); }
+  if (look.scarf !== false) { boxI(Q, -0.15, 1.38, -0.13, 0.15, 1.5, 0.15, scarf, 0.1); barI(Q(0.08, 1.42, -0.13), Q(0.12 + Math.sin(ph) * 0.05, 1.05, -0.2 - run * 0.25), 0.05 * k, 0.02 * k, [0, 0, 1], scarf); }
 }
-void cyl; void tri;
+void cyl;

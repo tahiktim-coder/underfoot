@@ -20,6 +20,8 @@ const HUES = [
   ['#281917', '#442824', '#653e34', '#88584a', '#ab7966'],   // rust
 ];
 const hex3 = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+// the player's coat, hood and scarf albedo when the look gives none (looks.js `player`)
+const PLAYER_DEFAULT = [0.16, 0.16, 0.18, 0.16, 0.16, 0.18, 0.55, 0.2, 0.13, 0, 0, 0];
 const luma = (c) => c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114;
 // A palette for the snap: up to 8 neutral steps and up to 4 hue ramps of 5, padded to the shader's fixed sizes.
 export function buildPalette(greys, hues) {
@@ -159,7 +161,13 @@ export function createRenderer(canvas, giantMesh) {
     gl.bindVertexArray(worldVAO);
     for (const r of world.ranges) if (!PL || boxIn(PL, r.bb)) gl.drawArrays(gl.TRIANGLES, r.first, r.n);
   }
-  function drawDyn() { if (dyn.n) { gl.bindVertexArray(dynVAO); gl.drawArrays(gl.TRIANGLES, 0, dyn.n / STRIDE); } }
+  function drawDyn(withHull = false) {
+    if (!dyn.n) return;
+    gl.bindVertexArray(dynVAO);
+    const h0 = dyn.hull0;
+    if (h0) gl.drawArrays(gl.TRIANGLES, 0, h0 / STRIDE);
+    if (withHull && h0 < dyn.n) { gl.enable(gl.CULL_FACE); gl.cullFace(gl.FRONT); gl.drawArrays(gl.TRIANGLES, h0 / STRIDE, (dyn.n - h0) / STRIDE); gl.disable(gl.CULL_FACE); }
+  }
 
   // a sun-aligned orthographic shadow camera round a centre, texel-snapped
   function sunCam(sun, c, R, depth, S) {
@@ -258,14 +266,14 @@ export function createRenderer(canvas, giantMesh) {
       common(p.use()).set('uVP', VP).set('uLVP', LVP || VP).set('uGVP', GVP).set('uLtVP', LtVP || VP)
         .set('uShTexel', 1 / SHS, 1 / SHS).set('uGShTexel', 1 / GSS, 1 / GSS).set('uLtTexel', 1 / LTS, 1 / LTS).set('uLocalOn', localOn ? 1 : 0)
         .set('uLan', lan && lan.on > 0 ? [lan.pos[0], lan.pos[1], lan.pos[2], lan.I * lan.on] : [0, 0, 0, 0]).set('uLanDir', lan ? [lan.dir[0], lan.dir[1], lan.dir[2], lan.cosOuter] : [0, -1, 0, 0.9]).set('uLanInner', lan ? lan.cosInner : 0.95).set('uLanCol', L.lanCol)
-        .set('uEye', scene.eye ?? 1).set('uSnow', scene.snow ?? 0).set('uWin', scene.windows ?? 0.5).set('uCloudShadow', scene.cloudShadow ?? 1).set('uWind', 7, 2.5).set('uHoleC', scene.holeC || [-300, 0]).set('uCloudCov', scene.cloudCov ?? 0).set('uPrints', scene.prints || new Float32Array(24)).set('uCut', cutP)
+        .set('uEye', scene.eye ?? 1).set('uSnow', scene.snow ?? 0).set('uWin', scene.windows ?? 0.5).set('uPlayer', scene.player || PLAYER_DEFAULT).set('uCloudShadow', scene.cloudShadow ?? 1).set('uWind', 7, 2.5).set('uHoleC', scene.holeC || [-300, 0]).set('uCloudCov', scene.cloudCov ?? 0).set('uPrints', scene.prints || new Float32Array(24)).set('uCut', cutP)
         .tex('uNearMap', tNear, 0).tex('uFarMap', tFar, 1).tex('uShadow', tSh, 2).tex('uGShadow', tGSh, 4).tex('uLtShadow', tLt, 5);
       return p;
     };
     meshU(P.mesh).set('uIsGiant', 0);
     drawTerrain(PLv, [1, 1, 1]);
     drawWorld(PLv);
-    drawDyn();
+    drawDyn(true);
     if (scene.giant) {
       meshU(P.giant).set('uIsGiant', 1).set('uBones', scene.giant.bones).set('uSway', scene.giant.sway);
       gl.bindVertexArray(giantVAO); gl.drawArrays(gl.TRIANGLES, 0, giantN);

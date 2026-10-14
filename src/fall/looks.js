@@ -18,6 +18,7 @@ export const LOOKS = {
     },
     chroma: [0.05, 0.14], contrast: 1.05, dither: 0, bloom: 0, stars: 0, sunSize: 1, sunDisc: 1.4, snow: 0,
     ash: { amount: 0.45, lum: 0.7, fall: 1 }, grain: 0.045, vignette: 0.4, tilt: 0, winMin: 0, lanI: 1.5, cloudCov: 0,
+    player: { coat: [0.16, 0.16, 0.18], hood: [0.14, 0.14, 0.16], scarf: [0.55, 0.2, 0.13] },
     ui: { text: '#dfd9cf', dim: '#b5aea6', accent: '#cfaa69', title: '#1f1d20', sub: '#34313a', plate: 'rgba(15,14,16,0.82)', edge: '#6b6667' },
   },
 
@@ -33,6 +34,7 @@ export const LOOKS = {
     },
     chroma: [0.035, 0.1], contrast: 1.15, dither: 0, bloom: 0.55, stars: 1, sunSize: 3.2, sunDisc: 2.4, snow: 0,
     ash: { amount: 0.35, lum: 0.12, fall: 0.7 }, grain: 0.03, vignette: 0.35, tilt: 0, winMin: 0.4, lanI: 2.1, cloudCov: -0.04,
+    player: { coat: [0.55, 0.58, 0.66], hood: [0.42, 0.45, 0.54], scarf: [0.95, 0.48, 0.18], fill: 0.32 },
     ui: { text: '#a9b4c6', dim: '#6d7b94', accent: '#f2bd62', title: '#a9b4c6', sub: '#a9b4c6', plate: 'rgba(6,7,11,0.85)', edge: '#334058' },
   },
 
@@ -48,6 +50,7 @@ export const LOOKS = {
     },
     chroma: [0.07, 0.16], contrast: 1.1, dither: 0, bloom: 0.25, stars: 0, sunSize: 5.5, sunDisc: 1.1, snow: 0,
     ash: { amount: 1, lum: 0.3, fall: 0.8 }, grain: 0.06, vignette: 0.55, tilt: 0, winMin: 0, lanI: 1.5, cloudCov: 0,
+    player: { coat: [0.6, 0.55, 0.45], hood: [0.5, 0.45, 0.36], scarf: [0.7, 0.15, 0.1], fill: 0.12 },
     ui: { text: '#cfb798', dim: '#9c745f', accent: '#d8452a', title: '#cfb798', sub: '#cfb798', plate: 'rgba(11,8,7,0.85)', edge: '#533731' },
   },
 
@@ -63,6 +66,7 @@ export const LOOKS = {
     },
     chroma: [0.06, 0.16], contrast: 1.05, dither: 0, bloom: 0, stars: 0, sunSize: 0, sunDisc: 0, snow: 0,
     ash: { amount: 0.3, lum: 0.85, fall: 0.25 }, grain: 0.04, vignette: 0.3, tilt: 0, winMin: 0, lanI: 2.2, cloudCov: 0.12,
+    player: { coat: [0.13, 0.13, 0.15], hood: [0.11, 0.11, 0.13], scarf: [0.55, 0.2, 0.13] },
     ui: { text: '#edefee', dim: '#cdd0d3', accent: '#ddb67f', title: '#2a2c30', sub: '#44474c', plate: 'rgba(20,21,23,0.8)', edge: '#62666c' },
   },
 
@@ -78,6 +82,7 @@ export const LOOKS = {
     },
     chroma: [0.05, 0.14], contrast: 1.08, dither: 0, bloom: 0, stars: 0, sunSize: 1, sunDisc: 1.2, snow: 1,
     ash: { amount: 0.8, lum: 0.97, fall: 0.6 }, grain: 0.04, vignette: 0.4, tilt: 0, winMin: 0, lanI: 1.45, cloudCov: 0,
+    player: { coat: [0.1, 0.1, 0.12], hood: [0.08, 0.08, 0.1], scarf: [0.7, 0.12, 0.1] },
     ui: { text: '#f3f2ef', dim: '#cbcbd0', accent: '#e44a35', title: '#1c1c21', sub: '#2f2f36', plate: 'rgba(14,14,17,0.82)', edge: '#4b4b53' },
   },
 
@@ -93,6 +98,7 @@ export const LOOKS = {
     },
     chroma: [0.04, 0.12], contrast: 1.0, dither: 0, bloom: 0.45, stars: 0, sunSize: 1.5, sunDisc: 2.0, snow: 0,
     ash: { amount: 0.25, lum: 0.9, fall: 0.3 }, grain: 0.07, vignette: 0.45, tilt: 0, winMin: 0, lanI: 2.8, cloudCov: 0.02,
+    player: { coat: [0.14, 0.14, 0.15], hood: [0.12, 0.12, 0.13], scarf: [0.55, 0.3, 0.15] },
     ui: { text: '#fbf6ea', dim: '#d8d1c2', accent: '#d4bc93', title: '#292824', sub: '#45433d', plate: 'rgba(19,19,18,0.78)', edge: '#66625a' },
   },
 
@@ -105,6 +111,7 @@ export const LOOKS = {
     palette: { greys: ['#0c0c0e', '#ece8df'], hues: [] },
     chroma: [9, 10], contrast: 1.15, dither: 2, bloom: 0, stars: 0, sunSize: 1, sunDisc: 1.4, snow: 0,
     ash: { amount: 0.4, lum: 0.9, fall: 1 }, grain: 0, vignette: 0.2, tilt: 0, winMin: 0, lanI: 1.8, cloudCov: 0,
+    player: { coat: [0.08, 0.08, 0.08], hood: [0.06, 0.06, 0.06], scarf: [0.9, 0.9, 0.9] },
     ui: { text: '#ece8df', dim: '#ece8df', accent: '#ece8df', title: '#0c0c0e', sub: '#0c0c0e', plate: 'rgba(12,12,14,0.92)', edge: '#ece8df' },
   },
 

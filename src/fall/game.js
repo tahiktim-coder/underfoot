@@ -7,7 +7,7 @@
 import { createRenderer, VW, VH } from './renderer.js';
 import { createGiant, buildGiantMesh, footAt } from './giant.js';
 import { chain, lantern, person } from './props.js';
-import { millSails } from './mesh.js';
+import { millSails, M } from './mesh.js';
 import { standY, height, blocked, segmentBlocked, houses, TOWN, SQUARE, STREETS, townR } from './world.js';
 import { drawWisp, measureWisp } from '../lib/wisp.js';
 import { mulberry } from '../lib/noise.js';
@@ -419,7 +419,7 @@ export function createGame(canvas, opts = {}) {
     const P = S.player, py = standY(P.x, P.z);
     const tp = S.t - S.planEnd;   // seconds since the last plant of the walk in
     const wide = (S.phase === 'approach' || S.phase === 'plant') ? ease((tp + 4.2) / 1.6) * (1 - ease((tp - 3.2) / 1.2)) : 0;
-    const hh = 21.6 * (S.phase === 'search' ? 1.38 : 1) * (1 + wide * 5.6);
+    const hh = 21.6 * (S.phase === 'search' ? 1.15 : 1) * (1 + wide * 5.6);
     return { x: lerp(P.x, -250, wide * 0.85), y: py + 1, z: lerp(P.z, 0, wide * 0.85), yaw: Math.PI / 4, pitch: 0.84, hh, D: 1500 };
   }
   // eye/target/fov form, for moves between the near-orthographic play camera and real ones
@@ -624,8 +624,13 @@ export function createGame(canvas, opts = {}) {
     chain(A, add(S.lan.pos, scl(up_, 4)), grip, 20, 4.2);
     lantern(A, S.lan.pos, up_, LAN, S.t);
     millSails(A, S.t);
-    const P = S.player;
-    person(A, P.x, standY(P.x, P.z), P.z, P.yaw, P.ph, P.run, { crouch: P.crouch });
+    const P = S.player, py = standY(P.x, P.z);
+    // you: the figure, a pale ring on the ground under your feet (stronger when you crouch in the dark), and
+    // an inverted hull just over a pixel wide in the darkest grey, so the figure reads on any ground
+    const ring = 0.45 + 0.4 * P.crouch;
+    person(A, P.x, py, P.z, P.yaw, P.ph, P.run, { crouch: P.crouch, ring });
+    A.hull();
+    person(A, P.x, py, P.z, P.yaw, P.ph, P.run, { crouch: P.crouch, inflate: clamp((2 * S.cam.hh / VH) * 1.1, 0.06, 0.5), mat: M.P_OUTLINE });
     const sh = S.phase === 'caught' ? 0 : S.shake;
     const ll = lanLight();
     R.render({
@@ -633,7 +638,7 @@ export function createGame(canvas, opts = {}) {
       giant: { bones: G.bones, sway: [0, 0, 0] },
       lantern: { ...ll, I: ll.I * LK.lanI / 1.5 }, lanGlow: LK.light.lanCol,
       glows,
-      windows: Math.max(LK.winMin, S.windows), prints: S.prints,
+      windows: Math.max(LK.winMin, S.windows), prints: S.prints, player: LK.player ? [...LK.player.coat, ...LK.player.hood, ...LK.player.scarf, LK.player.fill || 0, 0, 0] : null,
       cloudK: S.cam.hh > 120 ? Math.min(1, (S.cam.hh - 120) / 400) : 0, holeC: [-300, 0], cloudCov: LK.cloudCov,
       cut: S.cam.hh < 60 ? [P.x, standY(P.x, P.z) + 1.2, P.z] : null,
       gCentre: [lerp(G.x, TOWN.x, 0.5), 0, lerp(G.z, TOWN.z, 0.5)],

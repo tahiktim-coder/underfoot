@@ -11,17 +11,20 @@ export const M = {
   // the giant
   G_ROBE: 30, G_ROBE_IN: 31, G_WRAP: 32, G_SKIN: 33, G_NAIL: 34, G_HOOD_IN: 35, G_EYE: 36, G_CHAIN: 37, G_GLASS: 38, G_CAGE: 39, G_FLAME: 40, G_TREE: 41, G_MANTLE: 42, G_IRON: 43, G_HELM: 44, G_FACE: 45, G_MAIL: 46,
   // people
-  P_CLOAK: 50, P_SCARF: 51, P_SKIN: 52, P_DARK: 53, P_LIGHT: 54,
+  P_CLOAK: 50, P_SCARF: 51, P_SKIN: 52, P_DARK: 53, P_LIGHT: 54, P_HOOD: 55, P_OUTLINE: 56, P_RING: 57,
 };
 
 export function makeArr(cap = 4096) {
-  let a = new Float32Array(cap), n = 0;
+  let a = new Float32Array(cap), n = 0, mark = -1;
   return {
     push10(x, y, z, nx, ny, nz, m, u, v, s) {
       if (n + 10 > a.length) { const b = new Float32Array(a.length * 2); b.set(a); a = b; }
       a[n++] = x; a[n++] = y; a[n++] = z; a[n++] = nx; a[n++] = ny; a[n++] = nz; a[n++] = m; a[n++] = u; a[n++] = v; a[n++] = s;
     },
-    get n() { return n; }, get data() { return a.subarray(0, n); }, reset() { n = 0; },
+    get n() { return n; }, get data() { return a.subarray(0, n); }, reset() { n = 0; mark = -1; },
+    // everything pushed after hull() is an inverted hull (an outline): the renderer draws it with its front
+    // faces culled, and leaves it out of the shadow maps
+    hull() { mark = n; }, get hull0() { return mark < 0 ? n : mark; },
   };
 }
 export function tri(A, a, b, c, m, ta, tb, tc, s, hint) {

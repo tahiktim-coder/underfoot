@@ -1,0 +1,12 @@
+[
+  {"eval": "__v16.hold=true; const g=__v16.game; __v16.force('search'); g.S.cycle=1; for(let i=0;i<160;i++){ g.update(0.05); g.S.player.seen=Math.min(g.S.player.seen,0.25);} g.render(); return [g.S.player.x|0,g.S.player.z|0,g.S.player.lit,g.S.cam.hh]"},
+  {"shot": "search", "sel": "canvas"},
+  {"eval": "const g=__v16.game; const P=g.S.player; const py=g.R.project([P.x,0,P.z]); g.S.view={x:P.x,y:g.S.cam.y,z:P.z,yaw:Math.PI/4,pitch:0.84,hh:7,D:1500}; g.S.cam=g.S.view; g.render();"},
+  {"shot": "zoom_lit", "sel": "canvas"},
+  {"eval": "const g=__v16.game; g.S.view=null; __v16.force('search'); g.S.cycle=1; for(let i=0;i<60;i++){ g.update(0.05); g.S.player.seen=0;} g.render(); return [g.S.player.x|0,g.S.player.z|0,g.S.player.lit,g.S.player.crouch.toFixed(2)]"},
+  {"shot": "search_dark", "sel": "canvas"},
+  {"eval": "const g=__v16.game; const P=g.S.player; g.S.view={x:P.x,y:g.S.cam.y,z:P.z,yaw:Math.PI/4,pitch:0.84,hh:7,D:1500}; g.S.cam=g.S.view; g.render();"},
+  {"shot": "zoom_dark", "sel": "canvas"},
+  {"eval": "const g=__v16.game; g.S.view=null; __v16.force('calm'); for(let i=0;i<40;i++) g.update(0.05); g.render(); return __v16.errors"},
+  {"shot": "calm", "sel": "canvas"}
+]
