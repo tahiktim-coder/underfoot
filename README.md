@@ -250,9 +250,9 @@ The palette pass takes fixed-size arrays: 8 greys and 4 ramps of 5. `buildPalett
 
 - Sun: Lambert x shadow (town map and wide map, the darker wins) x cloud shadow (the cloud coverage looked up where the sun ray crosses 1250 m).
 - Sky light: a blend from ground colour (facing down) to sky colour (facing up), plus extra sky toward the low sun.
-- Lantern: a spotlight with its cone, falloff and shadow map, in the look's lantern colour. Its glass glows in that colour squared, so a warm lantern glows orange and a white one stays white.
+- Lantern: a spotlight with its cone, falloff and shadow map, in the look's lantern colour. Its glass glows in that colour as a gradient from a hot core, scaled so its peak tone-maps to about 0.75 and stays inside the hue ramp; the panes are dithered away by half so the flame shows through. The palette pass adds a halo round it and marches toward it the way it does toward the sun, so a cone of light hangs under it in the air.
 - Iron: sun and lantern specular highlights, and a reflection of the sky that grows toward grazing angles (fresnel), so plate edges and upturned plates catch light.
-- The giant only: a rim light on its silhouette when backlit by the sun, and a faint warm light on its undersides from the lit ground.
+- The giant only: a rim light on its silhouette when backlit by the sun, and the lantern as a point light from below (no shadow map), so the forearm, the chest and the face go amber while it searches. Its eyes are always embers and brighten as the eye meter fills.
 - Snow (when the look has it): albedo blended to snow white on faces pointing up.
 - Emission (windows, glass, flame, eyes).
 - **Height fog**, integrated along the ray from a start point near the target (not from the eye, which is 1.5 km away in play), so distance and height both thin it.
@@ -270,7 +270,7 @@ Shaders use a 256 x 256 tiling noise texture with three channels at different ce
 
 - **Units**: metres, y up. The play camera looks toward -x -z, so -x is the top left of the screen and +x +z comes toward you. The giant arrives from -x, with the low sun behind it.
 - **Terrain**: a height function: slow valley swells, a hill under the town, a rise for the windmill, a ring of ridged-noise mountains starting about 3 km out, and a river channel round the south of the town with flat banks. Drawn as three rings of grid: 2 m spacing out to 256 m, 16 m to 2.3 km, 96 m to 9.2 km, with a skirt under the near ring.
-- **The town**: a wall ellipse 148 x 132 m round a hill. Streets radiate from a square. About 47 half-timbered and stone houses placed along the streets and in between, with gable or hip roofs in dark shingle, slate or (about 30%) dull rust tile, chimneys, jetties. A church with a 34 m tower, a market hall on posts, a well, gatehouses, 9 towers and 60 wall segments. Farmsteads outside, a windmill whose sails turn, a stone bridge where the east road crosses the river, about 2,600 trees.
+- **The town**: a wall ellipse 148 x 132 m round a hill. Streets radiate from a square. About 47 half-timbered and stone houses placed along the streets and in between, with gable or hip roofs in dark shingle, slate or (about 30%) dull rust tile, chimneys, jetties. A church with a 50 m tower, a market hall on posts, a well, gatehouses, 9 towers and 60 wall segments. Farmsteads outside, a windmill whose sails turn, a stone bridge where the east road crosses the river, about 2,600 trees.
 - **Ground maps** baked once at start: a near map (1 m texels over the square 512 m round the town: streets, ambient occlusion round walls, roads, water) and a far map (36 m texels over 18 km: roads, forest, farmland, water).
 - **Terrain shading**: pale dust near the town, dry grey grass, cobbles with gaps up close, roads, rock on steep ground and in the mountains, snow on the peaks, a river with a sky reflection, and the giant's **footprints** (crushed dark ground with a raised rim, the last six kept).
 - **Fields**: furlongs, blocks about 320 m across with a hedge round them, each ploughed in long strips (8 to 17 m wide) in one direction. A furlong keeps to one or two crops (stubble, pasture, ploughed, fallow, green), with ridge-and-furrow lines and grass balks between strips. They read as farmland from far away and do not look like paving next to the town.
@@ -287,7 +287,7 @@ About **2.9 km** tall in its rest pose (the top of the helm at 2,938 m, the comb
 
 ### The mesh (`giant.js`, `buildGiantMesh`)
 
-Built in a rest pose (facing +z, its left at +x) as smooth-shaded surfaces (`surface()` builds a grid with averaged normals and fixes each triangle's winding so the outside is front-facing). About **23,000 triangles**. Each vertex stores two bone indices and a blend weight.
+Built in a rest pose (facing +z, its left at +x) as flat-shaded surfaces (`surface()` builds a grid, gives each triangle its own face normal so the armour reads as plates in the dithered palette, and fixes each triangle's winding so the outside is front-facing; the face mask keeps averaged normals because its relief is shaded by the shader). Lofts and shells use 12 to 20 segments: about **13,500 triangles**. Each vertex stores two bone indices and a blend weight.
 
 - **Cuirass**: a lofted barrel with a ridge down the front; three belly lames; a gorget.
 - **Helm**: a rounded skull, a domed top, a thin comb from front to back.
@@ -349,7 +349,7 @@ Each landing is a footfall (boom, shake, dust ring, footprint, roof dust and bir
 
 | Camera | Where | Notes |
 | --- | --- | --- |
-| **Play** | 1,500 m away, 45 degrees round, 48 degrees down, looking at you | A perspective camera with a field of about 1.7 to 2.3 degrees: it reads as orthographic, like Ashwake's. Its target snaps to whole low-res pixels and the leftover fraction slides the picture in post, so edges never swim. Near plane 500 m. Follows you with a smoothing of about 0.3 s. During the search it widens by 38%. |
+| **Play** | 1,500 m away, 45 degrees round, 48 degrees down, looking at you | A perspective camera with a field of about 1.7 to 2.3 degrees: it reads as orthographic, like Ashwake's. Its target snaps to whole low-res pixels and the leftover fraction slides the picture in post, so edges never swim. Near plane 500 m. Follows you with a smoothing of about 0.3 s. During the search it widens by 15%. |
 | **Plant** | the play camera, widened 6.6x and moved west | Pulls out 4 s before the boot lands, holds on the dust, closes back in. |
 | **Look up** | over the roofs, 240 to 270 m from you on the far side from the giant, 100 to 110 m up, aimed at its chest | A cut through a 0.3 s dip to dark, both ways, then a slow 3 s push in. |
 | **Catch** | first the play camera pushing in on you; then a cut to 300 m behind the town, 45 m up | The second shot starts on the roofs and the lantern and tilts (spherically) up the chain and the body to the face, then narrows from 54 to 11 degrees on the face. |
@@ -466,7 +466,7 @@ A bare 1152 x 648 page for headless runs.
 | `palette`, `chroma` | looks.js, per look | the colours, and how coloured a pixel must be to leave the greys |
 | `contrast`, `lift`, `gamma`, `dither`, `bloom` | looks.js, per look | the palette pass |
 | `grain`, `vignette`, `tilt`, `lanI`, `winMin` | looks.js, per look | post, the lantern's drawn brightness, the windows left lit |
-| hh 21.6 m, x1.38 in search | game.js, `playCam` | play camera half-height (zoom) |
+| hh 26 m, x1.15 in search | game.js, `playCam` | play camera half-height (zoom) |
 | `DIP_OUT = 0.12`, `DIP_IN = 0.2` s | game.js | the dip on a camera cut |
 | `CUT1 = 1.1` s | game.js | when the catch cuts from you to the town |
 | tilt radius 1.7 px | shaders.js, `FS_POST` | tilt-shift blur strength (times the look's `tilt`) |

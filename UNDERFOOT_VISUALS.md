@@ -105,3 +105,25 @@ These values were changed at run time on `LOOKS.night` and compared frame for fr
 6. Town at night: ground values, window pools, church tower, smoke, house variety (a day).
 
 Check every step with `npm run shots -- night` and the fixed cameras (`__v16.view('face')`, `'up3'`, `'hero'`, `'foot3'`, `'town'`) so each change is judged on the same frames.
+
+## 8. What was done (2026-10-14, the visual pass)
+
+Steps 1 to 6 above were made, one commit each, on top of the untouched 1.2 source (`git log` lists them). Every step was checked on the same frames: `npm run shots -- night`, and `plans/pass.json` (the `face`, `up3`, `hero`, `foot3`, `town` and `w1` cameras, the Night search frame, the plant frame and the leave at 14, 17 and 20 s), with `plans/player.json` and `plans/lantern.json` for close-ups. The frames below are the game's own 384 x 216 pixels, rendered from the 1.2 source (`before`) and from the pass (`after`), in Night and in Ashwake grey.
+
+| Frame | Before | After | What changed |
+| --- | --- | --- | --- |
+| The search (play camera) | `docs/pass/before/search.png` | `docs/pass/after/search.png` | the dust arc across the picture is gone; the player is a pale figure with a dark rim and a ground ring; streets are a grey lighter than the yards; warm pools under the lit windows; the church tower is in frame; the view is 26 m half-height, 15% wider in the search |
+| The leave at 17 s | `docs/pass/before/leave17.png` | `docs/pass/after/leave17.png` | the checkerboard was a footfall dust billboard in front of the lens; dust never spawns near you or over the town now, and a puff wider than the frame is dropped |
+| The lantern, close | `docs/pass/before/lantern.png` | `docs/pass/after/lantern.png` | twelve narrow panes, a mid-band, a spire, a hook ring, a drip; amber glass in a gradient from a hot core, dithered so the flame shows; a halo the cage cannot hide; a shaft of light in the air under it |
+| Its face (street camera) | `docs/pass/before/face.png` | `docs/pass/after/face.png` | flat plates instead of dither mush; the mask a step paler; embers always lit; the lantern lighting the forearm, chest and face from below |
+| Looking up (`up3`) | `docs/pass/before/up3.png` | `docs/pass/after/up3.png` | plate seams with a lit lip, a flared cloak in the wind, amber on the chest and arm |
+| The hero camera | `docs/pass/before/hero.png` | `docs/pass/after/hero.png` | the silhouette reads as armour and a cloak, not a pillar; two embers mark the eyes at any distance |
+| The town from above | `docs/pass/before/town.png` | `docs/pass/after/town.png` | streets and square pale under the moon, a ring of warm light at the foot of every lit house, the taller tower |
+
+The same seven frames in Ashwake grey are in `docs/pass/before-ashwake/` and `docs/pass/after-ashwake/`. The giant is 13,500 triangles (23,300 before). The hiding test is untouched: it still reads `S.lan.I` and the fixed cone, and nothing in it reads the look.
+
+Not done, for later:
+- The gameplay tells from UNDERFOOT_REVIEW.md (the eye dot over the player's head, the coat swap while lit) were out of scope for this pass; the per-look `player` entry and the fill light in `looks.js` are where they would go.
+- House variety (section 5's last bullet: widths, heights, pitches, L-shapes, darker roofs on stone houses) was not started.
+- The stills on the looks page (`dist/stills/*.webp`) are still the 1.2 frames; `npm run shots` makes the new PNGs, but WebP conversion needs a tool the repo does not have.
+- Dust at the giant's feet is still a camera-facing billboard, filtered rather than redesigned as a ground decal.

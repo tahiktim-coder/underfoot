@@ -1,0 +1,16 @@
+[
+  {"eval": "const w=document.getElementById('wrap'); w.style.width='384px'; w.style.height='216px'; __v16.hold=true; const g=__v16.game; __v16.force('search'); g.S.cycle=1; for(let i=0;i<160;i++){ g.update(0.05); g.S.player.seen=Math.min(g.S.player.seen,0.25);} g.render(); return [g.S.player.x|0,g.S.player.z|0,g.S.player.lit]"},
+  {"shot": "search", "sel": "canvas"},
+  {"eval": "const g=__v16.game; g.S.noUI=true; __v16.view('face'); g.S.cam=g.S.view; g.render();"},
+  {"shot": "face", "sel": "canvas"},
+  {"eval": "const g=__v16.game; __v16.view('up3'); g.S.cam=g.S.view; g.render();"},
+  {"shot": "up3", "sel": "canvas"},
+  {"eval": "const g=__v16.game; __v16.view('hero'); g.S.cam=g.S.view; g.render();"},
+  {"shot": "hero", "sel": "canvas"},
+  {"eval": "const g=__v16.game; __v16.view('town'); g.S.cam=g.S.view; g.render();"},
+  {"shot": "town", "sel": "canvas"},
+  {"eval": "const g=__v16.game; const L=g.S.lan.pos, c=[L[0],L[1]-22,L[2]]; g.S.view={...g.lookFrom([c[0]+90,c[1]+10,c[2]+70],c,0.55),near:2,far:60000,snap:0}; g.S.cam=g.S.view; g.render();"},
+  {"shot": "lantern", "sel": "canvas"},
+  {"eval": "const g=__v16.game; __v16.view(null); g.S.noUI=false; __v16.force('leave'); for(let i=0;i<340;i++) g.update(0.05); g.render(); return [g.S.phase, g.S.pt.toFixed(1), __v16.errors]"},
+  {"shot": "leave17", "sel": "canvas"}
+]
