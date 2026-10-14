@@ -110,10 +110,10 @@ export const MILL = { x: -210, z: 40 };
 
 // buildings: oriented boxes {x, z, w, d, h, rot, ...}; rot turns local +z (front) toward the street
 export const houses = [];
-// each house's window key: its windows are lit while the key is under the share of windows still lit. In
-// hundredths (0.01 to 0.97) so it survives the float32 seed attribute the walls carry it in.
-const hashF = (n) => { const v = Math.sin(n) * 43758.5453; return v - Math.floor(v); };
-export const windowKey = (seed) => (Math.floor(hashF(seed * 91.7) * 97) + 1) / 100;
+// every house has a slot in the per-house state the game uploads each frame (lit, dark, taken); the walls
+// carry the slot in the fraction of their seed, as the slot's texel centre, so it survives float32
+export const HOUSE_SLOTS = 128;
+export const houseKey = (H) => (H.i + 0.5) / HOUSE_SLOTS;
 export const towers = [];
 export const wallSegs = [];
 const R = mulberry(1213);
@@ -172,6 +172,8 @@ for (const [x, z, rot] of farms) {
   houses.push({ x, z, w: 9, d: 7.5, h: 4.6, rot, seed: R(), gableFront: false, jetty: false, chimney: true, stone: false, tile: R() < 0.5, farm: true });
   houses.push({ x: x + Math.cos(rot) * 12, z: z - Math.sin(rot) * 12, w: 12, d: 8, h: 4.2, rot, seed: R(), gableFront: false, jetty: false, chimney: false, stone: false, tile: false, barn: true });
 }
+// each house's slot, whether it stands inside the walls, and its door: the step in front of its street side
+houses.forEach((H, i) => { H.i = i; H.inTown = townR(H.x, H.z) < 1; H.door = [H.x + (H.d / 2 + 1.1) * Math.sin(H.rot), H.z + (H.d / 2 + 1.1) * Math.cos(H.rot)]; });
 
 // the wall: an ellipse broken by the two gates, with round towers
 {

@@ -4,7 +4,7 @@
 import { texture } from '../lib/gl.js';
 import { mulberry, smooth, clamp } from '../lib/noise.js';
 const R0 = 0;
-import { NEAR, height, normalAt, riverDist, RIVER_W, roadDist, streetDist, townR, forest, houses, wallSegs, towers, CHURCH, TOWN, windowKey } from './world.js';
+import { NEAR, height, normalAt, riverDist, RIVER_W, roadDist, streetDist, townR, forest, houses, wallSegs, towers, CHURCH, TOWN } from './world.js';
 
 export function noiseTex(gl) {
   const S = 256, d = new Uint8Array(S * S * 4), R = mulberry(99);
@@ -49,14 +49,14 @@ export function nearMap(gl) {
   return texture(gl, S, S, { data: d, filter: 'linear' });
 }
 
-// Where lit windows throw light on the ground: a band round each house (1 at the wall, gone 4 m out), with
-// the house's window key in R so the terrain shader lights it only while that house's windows are lit, and
-// the strength in G. 1 m texels over the same square as the near map.
+// Where lit windows throw light on the ground: a band round each house (1 at the wall, gone 3 m out), with
+// the house's slot in R so the terrain shader lights it only while that house's windows are lit, and the
+// strength in G. 1 m texels over the same square as the near map, unfiltered so a slot never blends.
 export function poolMap(gl) {
   const S = 512, k = (NEAR * 2) / S, d = new Uint8Array(S * S * 2);
   for (const H of houses) {
     if (H.barn) continue;
-    const key = windowKey(H.seed), c = Math.cos(H.rot), sn = Math.sin(H.rot), r = Math.hypot(H.w, H.d) / 2 + 5;
+    const c = Math.cos(H.rot), sn = Math.sin(H.rot), r = Math.hypot(H.w, H.d) / 2 + 5;
     for (let j = Math.floor((H.z - r + NEAR) / k); j <= Math.ceil((H.z + r + NEAR) / k); j++) for (let i = Math.floor((H.x - r + NEAR) / k); i <= Math.ceil((H.x + r + NEAR) / k); i++) {
       if (i < 0 || j < 0 || i >= S || j >= S) continue;
       const px = -NEAR + (i + 0.5) * k - H.x, pz = -NEAR + (j + 0.5) * k - H.z;
@@ -65,10 +65,10 @@ export function poolMap(gl) {
       const st = 1 - smooth(0.3, 3.4, dd);
       if (st <= 0) continue;
       const o = (j * S + i) * 2;
-      if (st * 255 > d[o + 1]) { d[o] = Math.round(key * 255); d[o + 1] = Math.round(st * 255); }
+      if (st * 255 > d[o + 1]) { d[o] = H.i; d[o + 1] = Math.round(st * 255); }
     }
   }
-  return texture(gl, S, S, { data: d, fmt: 'rg8', filter: 'linear' });
+  return texture(gl, S, S, { data: d, fmt: 'rg8', filter: 'nearest' });
 }
 
 export function farMap(gl) {

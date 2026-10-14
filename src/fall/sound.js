@@ -102,6 +102,17 @@ export function createSound() {
       s.connect(bp); bp.connect(g); g.connect(o); s.start(t); v.start(t); s.stop(t + 3); v.stop(t + 3);
       burst(white, t + 0.8, 0.4, 2.8, 0.12 * k, o, 'lowpass', 700, 0.7, 250);
     },
+    // the town bolts itself in: a few wooden bangs round you, and now and then a door slammed
+    shutters(pan, slam) {
+      if (!ctx) return;
+      const t = now(), o = out(pan * 0.5, 2400), n = 3 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) {
+        const tt = t + 0.15 + Math.random() * 1.6, f = 260 + Math.random() * 520;
+        burst(white, tt, 0.003, 0.04 + Math.random() * 0.05, 0.14, o, 'bandpass', f, 3);
+        osc('sine', 160 + Math.random() * 110, 80, tt, 0.004, 0.08, 0.1, o);
+      }
+      if (slam) { const ts = t + 0.6 + Math.random() * 0.9; osc('sine', 120, 48, ts, 0.005, 0.3, 0.45, o); burst(white, ts, 0.002, 0.14, 0.22, o, 'lowpass', 1000, 0.7, 180); }
+    },
     birds(pan) {
       if (!ctx) return;
       const t = now(), o = out(pan, 4000);

@@ -117,6 +117,8 @@ in vec3 vP; in vec3 vN; flat in float vM; in vec2 vUV; flat in float vS; in vec3
 layout(location=0) out vec4 o;
 ${COMMON}
 uniform sampler2D uNearMap, uFarMap, uPoolMap;
+uniform sampler2D uHouses;     // one texel per house: 0 dark, 1 windows lit, 0.5 taken
+float houseState(float slot){ return texelFetch(uHouses, ivec2(int(slot*128.0), 0), 0).r; }
 uniform float uStreetAlb;      // the streets' albedo (the look lifts it under moonlight)
 uniform float uWinPool;        // how much light the lit windows throw on the ground
 uniform highp sampler2DShadow uShadow, uGShadow, uLtShadow;
@@ -344,7 +346,8 @@ void main(){
     // warm pools on the ground under the windows that are still lit
     if (nearIn && uWinPool > 0.0){
       vec2 wp = texture(uPoolMap, gN).rg;
-      emit += alb*vec3(1.0, 0.62, 0.3)*wp.g*wp.g*step(wp.r, uWin + 0.004)*uWinPool*0.2;
+      float hs = texelFetch(uHouses, ivec2(int(wp.r*255.0 + 0.5), 0), 0).r;
+      emit += alb*vec3(1.0, 0.62, 0.3)*wp.g*wp.g*step(0.75, hs)*uWinPool*0.2;
     }
     // rock on steep ground and on the mountains, snow on the peaks
     float steep = 1.0 - n.y;
@@ -378,11 +381,11 @@ void main(){
   } else if (m == 1 || m == 2){
     float win; float a = fachwerk(vUV, vS, m == 2, win);
     alb = a < 0.3 ? vec3(a*1.05, a*0.92, a*0.82) : vec3(a, a*0.97, a*0.9);
-    if (win > 0.5 && fract(vS) < uWin + 0.004) emit = vec3(1.0, 0.62, 0.3)*1.2*(0.8 + 0.2*sin(uTime*3.0 + vS));
+    if (win > 0.5 && houseState(fract(vS)) > 0.75) emit = vec3(1.0, 0.62, 0.3)*1.2*(0.8 + 0.2*sin(uTime*3.0 + vS));
   } else if (m == 10){
     float win; float a = stoneHouse(vUV, vS, win);
     alb = vec3(a, a*0.97, a*0.92)*0.85;
-    if (win > 0.5 && fract(vS) < uWin + 0.004) emit = vec3(1.0, 0.62, 0.3)*1.1;
+    if (win > 0.5 && houseState(fract(vS)) > 0.75) emit = vec3(1.0, 0.62, 0.3)*1.1;
   } else if (m == 3){
     alb = vec3(0.19, 0.16, 0.13)*(0.85 + 0.3*N3L(vUV + vS*30.0, 0.5));
   } else if (m == 4){
@@ -397,7 +400,7 @@ void main(){
     float a = stoneWall(vUV, vS);
     alb = (m == 20 ? vec3(0.58, 0.55, 0.5) : vec3(0.5, 0.48, 0.45))*a;
     if (m == 8){ float u = abs(vUV.x - 3.4), v = vUV.y; if (u < 1.0 && (v < 2.6 || length(vec2(u, v - 2.6)) < 1.0) && v > -0.5) alb = vec3(0.05); if (u < 0.5 && abs(v - 27.0) < 2.0) alb = vec3(0.04); }
-    if (m == 20){ if (abs(fract(vUV.x/5.2) - 0.5)*5.2 < 0.45 && vUV.y > 3.0 && vUV.y < 8.5) { alb = vec3(0.05); if (uWin > 0.05) emit = vec3(1.0, 0.65, 0.33)*0.55; } }
+    if (m == 20){ if (abs(fract(vUV.x/5.2) - 0.5)*5.2 < 0.45 && vUV.y > 3.0 && vUV.y < 8.5) { alb = vec3(0.05); if (uWin > 0.3) emit = vec3(1.0, 0.65, 0.33)*0.55; } }
     alb *= 0.85 + 0.25*N1(vP.xz + vP.y*0.6, 0.9);
   } else if (m == 19){
     alb = vec3(0.44, 0.42, 0.39);

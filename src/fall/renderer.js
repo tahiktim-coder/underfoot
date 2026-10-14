@@ -2,7 +2,7 @@
 // Frame: sun shadow maps (the town, sharp; the giant and the land, wide and soft), the lantern's shadow map,
 // then the scene at 386x218 in colour (sky, land, town, giant, the per-frame mesh, clouds, dust, birds,
 // ash), then the palette pass, then post at screen size.
-import { getGL, program, texture, framebuffer, VS_TRI, fitCanvas } from '../lib/gl.js';
+import { getGL, program, texture, framebuffer, upload, VS_TRI, fitCanvas } from '../lib/gl.js';
 import { mul, lookAt, ortho } from '../lib/mat4.js';
 import * as SH from './shaders.js';
 import { buildWorld, buildTerrain, STRIDE, makeArr } from './mesh.js';
@@ -128,6 +128,8 @@ export function createRenderer(canvas, giantMesh) {
 
   // textures and targets
   const tNoise = noiseTex(gl), tNear = nearMap(gl), tFar = farMap(gl), tPool = poolMap(gl);
+  // one texel per house: 0 dark, 255 windows lit, 128 taken (dark, with a scorch); the game uploads it each frame
+  const tHouses = texture(gl, 128, 1, { fmt: 'r8' });
   const SHS = 2048, GSS = 2048, LTS = 1024;
   const tSh = texture(gl, SHS, SHS, { fmt: 'depth' }), fSh = framebuffer(gl, null, tSh);
   const tGSh = texture(gl, GSS, GSS, { fmt: 'depth' }), fGSh = framebuffer(gl, null, tGSh);
@@ -184,6 +186,7 @@ export function createRenderer(canvas, giantMesh) {
     if (dyn.n > dynCap) { dynCap = dyn.data.length; gl.bindBuffer(gl.ARRAY_BUFFER, dynVBO); gl.bufferData(gl.ARRAY_BUFFER, dynCap * 4, gl.DYNAMIC_DRAW); }
     if (dyn.n) { gl.bindBuffer(gl.ARRAY_BUFFER, dynVBO); gl.bufferSubData(gl.ARRAY_BUFFER, 0, dyn.data); }
     if (puffDirty) { gl.bindBuffer(gl.ARRAY_BUFFER, puffBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, puffData); puffDirty = false; }
+    if (scene.houses) upload(gl, tHouses, scene.houses);
 
     // ---- camera: perspective, nearly orthographic in play; the target snaps to whole low-res pixels
     const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
@@ -267,7 +270,7 @@ export function createRenderer(canvas, giantMesh) {
         .set('uShTexel', 1 / SHS, 1 / SHS).set('uGShTexel', 1 / GSS, 1 / GSS).set('uLtTexel', 1 / LTS, 1 / LTS).set('uLocalOn', localOn ? 1 : 0)
         .set('uLan', lan && lan.on > 0 ? [lan.pos[0], lan.pos[1], lan.pos[2], lan.I * lan.on] : [0, 0, 0, 0]).set('uLanDir', lan ? [lan.dir[0], lan.dir[1], lan.dir[2], lan.cosOuter] : [0, -1, 0, 0.9]).set('uLanInner', lan ? lan.cosInner : 0.95).set('uLanCol', L.lanCol)
         .set('uEye', scene.eye ?? 1).set('uSeen', scene.seen ?? 0).set('uSnow', scene.snow ?? 0).set('uWin', scene.windows ?? 0.5).set('uPlayer', scene.player || PLAYER_DEFAULT).set('uStreetAlb', scene.streetAlb ?? 0.55).set('uWinPool', scene.winPool ?? 0.4).set('uCloudShadow', scene.cloudShadow ?? 1).set('uWind', 7, 2.5).set('uHoleC', scene.holeC || [-300, 0]).set('uCloudCov', scene.cloudCov ?? 0).set('uPrints', scene.prints || new Float32Array(24)).set('uCut', cutP)
-        .tex('uNearMap', tNear, 0).tex('uFarMap', tFar, 1).tex('uShadow', tSh, 2).tex('uGShadow', tGSh, 4).tex('uLtShadow', tLt, 5).tex('uPoolMap', tPool, 6);
+        .tex('uNearMap', tNear, 0).tex('uFarMap', tFar, 1).tex('uShadow', tSh, 2).tex('uGShadow', tGSh, 4).tex('uLtShadow', tLt, 5).tex('uPoolMap', tPool, 6).tex('uHouses', tHouses, 7);
       return p;
     };
     meshU(P.mesh).set('uIsGiant', 0);
