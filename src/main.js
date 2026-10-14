@@ -103,13 +103,16 @@ function boot() {
   });
   if (!canvas) { V.ready = true; return; }
 
-  try { game = createGame(canvas, { noIntro: /nointro/.test(location.search), look }); } catch (e) { V.errors.push(String((e && e.stack) || e)); console.error(e); if (msg) { msg.hidden = false; msg.textContent = 'Could not start: ' + e.message; } V.ready = true; return; }
+  const nq = /[?&]night=(\d)/.exec(location.search);
+  if (/[?&]debug/.test(location.search)) for (const el of document.querySelectorAll('[data-debug]')) el.hidden = false;
+  try { game = createGame(canvas, { noIntro: /nointro/.test(location.search), look, night: nq ? +nq[1] : 1 }); } catch (e) { V.errors.push(String((e && e.stack) || e)); console.error(e); if (msg) { msg.hidden = false; msg.textContent = 'Could not start: ' + e.message; } V.ready = true; return; }
   if (!game) { if (msg) { msg.hidden = false; msg.textContent = 'This needs WebGL2, which this browser does not offer. The stills above show every look.'; } V.ready = true; return; }
   V.game = game;
   V.step = (_, dt) => game.frame(dt);
   V.force = (n) => game.force(n);
   V.view = (n) => game.view(n);
   V.setLook = (n) => setLook(n);
+  V.begin = () => game.begin();
 
   // hold to look up
   const lb = $('lookBtn');
@@ -128,7 +131,7 @@ function boot() {
   canvas.addEventListener('pointerdown', () => setTimeout(syncSound, 0));
   canvas.addEventListener('keydown', () => setTimeout(syncSound, 0));
   // jump to a moment
-  for (const b of document.querySelectorAll('[data-go]')) b.addEventListener('click', () => { game.snd.init(); syncSound(); game.force(b.dataset.go); canvas.focus({ preventScroll: true }); });
+  for (const b of document.querySelectorAll('[data-go]')) b.addEventListener('click', () => { game.snd.init(); syncSound(); game.S.played = true; game.S.auto = false; game.force(b.dataset.go); canvas.focus({ preventScroll: true }); });
 
   let visible = true;
   new IntersectionObserver((es) => { visible = es[0].isIntersecting; }, { rootMargin: '60px' }).observe(canvas);

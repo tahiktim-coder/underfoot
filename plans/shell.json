@@ -1,0 +1,22 @@
+[
+  {"eval": "__v16.hold=true; const g=__v16.game; for(let i=0;i<50;i++) g.update(0.05); g.render(); return [g.S.phase, g.S.played, !!g.S.intro]"},
+  {"shot": "title", "sel": "canvas"},
+  {"eval": "const g=__v16.game; for(let i=0;i<230;i++) g.update(0.05); g.render(); return [g.S.intro.t.toFixed(1), g.S.fade.toFixed(2)]"},
+  {"shot": "title_loop", "sel": "canvas"},
+  {"eval": "const g=__v16.game; __v16.begin(); for(let i=0;i<12;i++) g.update(0.05); g.render(); return [g.S.played, g.S.intro && g.S.intro.cutAt, g.S.fade.toFixed(2)]"},
+  {"shot": "begin_cut", "sel": "canvas"},
+  {"eval": "const g=__v16.game; for(let i=0;i<120;i++) g.update(0.05); g.render(); return [g.S.phase, g.S.night, g.S.auto, !!g.S.intro, g.S.player.x|0, g.S.player.z|0]"},
+  {"shot": "night1_start", "sel": "canvas"},
+  {"eval": "const g=__v16.game; __v16.force('leave'); for(let i=0;i<440;i++) g.update(0.05); g.render(); return [g.S.phase, g.S.pt.toFixed(1), g.S.card && g.S.card.kind]"},
+  {"shot": "card_night", "sel": "canvas"},
+  {"eval": "const g=__v16.game; for(let i=0;i<150;i++) g.update(0.05); g.render(); return [g.S.phase, g.S.night, g.S.card && g.S.card.kind]"},
+  {"shot": "night2_calm", "sel": "canvas"},
+  {"eval": "const g=__v16.game; __v16.force('caught'); for(let i=0;i<200;i++) g.update(0.05); g.render(); return [g.S.phase, g.S.pt.toFixed(1), g.S.card && g.S.card.kind, g.S.card && g.S.card.lines]"},
+  {"shot": "card_over", "sel": "canvas"},
+  {"eval": "const g=__v16.game; g.dismissCard(); for(let i=0;i<4;i++) g.update(0.05); g.render(); return [g.S.phase, g.S.retry, g.S.night, g.S.player.seen]"},
+  {"shot": "retry_plant", "sel": "canvas"},
+  {"eval": "const g=__v16.game; for(let i=0;i<90;i++) g.update(0.05); g.render(); return [g.S.phase, g.S.pt.toFixed(1), g.S.retry]"},
+  {"shot": "retry_search", "sel": "canvas"},
+  {"eval": "const g=__v16.game; g.startNight(3); __v16.force('leave'); g.S.night=3; g.S.nightStats={saved:2,taken:1}; for(let i=0;i<440;i++) g.update(0.05); g.render(); return [g.S.phase, g.S.card && g.S.card.kind, g.S.card && g.S.card.lines, __v16.errors]"},
+  {"shot": "card_end", "sel": "canvas"}
+]

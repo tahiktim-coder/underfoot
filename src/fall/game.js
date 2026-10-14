@@ -13,6 +13,7 @@ import { drawWisp, measureWisp } from '../lib/wisp.js';
 import { mulberry } from '../lib/noise.js';
 import { createSound } from './sound.js';
 import { LOOKS, LOOK_ORDER } from './looks.js';
+import { NIGHTS, LAST_NIGHT, night, RULE, nightCard, overCard, endCard, best } from './nights.js';
 
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -36,7 +37,8 @@ const CUT1 = 1.1, INTRO_CUT = 5.6;
 const DIP_OUT = 0.12, DIP_IN = 0.2;   // the quick dip to dark on a camera cut
 const LAN = 40, LAN_Y = 70;   // the lantern's size, and how high its ring rides over the ground while it searches
 const LAN_OFF = 48;           // how far to the side of the lit spot it holds the lantern
-const TRAIL_LAG = 14;         // it aims where you were this many trail samples (0.25 s each) ago
+const TITLE_LOOP = 14;        // the title's slow push repeats every this many seconds until you begin
+const CARD_HOLD = 7;          // a night card moves on by itself after this long
 const PUFF_KEEP_OUT = 150;    // no footfall dust ring spawns closer to you than this (metres)
 
 function walkPlan(from, to, t0, stepLen, end) {
@@ -68,19 +70,25 @@ export function createGame(canvas, opts = {}) {
   let LK = LOOKS[opts.look] || LOOKS.ashwake, lookName = LOOKS[opts.look] ? opts.look : 'ashwake';
   R.setPalette(LK.palette.greys, LK.palette.hues);
   const rnd = mulberry(4242);
+  // the night: how long it searches, how far behind you it aims, how many windows stay lit (nights.js)
+  const firstNight = Math.max(1, Math.min(LAST_NIGHT, opts.night | 0 || 1));
+  let NT = night(firstNight);
   // where a sound is, left to right on screen (the play camera's right is +x -z)
   const panOf = (x, z) => { const dx = x - S.player.x, dz = z - S.player.z, d = Math.hypot(dx, dz) || 1; return (dx * 0.7071 - dz * 0.7071) / d; };
   const S = {
     t: 0, phase: 'calm', pt: 0, cycle: 0,
     player: { x: -12, z: 8, yaw: 0.8, ph: 0, run: 0, seen: 0, lit: false, crouch: 0 },
     cam: { x: -12, y: 10, z: 8, yaw: Math.PI / 4, pitch: 0.84, hh: 26, D: 1500, snap: 1 },
-    look: 0, view: null, intro: opts.noIntro ? null : { t: 0 },
+    look: 0, view: null, intro: opts.noIntro ? null : { t: 0, cutAt: null },
     lan: { pos: [-4000, 300, -800], vel: [0, 0, 0], len: 1100, I: 1.5, on: 1 }, dim: 0,
     attn: [TOWN.x, TOWN.z], aim: [TOWN.x, TOWN.z], aimS: [TOWN.x, TOWN.z], aimT: 0, autoLook: 0, trail: [], trailT: 0,
     camMode: 'play', dipT: -1, dipTo: null, lookT: 0,
     plan: [], lastPlant: -1, planEnd: 0, shake: 0, windows: 0.65, prints: new Float32Array(24), nPrint: 0,
-    fade: 0, flash: 0, eye: 1, input: { x: 0, y: 0, look: false }, idle: 99, auto: true, hint: 1,
+    fade: 0, flash: 0, eye: 1, input: { x: 0, y: 0, look: false, act: false }, idle: 99, auto: true, hint: 1,
     birds: [], stats: { caught: 0, passed: 0 },
+    // the run: which night, whether anyone has begun (until then the town plays itself under the title),
+    // the card between nights, what this night and the whole run saved and lost
+    night: firstNight, played: false, card: null, retry: false, run: { saved: 0, taken: 0 }, nightStats: { saved: 0, taken: 0 },
   };
   for (let i = 0; i < 26; i++) { const a = rnd() * 6.28, r = 20 + rnd() * 60; const x = TOWN.x + Math.cos(a) * r, z = TOWN.z + Math.sin(a) * r; S.birds.push({ x, z, y: standY(x, z) + 0.3, fly: 0, ph: rnd(), hx: 0, hz: 0, seed: rnd() }); }
 
@@ -104,6 +112,49 @@ export function createGame(canvas, opts = {}) {
     S.windows = 0.65; S.player.seen = 0; S.attn = [TOWN.x, TOWN.z]; S.aim = [TOWN.x, TOWN.z]; S.aimS = [TOWN.x, TOWN.z]; S.aimT = 0;
     S.lanReset = true;
   }
+  // a night begins: the walk in from the valley, you back at the start, the night's table in force
+  function startNight(n) {
+    S.night = Math.max(1, Math.min(LAST_NIGHT, n)); NT = night(S.night);
+    S.nightStats = { saved: 0, taken: 0 }; S.card = null; S.retry = false;
+    Object.assign(S.player, { x: -12, z: 8, yaw: 0.8, seen: 0, lit: false, run: 0 });
+    S.trail = []; S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.autoLook = 0; S.lookHeld = false;
+    startCycle();
+    Object.assign(smoothCam, playCam());
+  }
+  // it found you: the same night again, from the plant, no walk in
+  function retryNight() {
+    S.card = null; S.retry = true; S.fade = 0; S.flash = 0;
+    Object.assign(S.player, { seen: 0, lit: false });
+    S.trail = []; S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.autoLook = 0; S.lookHeld = false;
+    startCycle();
+    S.t = S.planEnd - 0.3; setPhase('approach'); pose.search = 0;
+    S.windows = 0.16; S.lanReset = true;
+    updateGiant(0); stepLantern(0.016);
+    Object.assign(smoothCam, playCam());
+  }
+  function newRun() { S.run = { saved: 0, taken: 0 }; startNight(firstNight); }
+  const card = (kind, lines) => ({ kind, lines, t: 0 });
+  function dismissCard() {
+    const c = S.card; if (!c) return;
+    S.card = null;
+    if (c.kind === 'night') startNight(S.night + 1);
+    else if (c.kind === 'over') retryNight();
+    else newRun();
+  }
+  // the first key or click: it starts the sound, takes the town off its own autopilot for good, and cuts
+  // from the title to the first night
+  function begin() {
+    S.played = true; S.auto = false; S.idle = 0;
+    canvas.focus({ preventScroll: true });
+    if (S.intro) S.intro.cutAt = S.intro.t + 0.5;
+  }
+  // the one gesture everything waits for: the title, then the cards. 'go' is Space, Enter or a click.
+  function gesture(kind) {
+    snd.init();
+    if (!S.played) { begin(); return true; }
+    if (S.card && kind === 'go' && S.card.t > 0.6) { dismissCard(); return true; }
+    return !!S.card;
+  }
   function leavePlan() {
     const t0 = S.t + 3.0;
     // over the south side of the town, then off to the south-east: across the picture, never toward the
@@ -121,38 +172,42 @@ export function createGame(canvas, opts = {}) {
   }
 
   // ---------------------------------------------------------------------------------- input
+  // keys are read on the window, by position (e.code), so any layout works and nothing has to be focused
   const keys = new Set();
+  const KEYMAP = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', KeyL: 'look', KeyE: 'act', Space: 'act', Enter: 'enter' };
+  const typing = (e) => e.target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName);
   const onKey = (e, down) => {
-    const k = e.key.toLowerCase();
-    snd.init();
-    if (down && k === 'm' && !e.repeat) snd.setMuted(!snd.muted);
-    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'w', 'a', 's', 'd', 'l'].includes(k)) e.preventDefault();
-    if (down) keys.add(k); else keys.delete(k);
-    S.idle = 0; S.auto = false;
+    if (typing(e)) return;
+    if (down && e.code === 'KeyM' && !e.repeat) { snd.init(); snd.setMuted(!snd.muted); }
+    const k = KEYMAP[e.code];
+    if (!k) { if (down && !e.repeat) gesture('key'); return; }
+    e.preventDefault();
+    if (down) { if (!e.repeat && gesture(k === 'act' || k === 'enter' ? 'go' : 'key')) return; keys.add(k); } else keys.delete(k);
+    S.idle = 0; if (S.played) S.auto = false;
   };
-  canvas.addEventListener('keydown', (e) => onKey(e, true));
-  canvas.addEventListener('keyup', (e) => onKey(e, false));
-  canvas.addEventListener('blur', () => keys.clear());
+  window.addEventListener('keydown', (e) => onKey(e, true));
+  window.addEventListener('keyup', (e) => onKey(e, false));
+  window.addEventListener('blur', () => { keys.clear(); S.lookHeld = false; });
   let ptr = null;
   canvas.addEventListener('pointerdown', (e) => {
     canvas.focus({ preventScroll: true });
-    snd.init();
-    S.idle = 0; S.auto = false;
+    S.idle = 0; if (S.played) S.auto = false;
+    if (gesture('go')) return;
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
     if (e.button === 2) { S.lookHeld = true; return; }
     ptr = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, touch: e.pointerType === 'touch' };
-    try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
   });
   canvas.addEventListener('pointermove', (e) => { if (ptr && e.pointerId === ptr.id) { ptr.x = e.clientX; ptr.y = e.clientY; } });
-  const up = (e) => { if (e.button === 2) S.lookHeld = false; if (ptr && e.pointerId === ptr.id) ptr = null; };
-  canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+  const up = (e) => { if (e.button === 2 || !(e.buttons & 2)) S.lookHeld = false; if (ptr && e.pointerId === ptr.id) ptr = null; };
+  canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up); canvas.addEventListener('lostpointercapture', up);
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   function readInput() {
     let x = 0, y = 0;
-    if (keys.has('arrowleft') || keys.has('a')) x -= 1;
-    if (keys.has('arrowright') || keys.has('d')) x += 1;
-    if (keys.has('arrowup') || keys.has('w')) y += 1;
-    if (keys.has('arrowdown') || keys.has('s')) y -= 1;
-    if (ptr) {
+    if (keys.has('left')) x -= 1;
+    if (keys.has('right')) x += 1;
+    if (keys.has('up')) y += 1;
+    if (keys.has('down')) y -= 1;
+    if (ptr && !S.card) {
       const r = canvas.getBoundingClientRect();
       let dx, dy;
       if (ptr.touch) { dx = ptr.x - ptr.x0; dy = ptr.y - ptr.y0; const m = Math.hypot(dx, dy); if (m < 8) { dx = 0; dy = 0; } else { const k = Math.min(1, m / 40) / m; dx *= k; dy *= k; } }
@@ -165,7 +220,8 @@ export function createGame(canvas, opts = {}) {
     }
     const m = Math.hypot(x, y); if (m > 1) { x /= m; y /= m; }
     S.input.x = x; S.input.y = y;
-    S.input.look = keys.has('l') || keys.has(' ') || !!S.lookHeld || !!S.lookButton;
+    S.input.look = keys.has('look') || !!S.lookHeld || !!S.lookButton;
+    S.input.act = keys.has('act') || !!S.actButton;
   }
 
   // ---------------------------------------------------------------------------------- the lantern
@@ -294,7 +350,7 @@ export function createGame(canvas, opts = {}) {
     // little slower than you can run. Once it has half seen you it comes straight for you.
     const P = S.player, srch = S.phase === 'search' ? 1 : 0;
     if (srch) {
-      const tr = S.trail, back = tr.length ? tr[Math.max(0, tr.length - 1 - TRAIL_LAG)] : [P.x, P.z];
+      const tr = S.trail, back = tr.length ? tr[Math.max(0, tr.length - 1 - NT.lag)] : [P.x, P.z];
       const want = P.seen > 0.3 || P.lit ? [P.x, P.z] : back;
       const dx = want[0] - S.attn[0], dz = want[1] - S.attn[1], dd = Math.hypot(dx, dz), stepM = Math.min(dd, (P.seen > 0.3 ? 6.5 : 4.3) * dt);
       if (dd > 1e-3) { S.attn[0] += (dx / dd) * stepM; S.attn[1] += (dz / dd) * stepM; }
@@ -376,7 +432,7 @@ export function createGame(canvas, opts = {}) {
     const P = S.player;
     let ix = S.input.x, iy = S.input.y;
     if (S.auto) { const a = autopilot(dt); ix = a[0]; iy = a[1]; }
-    if (S.phase === 'caught' || S.camMode === 'look') { ix = 0; iy = 0; }
+    if (S.phase === 'caught' || S.camMode === 'look' || S.card) { ix = 0; iy = 0; }
     const yaw = Math.PI / 4, rx = Math.cos(yaw), rz = -Math.sin(yaw), fx = -Math.sin(yaw), fz = -Math.cos(yaw);
     let vx = rx * ix + fx * iy, vz = rz * ix + fz * iy;
     const m = Math.hypot(vx, vz), sp = 4.6 * Math.min(1, Math.hypot(ix, iy));
@@ -407,18 +463,33 @@ export function createGame(canvas, opts = {}) {
       S.windows = Math.max(0.16, S.windows - dt * 0.2);
       if (S.pt > 3.5) setPhase('search');
     } else if (S.phase === 'search') {
-      if (S.pt > 26) { setPhase('leave'); leavePlan(); S.stats.passed++; }
+      if (S.pt > NT.search) { setPhase('leave'); leavePlan(); S.stats.passed++; }
     } else if (S.phase === 'caught') {
-      if (S.pt > 9.5) startCycle();
+      if (S.pt > 9.5 && !S.card) {
+        if (!S.played) startCycle();
+        else { S.card = card('over', overCard(S.night, best.get())); best.set(S.night - 1); }
+      }
     } else if (S.phase === 'leave') {
-      if (S.pt > 21) startCycle();
+      if (S.pt > 21 && !S.card) {
+        if (!S.played) startCycle();
+        else {
+          const ns = S.nightStats; S.run.saved += ns.saved; S.run.taken += ns.taken; best.set(S.night);
+          S.card = S.night >= LAST_NIGHT ? card('end', endCard(S.run.saved, S.run.taken)) : card('night', nightCard(S.night, ns.saved, ns.taken));
+        }
+      }
     }
+    if (S.card) { S.card.t += dt; if (S.card.kind === 'night' && S.card.t > CARD_HOLD) dismissCard(); }
     const dimT = { calm: 0, approach: clamp(S.pt / 18), plant: 1, search: 1, caught: 1, leave: 1 - clamp((S.pt - 6) / 12) }[S.phase];
     S.dim += (dimT - S.dim) * Math.min(1, dt * 0.6);
     const pulse = (c, w) => clamp(1 - Math.abs(S.pt - c) / w);
     S.flash = S.phase === 'caught' ? Math.max(pulse(7.6, 0.25), pulse(CUT1 + 0.04, 0.12) * 0.6) : Math.max(0, S.flash - dt * 3);
     S.fade = S.phase === 'caught' ? ease((S.pt - 7.7) / 0.9) * (1 - ease((S.pt - 9.0) / 0.5)) : Math.max(0, S.fade - dt * 1.5);
-    if (S.intro) S.fade = Math.max(S.fade, clamp(1 - Math.abs(S.intro.t - INTRO_CUT) / 0.5));
+    if (S.card && S.card.kind === 'over') S.fade = 1;
+    if (S.intro) {
+      // the title loops through a dip to dark; when you begin, one more dip and the cut to the first night
+      const tm = S.intro.t % TITLE_LOOP;
+      S.fade = Math.max(S.fade, S.intro.cutAt !== null ? clamp(1 - Math.abs(S.intro.t - S.intro.cutAt) / 0.5) : clamp(1 - Math.min(tm, TITLE_LOOP - tm) / 0.5));
+    }
     S.eye = S.phase === 'caught' ? 1 + 2.5 * ease((S.pt - 4.6) / 1.6) : 1;
   }
 
@@ -527,7 +598,7 @@ export function createGame(canvas, opts = {}) {
       if (t < CUT1) cam = mixCam(smoothCam, { ...smoothCam, hh: 15 }, ease(t / 1.0));
       else cam = fromEye(tiltEye(ease((t - CUT1 - 0.6) / 3.4), ease((t - 5.2) / 2.3)));
     }
-    if (S.intro && S.intro.t < INTRO_CUT) cam = fromEye(introEye(S.intro.t / INTRO_CUT));
+    if (S.intro && (S.intro.cutAt === null || S.intro.t < S.intro.cutAt)) cam = fromEye(introEye((S.intro.t % TITLE_LOOP) / TITLE_LOOP));
     const physical = cam.hh > 60 || S.camMode === 'look' || S.phase === 'caught' || !!S.intro;
     cam.near = physical ? 2 : undefined; cam.far = physical ? 60000 : undefined; cam.snap = physical ? 0 : 1;
     if (physical) cam = keepOut(cam);
@@ -554,11 +625,14 @@ export function createGame(canvas, opts = {}) {
     const C = LK.ui;
     const plot = (c) => (x, y) => { ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1); };
     const plate = (x, y, w, h) => { ctx.fillStyle = C.plate; ctx.fillRect(x, y, w, h); ctx.fillStyle = C.edge; ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + h - 1, w, 1); ctx.fillRect(x, y, 1, h); ctx.fillRect(x + w - 1, y, 1, h); };
-    const label = { calm: 'Quiet', approach: 'It is coming', plant: 'It is here', search: 'Hide', caught: 'It sees you', leave: 'It is passing' }[S.phase];
-    if (!S.intro) {
+    const label = S.retry && (S.phase === 'approach' || S.phase === 'plant') ? 'It is still here' : { calm: 'Quiet', approach: 'It is coming', plant: 'It is here', search: 'Hide', caught: 'It sees you', leave: 'It is passing' }[S.phase];
+    if (!S.intro && !(S.card && S.card.kind !== 'night')) {
       const w = measureWisp(label) + 12;
       plate(8, 8, w, 15);
       drawWisp(label, 14, 12, plot(S.phase === 'search' || S.phase === 'caught' ? C.accent : C.text));
+      const nl = 'Night ' + S.night, nw = measureWisp(nl) + 12;
+      plate(VW - 8 - nw, 8, nw, 15);
+      drawWisp(nl, VW - 8 - nw + 6, 12, plot(C.dim));
       if (S.phase === 'search' || (S.phase === 'caught' && S.pt < 3)) {
         const x0 = 8 + w + 6, o = S.player.seen;
         plate(x0, 8, 30, 15);
@@ -570,20 +644,41 @@ export function createGame(canvas, opts = {}) {
         if (o > 0.15) { ctx.fillStyle = LK.palette.greys[0]; ctx.fillRect(x0 + 14, 14, 3, 3); }
       }
     }
-    if (S.hint > 0.01 && !S.intro && S.phase !== 'caught') {
+    if (S.hint > 0.01 && !S.intro && !S.card && S.phase !== 'caught') {
       ctx.globalAlpha = Math.min(1, S.hint);
       const h1 = 'WASD or drag: move', h2 = 'Hold L or right-click: look up';
       plate(8, VH - 30, Math.max(measureWisp(h1), measureWisp(h2)) + 12, 25);
       drawWisp(h1, 14, VH - 26, plot(C.dim)); drawWisp(h2, 14, VH - 16, plot(C.dim));
       ctx.globalAlpha = 1;
     }
-    if (S.intro && S.intro.t < INTRO_CUT) {
-      ctx.globalAlpha = Math.min(1, S.intro.t / 1.2) * (1 - ease((S.intro.t - INTRO_CUT + 1.2) / 0.9));
+    if (S.intro) {
+      // the title: the name, the line, the rule, and the prompt that waits for you
+      const c = S.intro.cutAt;
+      ctx.globalAlpha = Math.min(1, S.intro.t / 1.2) * (c === null ? 1 : 1 - ease((S.intro.t - c + 0.9) / 0.8));
       const T = 'UNDERFOOT', w = measureWisp(T, 3);
       const cx = Math.round(VW * 0.69);
       drawWisp(T, cx - Math.round(w / 2), 58, plot(C.title), 3);
       const s2 = 'something is walking the valley';
       drawWisp(s2, cx - Math.round(measureWisp(s2) / 2), 86, plot(C.sub));
+      drawWisp(RULE, cx - Math.round(measureWisp(RULE) / 2), 104, plot(C.sub));
+      if (!S.played) {
+        const p = 'click or press any key';
+        ctx.globalAlpha *= 0.55 + 0.45 * Math.sin(S.intro.t * 2.2);
+        drawWisp(p, cx - Math.round(measureWisp(p) / 2), VH - 30, plot(C.sub));
+      }
+      ctx.globalAlpha = 1;
+    }
+    if (S.card) {
+      // a card between nights: the first line large, the rest under it, and what to press
+      const L = S.card.lines, k = S.card.kind;
+      ctx.globalAlpha = Math.min(1, S.card.t / 0.6);
+      const ws = L.map((l, i) => measureWisp(l, i === 0 ? 2 : 1)), w = Math.max(...ws) + 28, h = 24 + 10 * (L.length - 1) + 22;
+      const x0 = Math.round((VW - w) / 2), y0 = Math.round((VH - h) / 2) - 6;
+      plate(x0, y0, w, h);
+      let y = y0 + 8;
+      L.forEach((l, i) => { const sc = i === 0 ? 2 : 1; drawWisp(l, Math.round((VW - ws[i]) / 2), y, plot(i === 0 ? (k === 'over' ? C.accent : C.text) : C.dim), sc); y += sc === 2 ? 16 : 10; });
+      const p = k === 'night' ? 'Space: next night' : k === 'over' ? 'Space: again' : 'Space: play again';
+      if (S.card.t > 0.6) { ctx.globalAlpha *= 0.6 + 0.4 * Math.sin(S.card.t * 2.2); drawWisp(p, Math.round((VW - measureWisp(p)) / 2), y + 4, plot(C.dim)); }
       ctx.globalAlpha = 1;
     }
     if (S.phase === 'caught' && S.pt > 5.4 && S.pt < 7.5) {
@@ -625,9 +720,14 @@ export function createGame(canvas, opts = {}) {
   function update(dt) {
     S.t += dt;
     readInput();
-    if (Math.hypot(S.input.x, S.input.y) > 0.05 || S.input.look) { S.idle = 0; S.auto = false; } else { S.idle += dt; if (S.idle > 8) S.auto = true; }
-    if (S.intro) { S.intro.t += dt; if (S.intro.t > INTRO_CUT + 0.5 || (S.intro.t > 1.5 && !S.auto && S.intro.t < INTRO_CUT - 0.5)) S.intro = S.intro.t > INTRO_CUT + 0.5 ? null : { t: INTRO_CUT - 0.5 }; }
-    if (!S.intro) S.hint = Math.max(0, S.hint - dt * (S.t > 25 ? 0.15 : 0));
+    if (Math.hypot(S.input.x, S.input.y) > 0.05 || S.input.look) { S.idle = 0; if (S.played) S.auto = false; } else { S.idle += dt; if (S.idle > 8 && !S.played) S.auto = true; }
+    if (S.intro) {
+      S.intro.t += dt;
+      const c = S.intro.cutAt;
+      if (c !== null && S.intro.t >= c && !S.intro.cut) { S.intro.cut = true; startNight(firstNight); }
+      if (c !== null && S.intro.t > c + 0.5) S.intro = null;
+    }
+    if (!S.intro && S.played) S.hint = Math.max(0, S.hint - dt * (S.t > 25 ? 0.15 : 0));
     S.trailT += dt;
     if (S.trailT >= 0.25) { S.trailT = 0; S.trail.push([S.player.x, S.player.z]); if (S.trail.length > 40) S.trail.shift(); }
     updateStory(dt);
@@ -689,14 +789,16 @@ export function createGame(canvas, opts = {}) {
   updateGiant(0);
 
   const api = {
-    R, G, S, snd, LOOKS, LOOK_ORDER,
+    R, G, S, snd, LOOKS, LOOK_ORDER, NIGHTS,
     get look() { return lookName; },
+    get night() { return S.night; },
+    begin, startNight, retryNight, dismissCard,
     setLook(name) { if (!LOOKS[name]) return; LK = LOOKS[name]; lookName = name; R.setPalette(LK.palette.greys, LK.palette.hues); },
     frame(dt) { update(dt); render(); },
     update, render, lookFrom,
     // jump to a moment (for tests and the page's buttons)
     force(name) {
-      S.intro = null; S.view = null;
+      S.intro = null; S.view = null; S.card = null; S.retry = false;
       S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.autoLook = 0; S.trail = [];
       startCycle();
       if (name === 'approach') { S.t = S.planEnd - 3 * STEP_T + 1; setPhase('approach'); }
