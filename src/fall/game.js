@@ -8,13 +8,14 @@ import { createRenderer, VW, VH } from './renderer.js';
 import { createGiant, buildGiantMesh, footAt } from './giant.js';
 import { chain, lantern, person } from './props.js';
 import { millSails, M } from './mesh.js';
-import { standY, height, blocked, segmentBlocked, inCover, houses, HOUSE_SLOTS, OCCLUDERS, TOWN, SQUARE, STREETS, townR } from './world.js';
+import { standY, height, blocked, segmentBlocked, inCover, houses, OCCLUDERS, TOWN, SQUARE, STREETS, townR } from './world.js';
 import { drawWisp, measureWisp } from '../lib/wisp.js';
 import { mulberry } from '../lib/noise.js';
 import { createSound } from './sound.js';
 import { LOOKS, LOOK_ORDER } from './looks.js';
 import { NIGHTS, LAST_NIGHT, night, RULE, nightCard, overCard, endCard, best } from './nights.js';
 import { brain, walk, spawnPerson } from './people.js';
+import { createHomes } from './homes.js';
 
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -41,6 +42,8 @@ const SHADOW_DRAIN = 0.3;     // how fast the eye empties per second in deep sha
 const OFF_PERIOD = 36;        // seconds for the lantern to drift from low to nearly overhead and back
 const LOST_AFTER = 6;         // seconds without a sight of you before the light goes looking for other lights
 const TAKE_LIT = 1.2;         // seconds the light must hold a townsperson before it narrows on them
+const DOOR_REACH = 2.6;       // how close to a door you must stand to put its light out
+const PUT_OUT = 1.0;          // seconds the action key is held to put a light out
 const TITLE_LOOP = 14;        // the title's slow push repeats every this many seconds until you begin
 const CARD_HOLD = 7;          // a night card moves on by itself after this long
 const PUFF_KEEP_OUT = 150;    // no footfall dust ring spawns closer to you than this (metres)
@@ -93,29 +96,26 @@ export function createGame(canvas, opts = {}) {
     // the run: which night, whether anyone has begun (until then the town plays itself under the title),
     // the card between nights, what this night and the whole run saved and lost
     night: firstNight, played: false, card: null, retry: false, run: { saved: 0, taken: 0 }, nightStats: { saved: 0, taken: 0 },
-    // the houses: one byte each for the shader (0 dark, 255 lit, 128 taken), the stragglers whose windows stay
-    // lit at the plant, how much chimney smoke is up, how many doors have slammed tonight
-    homes: new Uint8Array(HOUSE_SLOTS), stragglers: new Set(), smokeLevel: 1, slams: 0, relightT: 0,
+    // how much chimney smoke is up, how many doors have slammed tonight, the light you are putting out,
+    // when the lantern next goes to check a lit window
+    smokeLevel: 1, slams: 0, act: null, nextCheck: 0, hintAct: 0,
     // the townspeople out tonight, the one the light is taking, how long since it last saw you, every stain
     people: [], take: null, lostT: 0, spawned: 0, stains: [],
   };
   for (let i = 0; i < 26; i++) { const a = rnd() * 6.28, r = 20 + rnd() * 60; const x = TOWN.x + Math.cos(a) * r, z = TOWN.z + Math.sin(a) * r; S.birds.push({ x, z, y: standY(x, z) + 0.3, fly: 0, ph: rnd(), hx: 0, hz: 0, seed: rnd() }); }
-  // about two thirds of the houses have someone home: those windows are lit in the calm. A house is lit,
-  // dark, saved (put out by you) or taken (the light found it; dark with a scorch for the rest of the run).
-  for (const H of houses) { H.home = !!H.farm || rnd() < 0.65; H.state = H.home ? 'lit' : 'dark'; }
-  const inTownHomes = houses.filter((H) => H.inTown && H.home);
-  const relightOrder = inTownHomes.map((H, i) => inTownHomes[(i * 37) % inTownHomes.length]);
+  // the houses: lit, dark, saved or taken (homes.js)
+  const HM = createHomes(rnd);
 
   // ---------------------------------------------------------------------------------- the cycle
   function setPhase(p) {
     S.phase = p; S.pt = 0;
-    if (p === 'approach') pickStragglers();
+    if (p === 'approach') HM.pick(NT.lit);
     if (p === 'search') {
       // it starts looking a little way off from you, so you have a moment
       const P = S.player, a = Math.atan2(TOWN.z - P.z, TOWN.x - P.x) + (rnd() - 0.5) * 1.2;
       S.attn = [P.x + Math.cos(a) * 48, P.z + Math.sin(a) * 48]; S.aim = S.attn.slice(); S.aimS = S.attn.slice(); S.aimT = 3;
       AP.t = 0; AP.goal = null;
-      S.people = []; S.spawned = 0; S.take = null; S.lostT = LOST_AFTER;
+      S.people = []; S.spawned = 0; S.take = null; S.act = null; S.lostT = LOST_AFTER; S.nextCheck = 0;
     }
     if (p === 'caught') { snd.caught(); S.hitDone = false; S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.aim = [S.player.x, S.player.z]; }
   }
@@ -128,49 +128,11 @@ export function createGame(canvas, opts = {}) {
     S.windows = 0.65; S.player.seen = 0; S.attn = [TOWN.x, TOWN.z]; S.aim = [TOWN.x, TOWN.z]; S.aimS = [TOWN.x, TOWN.z]; S.aimT = 0;
     S.lanReset = true;
   }
-  // ---------------------------------------------------------------------------------- the houses
-  const litHouses = () => houses.filter((H) => H.state === 'lit');
-  function syncHouses() { for (const H of houses) S.homes[H.i] = H.state === 'lit' ? 255 : H.state === 'taken' ? 128 : 0; }
-  // the N who did not hide: lit windows spread across the town, chosen when it starts to come
-  function pickStragglers() {
-    const cand = inTownHomes.filter((H) => H.state !== 'taken');
-    const picked = [];
-    if (cand.length) picked.push(cand[Math.floor(rnd() * cand.length)]);
-    while (picked.length < NT.lit && picked.length < cand.length) {
-      let best = null, bd = -1;
-      for (const H of cand) { if (picked.includes(H)) continue; const d = Math.min(...picked.map((Q) => Math.hypot(Q.x - H.x, Q.z - H.z))); if (d > bd) { bd = d; best = H; } }
-      picked.push(best);
-    }
-    S.stragglers = new Set(picked.map((H) => H.i));
-  }
-  // windows go out, the closest to the boot first; the stragglers keep theirs
-  function lightsOut(n, from) {
-    const lit = litHouses().filter((H) => !S.stragglers.has(H.i)).sort((a, b) => Math.hypot(a.x - from[0], a.z - from[1]) - Math.hypot(b.x - from[0], b.z - from[1]));
-    for (const H of lit.slice(0, n)) H.state = 'dark';
-  }
-  // all home, nothing taken: the calm of a night. keepStragglers: the plant, with the stragglers lit
-  function setHouses(mode) {
-    for (const H of houses) {
-      if (H.state === 'taken') continue;
-      if (mode === 'calm') H.state = H.home ? 'lit' : 'dark';
-      else if (mode === 'plant') H.state = H.home && S.stragglers.has(H.i) ? 'lit' : 'dark';
-      else if (mode === 'reset') H.state = H.home ? 'lit' : 'dark';
-    }
-    if (mode === 'reset') for (const H of houses) if (H.state === 'taken') H.state = H.home ? 'lit' : 'dark';
-  }
-  // after it passes, the windows come back one by one; the taken stay dark
-  function relight(dt) {
-    S.relightT += dt;
-    if (S.relightT < 0.8) return;
-    S.relightT = 0;
-    const H = relightOrder.find((Q) => Q.state === 'dark' || Q.state === 'saved');
-    if (H) H.state = 'lit';
-  }
   // a night begins: the walk in from the valley, you back at the start, the night's table in force
   function startNight(n) {
     S.night = Math.max(1, Math.min(LAST_NIGHT, n)); NT = night(S.night);
     S.nightStats = { saved: 0, taken: 0 }; S.card = null; S.retry = false;
-    setHouses('calm'); S.smokeLevel = 1; S.slams = 0;
+    HM.set('calm'); S.smokeLevel = 1; S.slams = 0;
     Object.assign(S.player, { x: -12, z: 8, yaw: 0.8, seen: 0, lit: false, run: 0 });
     S.trail = []; S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.autoLook = 0; S.lookHeld = false;
     startCycle();
@@ -183,12 +145,12 @@ export function createGame(canvas, opts = {}) {
     S.trail = []; S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.autoLook = 0; S.lookHeld = false;
     startCycle();
     S.t = S.planEnd - 0.3; setPhase('approach'); pose.search = 0;
-    setHouses('plant'); S.smokeLevel = 0;
+    HM.set('plant'); S.smokeLevel = 0;
     S.windows = 0.16; S.lanReset = true;
     updateGiant(0); stepLantern(0.016);
     Object.assign(smoothCam, playCam());
   }
-  function newRun() { S.run = { saved: 0, taken: 0 }; setHouses('reset'); R.clearStains(); S.stains = []; startNight(firstNight); }
+  function newRun() { S.run = { saved: 0, taken: 0 }; HM.set('reset'); R.clearStains(); S.stains = []; startNight(firstNight); }
   const card = (kind, lines) => ({ kind, lines, t: 0 });
   function dismissCard() {
     const c = S.card; if (!c) return;
@@ -333,10 +295,10 @@ export function createGame(canvas, opts = {}) {
     // the town is afraid: each boom of the approach puts out the windows nearest the boot and thins the
     // smoke; the plant puts out everything but the stragglers; close booms bang the shutters
     if (S.phase === 'approach') {
-      lightsOut(Math.ceil(litHouses().filter((H) => !S.stragglers.has(H.i)).length * 0.45), [pl.x, pl.z]);
+      HM.out(Math.ceil(HM.lit().filter((H) => !HM.stragglers.has(H.i)).length * 0.45), [pl.x, pl.z]);
       S.smokeLevel *= 0.5;
       if (d < 1600) { snd.shutters(panOf(pl.x, pl.z), S.slams < 2); S.slams++; }
-    } else if (S.phase === 'plant') { setHouses('plant'); S.smokeLevel = 0; }
+    } else if (S.phase === 'plant') { HM.set('plant'); S.smokeLevel = 0; }
     const fx = Math.sin(pl.yaw), fz = Math.cos(pl.yaw);
     for (let k = 0; k < 40; k++) {
       // a ring round the sole, pushed out along the ground
@@ -423,11 +385,15 @@ export function createGame(canvas, opts = {}) {
     if (srch) {
       const tr = S.trail, back = tr.length ? tr[Math.max(0, tr.length - 1 - NT.lag)] : [P.x, P.z];
       S.lostT = P.seen > 0 || P.lit ? 0 : S.lostT + dt;
-      // once it has lost you for a while it goes to the nearest other light (the curious one with his
-      // candle draws it whenever you are not in sight); while it takes someone it holds on them
-      const lu = S.lostT > LOST_AFTER || S.people.some((p) => p.state === 'out' && p.mode === 'curious') ? lure() : null;
-      const want = S.take ? [S.take.p.x, S.take.p.z] : P.seen > 0.3 || P.lit ? [P.x, P.z] : lu || back;
-      const dx = want[0] - S.attn[0], dz = want[1] - S.attn[1], dd = Math.hypot(dx, dz), stepM = Math.min(dd, (P.seen > 0.3 || S.take ? 6.5 : 4.3) * dt);
+      // once it has lost you for a while, or after the night's check delay, it goes to the nearest other
+      // light: a candle in the street or a lit window (the curious one with his candle draws it whenever you
+      // are not in sight). While it takes someone or something it holds on them.
+      const curious = S.people.some((p) => p.state === 'out' && p.mode === 'curious');
+      const onYou = P.seen > 0.3 || P.lit;
+      const lu = !onYou && (S.lostT > LOST_AFTER || curious || (S.pt > NT.check && S.pt > S.nextCheck)) ? lure() : null;
+      if (lu && lu.house && !S.take && Math.hypot(lu.pos[0] - S.attn[0], lu.pos[1] - S.attn[1]) < 5) takeHouse(lu.house);
+      const want = S.take ? S.take.pos : onYou ? [P.x, P.z] : lu ? lu.pos : back;
+      const dx = want[0] - S.attn[0], dz = want[1] - S.attn[1], dd = Math.hypot(dx, dz), stepM = Math.min(dd, (P.seen > 0.3 || S.take ? 6.5 : lu ? 6.0 : 4.3) * dt);
       if (dd > 1e-3) { S.attn[0] += (dx / dd) * stepM; S.attn[1] += (dz / dd) * stepM; }
       // the light hunts a little round that point, as if looking; on a take it holds still
       const w = S.take ? Math.max(0, 1 - S.take.t * 2) : 1;
@@ -495,8 +461,9 @@ export function createGame(canvas, opts = {}) {
   // and looks up. Later nights: bad hiders, out from the start. One the light holds for a moment is taken:
   // the beam narrows on them, a flash, a pop, and a stain where they stood.
   function updatePeople(dt) {
-    if (S.phase !== 'search') { if (S.phase !== 'caught') S.people = S.people.filter((p) => p.state === 'out' && S.phase === 'plant'); S.take = null; return; }
+    if (S.phase !== 'search') { if (S.phase !== 'caught') S.people = S.people.filter((p) => p.state === 'out' && S.phase === 'plant'); S.take = null; S.act = null; if (S.phase === 'plant') updateAct(dt); return; }
     const want = NT.people, at = S.night === 1 ? 5 : 1.5;
+    updateAct(dt);
     if (S.pt > at && S.spawned < want && (S.spawned === 0 || S.pt > at + S.spawned * 1.5)) {
       S.people.push(spawnPerson(S.night === 1 ? 'curious' : 'hider', rnd, [S.player.x, S.player.z])); S.spawned++;
     }
@@ -507,22 +474,39 @@ export function createGame(canvas, opts = {}) {
       else walk(p, 0, 0, dt);
       p.tier = isLit([p.x, standY(p.x, p.z) + 1.6, p.z]).tier;
       p.litT = p.tier === 'lit' ? p.litT + dt : Math.max(0, p.litT - dt * 2);
-      if (!S.take && p.litT > TAKE_LIT) S.take = { p, t: 0 };
+      if (!S.take && p.litT > TAKE_LIT) S.take = { p, pos: [p.x, p.z], t: 0 };
     }
     if (S.take) {
-      const T = S.take, p = T.p; T.t += dt;
-      if (T.t >= 1.0 && p.state === 'out') {
-        p.state = 'taken'; S.flash = Math.max(S.flash, 0.8); snd.pop(panOf(p.x, p.z));
-        R.stain(p.x, p.z, 1.4, rnd); S.stains.push([p.x, p.z]);
+      const T = S.take, p = T.p, H = T.house; T.t += dt;
+      if (p) T.pos = [p.x, p.z];
+      if (T.t >= 1.0 && !T.done) {
+        T.done = true; S.flash = Math.max(S.flash, 0.8); snd.pop(panOf(T.pos[0], T.pos[1]));
+        if (p) { p.state = 'taken'; R.stain(p.x, p.z, 1.4, rnd); S.stains.push([p.x, p.z]); }
+        if (H) { HM.take(H); S.nightStats.taken++; R.stain(H.door[0], H.door[1], 0.9, rnd); S.stains.push(H.door.slice()); if (S.act && S.act.house === H) S.act = null; }
       }
-      if (T.t > 2.4) S.take = null;
+      if (T.t > 2.4) { S.take = null; S.lostT = 0; S.nextCheck = S.pt + 3; }
     }
   }
-  // what draws the light when it has lost you: the nearest candle in the street
+  // what draws the light when it has lost you: the nearest candle in the street or lit window (the curious
+  // one first). Returns { pos, person } or { pos, house }.
   function lure() {
     let best = null, bd = 1e9;
-    for (const p of S.people) { if (p.state !== 'out') continue; const d = Math.hypot(p.x - S.attn[0], p.z - S.attn[1]) - (p.mode === 'curious' ? 1000 : 0); if (d < bd) { bd = d; best = [p.x, p.z]; } }
+    for (const p of S.people) { if (p.state !== 'out') continue; const d = Math.hypot(p.x - S.attn[0], p.z - S.attn[1]) - (p.mode === 'curious' ? 1000 : 0); if (d < bd) { bd = d; best = { pos: [p.x, p.z], person: p }; } }
+    for (const H of HM.targets()) { const d = Math.hypot(H.door[0] - S.attn[0], H.door[1] - S.attn[1]); if (d < bd) { bd = d; best = { pos: H.door, house: H }; } }
     return best;
+  }
+  // the light reaches a lit window: it narrows on the house, a flash, the window dies, the house is taken
+  function takeHouse(H) { S.take = { house: H, pos: H.door, t: 0 }; }
+  // you at a lit door, holding the action key: after a second the window goes out and the house is saved
+  function updateAct(dt) {
+    const P = S.player, can = (S.phase === 'search' || S.phase === 'plant') && !S.card;
+    const n = can ? HM.nearest(P.x, P.z) : null, at = n && n.d < DOOR_REACH ? n.house : null;
+    if (at && S.hintAct < 1 && !S.act) S.hintAct = 0.01;
+    if (S.hintAct > 0 && S.hintAct < 1) S.hintAct = Math.min(1, S.hintAct + dt / 5);
+    if (!at || !S.input.act) { S.act = null; return; }
+    if (!S.act || S.act.house !== at) S.act = { house: at, t: 0 };
+    S.act.t += dt;
+    if (S.act.t >= PUT_OUT) { HM.save(at); S.nightStats.saved++; snd.blow(panOf(at.door[0], at.door[1])); S.act = null; }
   }
   // ---------------------------------------------------------------------------------- the story
   function updateStory(dt) {
@@ -530,7 +514,7 @@ export function createGame(canvas, opts = {}) {
     if (S.phase === 'calm') {
       if (S.t > S.planEnd - 3 * STEP_T - 1) { setPhase('approach'); if (S.cycle > 1) S.autoLook = 6.5; }
       S.windows += (0.65 - S.windows) * Math.min(1, dt * 0.2);
-      relight(dt);
+      HM.relight(dt);
     } else if (S.phase === 'approach') {
       S.windows = Math.max(0.16, S.windows - dt * 0.025);
       if (S.t >= S.planEnd) setPhase('plant');
@@ -545,7 +529,7 @@ export function createGame(canvas, opts = {}) {
         else { S.card = card('over', overCard(S.night, best.get())); best.set(S.night - 1); }
       }
     } else if (S.phase === 'leave') {
-      if (S.pt > 5) relight(dt);
+      if (S.pt > 5) HM.relight(dt);
       if (S.pt > 21 && !S.card) {
         if (!S.played) startCycle();
         else {
@@ -729,6 +713,18 @@ export function createGame(canvas, opts = {}) {
       drawWisp(h1, 14, VH - 26, plot(C.dim)); drawWisp(h2, 14, VH - 16, plot(C.dim));
       ctx.globalAlpha = 1;
     }
+    // at a lit door: the first time, what to do; while you hold the key, how far along you are
+    if (S.hintAct > 0 && S.hintAct < 1 && !S.card) {
+      ctx.globalAlpha = Math.min(1, S.hintAct * 8) * (1 - ease((S.hintAct - 0.75) / 0.25));
+      const h = 'Hold E: put out the light';
+      plate(Math.round((VW - measureWisp(h)) / 2) - 6, VH - 62, measureWisp(h) + 12, 15);
+      drawWisp(h, Math.round((VW - measureWisp(h)) / 2), VH - 58, plot(C.accent));
+      ctx.globalAlpha = 1;
+    }
+    if (S.act) {
+      const pp = R.project([S.player.x, standY(S.player.x, S.player.z) + 2.6, S.player.z]);
+      if (pp[2]) { const x = Math.round(pp[0]) - 8, y = Math.round(pp[1]); plate(x, y - 2, 17, 5); ctx.fillStyle = C.accent; ctx.fillRect(x + 1, y - 1, Math.round(15 * clamp(S.act.t / PUT_OUT)), 3); }
+    }
     if (S.intro) {
       // the title: the name, the line, the rule, and the prompt that waits for you
       const c = S.intro.cutAt;
@@ -859,14 +855,14 @@ export function createGame(canvas, opts = {}) {
     for (const p of out) person(A, p.x, standY(p.x, p.z), p.z, p.yaw, p.ph, p.run, { hood: false, scarf: false, inflate, mat: M.P_OUTLINE });
     const sh = S.phase === 'caught' ? 0 : S.shake;
     const ll = lanLight(), ls = lanScreen();
-    syncHouses();
+    HM.sync();
     R.render({
       t: S.t, cam: S.cam, light: dimmed(S.dim),
       giant: { bones: G.bones, sway: G.sway },
       lantern: { ...ll, I: ll.I * LK.lanI / 1.5 }, lanGlow: LK.light.lanCol,
       lanShaft: ls && S.lan.on > 0 ? { ...ls, strength: (LK.lanShaft ?? 1) * LK.lanI / 1.5 } : null,
       glows,
-      windows: Math.max(LK.winMin, S.windows), houses: S.homes, ring: ringU, candles, prints: S.prints, streetAlb: LK.streetAlb, winPool: LK.winPool, player: LK.player ? [...LK.player.coat, ...LK.player.hood, ...LK.player.scarf, LK.player.fill || 0, 0, 0] : null,
+      windows: Math.max(LK.winMin, S.windows), houses: HM.bytes, ring: ringU, candles, prints: S.prints, streetAlb: LK.streetAlb, winPool: LK.winPool, player: LK.player ? [...LK.player.coat, ...LK.player.hood, ...LK.player.scarf, LK.player.fill || 0, 0, 0] : null,
       cloudK: S.cam.hh > 120 ? Math.min(1, (S.cam.hh - 120) / 400) : 0, holeC: [-300, 0], cloudCov: LK.cloudCov,
       cut: S.cam.hh < 60 ? [P.x, standY(P.x, P.z) + 1.2, P.z] : null,
       gCentre: [lerp(G.x, TOWN.x, 0.5), 0, lerp(G.z, TOWN.z, 0.5)],
@@ -896,10 +892,10 @@ export function createGame(canvas, opts = {}) {
     force(name) {
       S.intro = null; S.view = null; S.card = null; S.retry = false;
       S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.autoLook = 0; S.trail = [];
-      startCycle(); setHouses('calm'); S.smokeLevel = 1; S.slams = 0;
+      startCycle(); HM.set('calm'); S.smokeLevel = 1; S.slams = 0;
       if (name === 'approach') { S.t = S.planEnd - 3 * STEP_T + 1; setPhase('approach'); }
       if (name === 'plant') { S.t = S.planEnd - 0.3; setPhase('approach'); }
-      if (name === 'search' || name === 'caught' || name === 'leave') { S.t = S.planEnd + 4; S.lastPlant = S.plan.length - 1; pickStragglers(); setHouses('plant'); S.smokeLevel = 0; setPhase('search'); pose.search = 1; }
+      if (name === 'search' || name === 'caught' || name === 'leave') { S.t = S.planEnd + 4; S.lastPlant = S.plan.length - 1; HM.pick(NT.lit); HM.set('plant'); S.smokeLevel = 0; setPhase('search'); pose.search = 1; }
       if (name === 'caught') setPhase('caught');
       if (name === 'leave') { setPhase('leave'); leavePlan(); }
       S.lanReset = true;

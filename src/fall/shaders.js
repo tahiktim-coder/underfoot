@@ -219,6 +219,13 @@ float lanternLight(vec3 P, vec3 n, out float sh){
   return uLan.w*cone*att*ndl*lit;
 }
 
+// a taken house: soot up the walls from the eaves and a black bloom round the door
+float scorch(vec2 uv, float seed, bool front){
+  float L = floor(seed/100.0)/10.0, H = mod(floor(seed), 100.0)/10.0;
+  float s = 0.75*smoothstep(H - 3.2, H + 0.5, uv.y + (N2(uv*vec2(3.0, 1.0) + seed, 1.0) - 0.5)*2.0);
+  if (front){ vec2 d = vec2((uv.x - L*0.5)/2.2, uv.y/3.6); s = max(s, 0.85*(1.0 - smoothstep(0.5, 1.0, length(d) + (N3(uv, 0.4) - 0.5)*0.3))); }
+  return s;
+}
 // half-timbering; seed packs wall length and eave height, its fraction is the house
 float fachwerk(vec2 uv, float seed, bool front, out float win){
   float L = floor(seed/100.0)/10.0, H = mod(floor(seed), 100.0)/10.0, rnd = fract(seed);
@@ -408,11 +415,15 @@ void main(){
   } else if (m == 1 || m == 2){
     float win; float a = fachwerk(vUV, vS, m == 2, win);
     alb = a < 0.3 ? vec3(a*1.05, a*0.92, a*0.82) : vec3(a, a*0.97, a*0.9);
-    if (win > 0.5 && houseState(fract(vS)) > 0.75) emit = vec3(1.0, 0.62, 0.3)*1.2*(0.8 + 0.2*sin(uTime*3.0 + vS));
+    float hs = houseState(fract(vS));
+    if (win > 0.5 && hs > 0.75) emit = vec3(1.0, 0.62, 0.3)*1.2*(0.8 + 0.2*sin(uTime*3.0 + vS));
+    if (hs > 0.4 && hs < 0.6) alb *= 1.0 - scorch(vUV, vS, m == 2);
   } else if (m == 10){
     float win; float a = stoneHouse(vUV, vS, win);
     alb = vec3(a, a*0.97, a*0.92)*0.85;
-    if (win > 0.5 && houseState(fract(vS)) > 0.75) emit = vec3(1.0, 0.62, 0.3)*1.1;
+    float hs = houseState(fract(vS));
+    if (win > 0.5 && hs > 0.75) emit = vec3(1.0, 0.62, 0.3)*1.1;
+    if (hs > 0.4 && hs < 0.6) alb *= 1.0 - scorch(vUV, vS, false);
   } else if (m == 3){
     alb = vec3(0.19, 0.16, 0.13)*(0.85 + 0.3*N3L(vUV + vS*30.0, 0.5));
   } else if (m == 4){
