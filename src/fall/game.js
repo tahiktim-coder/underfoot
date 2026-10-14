@@ -73,7 +73,7 @@ export function createGame(canvas, opts = {}) {
   const S = {
     t: 0, phase: 'calm', pt: 0, cycle: 0,
     player: { x: -12, z: 8, yaw: 0.8, ph: 0, run: 0, seen: 0, lit: false, crouch: 0 },
-    cam: { x: -12, y: 10, z: 8, yaw: Math.PI / 4, pitch: 0.84, hh: 21.6, D: 1500, snap: 1 },
+    cam: { x: -12, y: 10, z: 8, yaw: Math.PI / 4, pitch: 0.84, hh: 26, D: 1500, snap: 1 },
     look: 0, view: null, intro: opts.noIntro ? null : { t: 0 },
     lan: { pos: [-4000, 300, -800], vel: [0, 0, 0], len: 1100, I: 1.5, on: 1 }, dim: 0,
     attn: [TOWN.x, TOWN.z], aim: [TOWN.x, TOWN.z], aimS: [TOWN.x, TOWN.z], aimT: 0, autoLook: 0, trail: [], trailT: 0,
@@ -237,6 +237,18 @@ export function createGame(canvas, opts = {}) {
       }
       if (S.birds.some((b) => !b.fly)) snd.birds(0);
       for (const b of S.birds) if (!b.fly) { b.fly = 0.01; b.hx = (rnd() - 0.5) * 14; b.hz = (rnd() - 0.5) * 14; }
+    }
+  }
+  // chimney smoke: thin grey wisps from a third of the town's chimneys, on their own random numbers so the
+  // game's sequence stays what it was
+  const smokers = houses.filter((H) => H.chimneyTop && townR(H.x, H.z) < 1).filter((_, i) => i % 3 === 0);
+  const srnd = mulberry(77);
+  function updateSmoke(dt) {
+    S.smokeT = (S.smokeT || 0) + dt; S.smokeN = S.smokeN || 0;
+    while (S.smokeT > 0.3 && smokers.length) {
+      S.smokeT -= 0.3;
+      const c = smokers[S.smokeN++ % smokers.length].chimneyTop;
+      R.puff(c[0] + (srnd() - 0.5) * 0.3, c[1], c[2] + (srnd() - 0.5) * 0.3, S.t, 0.3 + srnd() * 0.25, 0.5 + srnd() * 0.25, 0.1 + (srnd() - 0.5) * 0.15, 7 + srnd() * 3, 0.35, 2.4 + srnd() * 1.2, 2);
     }
   }
   function lifted(pl) {
@@ -419,7 +431,7 @@ export function createGame(canvas, opts = {}) {
     const P = S.player, py = standY(P.x, P.z);
     const tp = S.t - S.planEnd;   // seconds since the last plant of the walk in
     const wide = (S.phase === 'approach' || S.phase === 'plant') ? ease((tp + 4.2) / 1.6) * (1 - ease((tp - 3.2) / 1.2)) : 0;
-    const hh = 21.6 * (S.phase === 'search' ? 1.15 : 1) * (1 + wide * 5.6);
+    const hh = 26 * (S.phase === 'search' ? 1.15 : 1) * (1 + wide * 5.6);
     return { x: lerp(P.x, -250, wide * 0.85), y: py + 1, z: lerp(P.z, 0, wide * 0.85), yaw: Math.PI / 4, pitch: 0.84, hh, D: 1500 };
   }
   // eye/target/fov form, for moves between the near-orthographic play camera and real ones
@@ -619,6 +631,7 @@ export function createGame(canvas, opts = {}) {
     S.trailT += dt;
     if (S.trailT >= 0.25) { S.trailT = 0; S.trail.push([S.player.x, S.player.z]); if (S.trail.length > 40) S.trail.shift(); }
     updateStory(dt);
+    updateSmoke(dt);
     updateGiant(dt);
     stepLantern(dt);
     updatePlayer(dt);
@@ -657,7 +670,7 @@ export function createGame(canvas, opts = {}) {
       lantern: { ...ll, I: ll.I * LK.lanI / 1.5 }, lanGlow: LK.light.lanCol,
       lanShaft: ls && S.lan.on > 0 ? { ...ls, strength: (LK.lanShaft ?? 1) * LK.lanI / 1.5 } : null,
       glows,
-      windows: Math.max(LK.winMin, S.windows), prints: S.prints, player: LK.player ? [...LK.player.coat, ...LK.player.hood, ...LK.player.scarf, LK.player.fill || 0, 0, 0] : null,
+      windows: Math.max(LK.winMin, S.windows), prints: S.prints, streetAlb: LK.streetAlb, winPool: LK.winPool, player: LK.player ? [...LK.player.coat, ...LK.player.hood, ...LK.player.scarf, LK.player.fill || 0, 0, 0] : null,
       cloudK: S.cam.hh > 120 ? Math.min(1, (S.cam.hh - 120) / 400) : 0, holeC: [-300, 0], cloudCov: LK.cloudCov,
       cut: S.cam.hh < 60 ? [P.x, standY(P.x, P.z) + 1.2, P.z] : null,
       gCentre: [lerp(G.x, TOWN.x, 0.5), 0, lerp(G.z, TOWN.z, 0.5)],

@@ -1,6 +1,6 @@
 // UNDERFOOT — static geometry. Flat-shaded triangles in world space, sorted into chunks with bounding boxes
 // so each pass draws only what its camera can see. Vertex: position 3, normal 3, material 1, uv 2, seed 1.
-import { NEAR, height, houses, towers, wallSegs, trees, props, CHURCH, HALL, WELL, MILL, BRIDGE, TOWN } from './world.js';
+import { NEAR, height, houses, towers, wallSegs, trees, props, CHURCH, HALL, WELL, MILL, BRIDGE, TOWN, windowKey } from './world.js';
 import { mulberry } from '../lib/noise.js';
 
 export const STRIDE = 10;
@@ -80,7 +80,7 @@ function house(A, H) {
   box(A, P, -hw - 0.15, -0.8, -hd - 0.15, hw + 0.15, plinth, hd + 0.15, M.STONE, H.seed);
   const floor = plinth + 2.5, top = plinth + h - 0.4;
   const wallM = H.stone || H.barn ? M.STONE_HOUSE : M.PLASTER, frontM = H.stone || H.barn ? M.STONE_HOUSE : M.PLASTER_FRONT;
-  const enc = (L, hh) => Math.floor(L * 10) * 100 + Math.floor(hh * 10) + H.seed * 0.98;
+  const enc = (L, hh) => Math.floor(L * 10) * 100 + Math.floor(hh * 10) + windowKey(H.seed);
   const jet = H.jetty && !H.stone ? 0.4 : 0;
   const wallBox = (y0, y1, zf, zb, fM) => {
     const c = P(0, (y0 + y1) / 2, (zf + zb) / 2), D = zf - zb, hh = top - plinth;

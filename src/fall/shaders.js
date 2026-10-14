@@ -116,7 +116,9 @@ precision highp float;
 in vec3 vP; in vec3 vN; flat in float vM; in vec2 vUV; flat in float vS; in vec3 vT; in vec3 vTN;
 layout(location=0) out vec4 o;
 ${COMMON}
-uniform sampler2D uNearMap, uFarMap;
+uniform sampler2D uNearMap, uFarMap, uPoolMap;
+uniform float uStreetAlb;      // the streets' albedo (the look lifts it under moonlight)
+uniform float uWinPool;        // how much light the lit windows throw on the ground
 uniform highp sampler2DShadow uShadow, uGShadow, uLtShadow;
 uniform mat4 uLVP, uGVP, uLtVP;
 uniform vec2 uShTexel, uGShTexel, uLtTexel;
@@ -337,7 +339,12 @@ void main(){
     if (street > 0.01){
       vec2 c = fract(P.xz*vec2(2.2, 2.9)), ci = floor(P.xz*vec2(2.2, 2.9));
       float cob = (0.9 + 0.15*hash2(ci))*(1.0 - 0.3*step(0.86, max(c.x, c.y))*lodF(0.4));
-      alb = mix(alb, vec3(0.55, 0.53, 0.5)*cob, street);
+      alb = mix(alb, vec3(1.0, 0.96, 0.9)*uStreetAlb*cob, street);
+    }
+    // warm pools on the ground under the windows that are still lit
+    if (nearIn && uWinPool > 0.0){
+      vec2 wp = texture(uPoolMap, gN).rg;
+      emit += alb*vec3(1.0, 0.62, 0.3)*wp.g*wp.g*step(wp.r, uWin + 0.004)*uWinPool*0.2;
     }
     // rock on steep ground and on the mountains, snow on the peaks
     float steep = 1.0 - n.y;
@@ -371,11 +378,11 @@ void main(){
   } else if (m == 1 || m == 2){
     float win; float a = fachwerk(vUV, vS, m == 2, win);
     alb = a < 0.3 ? vec3(a*1.05, a*0.92, a*0.82) : vec3(a, a*0.97, a*0.9);
-    if (win > 0.5 && hash(fract(vS)*91.7) < uWin) emit = vec3(1.0, 0.62, 0.3)*1.2*(0.8 + 0.2*sin(uTime*3.0 + vS));
+    if (win > 0.5 && fract(vS) < uWin + 0.004) emit = vec3(1.0, 0.62, 0.3)*1.2*(0.8 + 0.2*sin(uTime*3.0 + vS));
   } else if (m == 10){
     float win; float a = stoneHouse(vUV, vS, win);
     alb = vec3(a, a*0.97, a*0.92)*0.85;
-    if (win > 0.5 && hash(fract(vS)*91.7) < uWin) emit = vec3(1.0, 0.62, 0.3)*1.1;
+    if (win > 0.5 && fract(vS) < uWin + 0.004) emit = vec3(1.0, 0.62, 0.3)*1.1;
   } else if (m == 3){
     alb = vec3(0.19, 0.16, 0.13)*(0.85 + 0.3*N3L(vUV + vS*30.0, 0.5));
   } else if (m == 4){
@@ -564,7 +571,8 @@ void main(){
   if (uIsGiant > 0.5){
     // the lantern lights it from below as a point light (no shadow): the forearm, the chest, the
     // underside of the helm and the face go amber while it searches
-    if (uLan.w > 0.0){ vec3 ld = uLan.xyz - P; float dl = length(ld); col += alb*uLanCol*uLan.w*0.45*max(dot(n, ld/dl), 0.0)/(1.0 + (dl/900.0)*(dl/900.0)); }
+    // (weighted toward the upper body: the boots stand next to the lantern and would go solid amber)
+    if (uLan.w > 0.0){ vec3 ld = uLan.xyz - P; float dl = length(ld); col += alb*uLanCol*uLan.w*0.5*(0.12 + 0.88*smoothstep(300.0, 1500.0, T.y))*max(dot(n, ld/dl), 0.0)/(1.0 + (dl/1400.0)*(dl/1400.0)); }
     vec3 vd = normalize(P - uCam);
     float rim = pow(1.0 - abs(dot(n, vd)), 7.0)*smoothstep(0.2, 0.8, dot(vd, uSun));
     col += uSunCol*rim*0.7*cloudShadow(P);
@@ -680,7 +688,7 @@ out vec2 vC; out float vT; flat out vec4 vK; out vec3 vW;
 void main(){
   float t = uTime - iA.w, u = t/iB.w;
   int k = int(iC.w + 0.5);
-  vec3 p = iA.xyz + iB.xyz*(k == 1 ? t : (1.0 - exp(-t*0.9))/0.9);
+  vec3 p = iA.xyz + iB.xyz*(k == 0 ? (1.0 - exp(-t*0.9))/0.9 : t);
   if (k == 1) p.y -= 4.9*t*t;           // falling clod
   float r = mix(iC.x, iC.y, k == 1 ? 0.0 : 1.0 - pow(1.0 - clamp(u, 0.0, 1.0), 2.5));
   bool gone = u < 0.0 || u > 1.0 || r > uHH*1.5;
@@ -700,6 +708,7 @@ void main(){
   if (k == 1){ if (d > 1.0) discard; o = toneOut(fogged(vec3(0.05, 0.045, 0.04), vW)); return; }
   float a = (1.0 - d*d)*(0.55 + 0.6*n2(vC*0.3 + vK.z*17.0 + vT*0.3));
   a *= smoothstep(0.0, 0.06, vT)*(1.0 - smoothstep(0.45, 1.0, vT));
+  if (k == 2) a *= 0.6;                 // smoke: thinner
   if (a < bayerF(gl_FragCoord.xy) || d > 1.0) discard;
   vec3 nrm = normalize(vec3(vC, 0.6));
   vec3 col = vec3(0.42, 0.39, 0.35)*(uSkyCol*0.9 + uSunCol*0.35*(0.5 + 0.5*vC.y));

@@ -35,6 +35,7 @@ export const LOOKS = {
     chroma: [0.035, 0.1], contrast: 1.15, dither: 0, bloom: 0.55, stars: 1, sunSize: 3.2, sunDisc: 2.4, snow: 0,
     ash: { amount: 0.35, lum: 0.12, fall: 0.7 }, grain: 0.03, vignette: 0.35, tilt: 0, winMin: 0.4, lanI: 2.1, cloudCov: -0.04,
     player: { coat: [0.55, 0.58, 0.66], hood: [0.42, 0.45, 0.54], scarf: [0.95, 0.48, 0.18], fill: 0.32 },
+    streetAlb: 0.82, winPool: 1,
     ui: { text: '#a9b4c6', dim: '#6d7b94', accent: '#f2bd62', title: '#a9b4c6', sub: '#a9b4c6', plate: 'rgba(6,7,11,0.85)', edge: '#334058' },
   },
 

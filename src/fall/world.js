@@ -103,13 +103,17 @@ export function streetDist(x, z) {
   return Math.min(d, sq);
 }
 
-export const CHURCH = { x: 22, z: -36, w: 12, d: 28, rot: 0, towerH: 34 };
+export const CHURCH = { x: 22, z: -36, w: 12, d: 28, rot: 0, towerH: 50 };
 export const HALL = { x: SQUARE.x - 4, z: SQUARE.z + 3, w: 13, d: 8, rot: 0 };   // open market hall on posts: cover
 export const WELL = { x: SQUARE.x + 9, z: SQUARE.z - 6 };
 export const MILL = { x: -210, z: 40 };
 
 // buildings: oriented boxes {x, z, w, d, h, rot, ...}; rot turns local +z (front) toward the street
 export const houses = [];
+// each house's window key: its windows are lit while the key is under the share of windows still lit. In
+// hundredths (0.01 to 0.97) so it survives the float32 seed attribute the walls carry it in.
+const hashF = (n) => { const v = Math.sin(n) * 43758.5453; return v - Math.floor(v); };
+export const windowKey = (seed) => (Math.floor(hashF(seed * 91.7) * 97) + 1) / 100;
 export const towers = [];
 export const wallSegs = [];
 const R = mulberry(1213);
