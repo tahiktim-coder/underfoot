@@ -40,7 +40,7 @@ const DIP_OUT = 0.12, DIP_IN = 0.2;   // the quick dip to dark on a camera cut
 const LAN = 40, LAN_Y = 70;   // the lantern's size, and how high its ring rides over the ground while it searches
 const SHADOW_DRAIN = 0.3;     // how fast the eye empties per second in deep shadow
 const OFF_PERIOD = 36;        // seconds for the lantern to drift from low to nearly overhead and back
-const LOST_AFTER = 6;         // seconds without a sight of you before the light goes looking for other lights
+const LOST_AFTER = 6;         // seconds without a sight of you (at least; the night's check delay if longer) before the light goes looking for other lights
 const TAKE_LIT = 1.2;         // seconds the light must hold a townsperson before it narrows on them
 const TITLE_LOOP = 14;        // the title's slow push repeats every this many seconds until you begin
 const CARD_HOLD = 7;          // a night card moves on by itself after this long
@@ -388,7 +388,7 @@ export function createGame(canvas, opts = {}) {
       // are not in sight). While it takes someone or something it holds on them.
       const curious = S.people.some((p) => p.state === 'out' && p.mode === 'curious');
       const onYou = P.seen > 0.3 || P.lit;
-      const lu = !onYou && (S.lostT > LOST_AFTER || curious || (S.pt > NT.check && S.pt > S.nextCheck)) ? lure() : null;
+      const lu = !onYou && (curious || (S.lostT > Math.max(LOST_AFTER, NT.check) && S.pt > S.nextCheck)) ? lure() : null;
       if (lu && lu.house && !S.take && Math.hypot(lu.pos[0] - S.attn[0], lu.pos[1] - S.attn[1]) < 5) takeHouse(lu.house);
       const want = S.take ? S.take.pos : onYou ? [P.x, P.z] : lu ? lu.pos : back;
       const dx = want[0] - S.attn[0], dz = want[1] - S.attn[1], dd = Math.hypot(dx, dz), stepM = Math.min(dd, (S.take ? 6.5 : P.seen > 0.3 ? NT.hunt : NT.walk) * dt);
@@ -481,7 +481,7 @@ export function createGame(canvas, opts = {}) {
         if (p) { p.state = 'taken'; R.stain(p.x, p.z, 1.4, rnd); S.stains.push([p.x, p.z]); }
         if (H) { HM.take(H); R.stain(H.door[0], H.door[1], 0.9, rnd); S.stains.push(H.door.slice()); }
       }
-      if (T.t > 2.4) { S.take = null; S.lostT = 0; S.nextCheck = S.pt + 3; }
+      if (T.t > 2.4) { S.take = null; S.lostT = 0; S.nextCheck = S.pt + NT.check; }
     }
   }
   // what draws the light when it has lost you: the nearest candle in the street or lit window (the curious
