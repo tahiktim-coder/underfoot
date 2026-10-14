@@ -102,13 +102,6 @@ export function createSound() {
       s.connect(bp); bp.connect(g); g.connect(o); s.start(t); v.start(t); s.stop(t + 3); v.stop(t + 3);
       burst(white, t + 0.8, 0.4, 2.8, 0.12 * k, o, 'lowpass', 700, 0.7, 250);
     },
-    // a light put out: a breath and a wick's hiss
-    blow(pan) {
-      if (!ctx) return;
-      const t = now(), o = out(pan * 0.6, 1800);
-      burst(white, t, 0.12, 0.35, 0.16, o, 'lowpass', 900, 0.7, 300);
-      burst(white, t + 0.2, 0.02, 0.3, 0.05, o, 'bandpass', 4200, 2);
-    },
     // someone is taken: a short dry pop and a hiss going out
     pop(pan) {
       if (!ctx) return;

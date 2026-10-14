@@ -43,8 +43,7 @@ h2 em { font-style: italic; color: var(--muted); font-size: .55em; margin-left: 
 .bar button:hover { color: var(--text); }
 .bar button[aria-pressed="true"] { color: var(--ground); background: var(--text); border-color: var(--text); }
 .bar #lookBtn { color: var(--ground); background: var(--amber); border-color: var(--amber); }
-.bar #lookBtn.held, .bar #actBtn.held { background: var(--text); border-color: var(--text); }
-.bar #actBtn { color: var(--amber); border-color: var(--amber); }
+.bar #lookBtn.held { background: var(--text); border-color: var(--text); }
 button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .lookbar { display: flex; flex-wrap: wrap; gap: 6px; }
 .lookbar button { display: inline-flex; align-items: center; gap: 8px; font: 600 12px/1 var(--mono); letter-spacing: .04em; color: var(--muted); background: var(--panel); border: 1px solid var(--rule); padding: 9px 11px; cursor: pointer; min-height: 40px; }
@@ -93,7 +92,6 @@ footer p { margin: 0; max-width: 92ch; }
     <div class="screen" id="fallBox"><canvas id="fall" tabindex="0" aria-label="Underfoot. A walled medieval hill town seen from above, grey and dusty. A giant in old iron armour with a sculpted iron face, nearly three kilometres tall, walks the valley with a lantern on a chain. When it stops beside the town, the lantern hangs over the roofs and its light follows you through the streets."></canvas><div class="msg" id="fallMsg" hidden></div></div>
     <div class="bar">
       <button id="lookBtn" type="button">Hold to look up</button>
-      <button id="actBtn" type="button">Hold to put out</button>
       <button id="soundBtn" type="button" aria-pressed="false">Sound</button>
       <span class="lbl" data-debug hidden>Jump to</span>
       <button type="button" data-go="approach" data-debug hidden>It comes</button>
@@ -101,7 +99,7 @@ footer p { margin: 0; max-width: 92ch; }
       <button type="button" data-go="caught" data-debug hidden>It finds you</button>
       <button type="button" data-go="leave" data-debug hidden>It passes</button>
     </div>
-    <p class="keys"><span class="desk"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrows to walk, or hold the mouse where you want to go. Hold <kbd>L</kbd> or the right button to look up. Hold the mouse on a lit house, or <kbd>E</kbd> at its door, to put its light out. <kbd>Space</kbd>, <kbd>Enter</kbd> or a click begins. <kbd>M</kbd> for sound. </span><span class="touch">Drag on the picture to walk. Hold a finger on a lit house to put its light out. Hold the amber buttons to look up and to put a light out. </span>Until you begin, the town plays itself.</p>
+    <p class="keys"><span class="desk"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrows to walk, or hold the mouse where you want to go. Hold <kbd>L</kbd> or the right button to look up. <kbd>Space</kbd>, <kbd>Enter</kbd> or a click begins. <kbd>M</kbd> for sound. </span><span class="touch">Drag on the picture to walk. Hold the amber button to look up. </span>Until you begin, the town plays itself.</p>
     <div class="cols">
       <div class="note"><h3 class="move">The decision</h3><p>The light is the whole game. It is held to one side and comes in at about 45°, so every house throws a long shadow, and the shadows swing as the lantern moves. It walks your trail about three seconds behind you, so it is always close. The scale is never shown all at once: you see its boots, its chain and its light, and the whole of it only when you look up, or when it finds you and the camera climbs from the roofs to its face.</p></div>
       <div class="note"><h3>How it's made</h3><ul>

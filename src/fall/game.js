@@ -42,8 +42,6 @@ const SHADOW_DRAIN = 0.3;     // how fast the eye empties per second in deep sha
 const OFF_PERIOD = 36;        // seconds for the lantern to drift from low to nearly overhead and back
 const LOST_AFTER = 6;         // seconds without a sight of you before the light goes looking for other lights
 const TAKE_LIT = 1.2;         // seconds the light must hold a townsperson before it narrows on them
-const DOOR_REACH = 2.6;       // how close to a door you must stand to put its light out
-const PUT_OUT = 1.0;          // seconds the action key is held to put a light out
 const TITLE_LOOP = 14;        // the title's slow push repeats every this many seconds until you begin
 const CARD_HOLD = 7;          // a night card moves on by itself after this long
 const PUFF_KEEP_OUT = 150;    // no footfall dust ring spawns closer to you than this (metres)
@@ -91,14 +89,14 @@ export function createGame(canvas, opts = {}) {
     attn: [TOWN.x, TOWN.z], aim: [TOWN.x, TOWN.z], aimS: [TOWN.x, TOWN.z], aimT: 0, autoLook: 0, trail: [], trailT: 0, lanOff: 48,
     camMode: 'play', dipT: -1, dipTo: null, lookT: 0,
     plan: [], lastPlant: -1, planEnd: 0, shake: 0, windows: 0.65, prints: new Float32Array(24), nPrint: 0,
-    fade: 0, flash: 0, eye: 1, input: { x: 0, y: 0, look: false, act: false }, idle: 99, auto: true, hint: 1,
+    fade: 0, flash: 0, eye: 1, input: { x: 0, y: 0, look: false }, idle: 99, auto: true, hint: 1,
     birds: [], stats: { caught: 0, passed: 0 },
     // the run: which night, whether anyone has begun (until then the town plays itself under the title),
     // the card between nights, what this night and the whole run saved and lost
     night: firstNight, played: false, card: null, retry: false, run: { saved: 0, taken: 0 }, nightStats: { saved: 0, taken: 0 },
     // how much chimney smoke is up, how many doors have slammed tonight, the light you are putting out,
     // when the lantern next goes to check a lit window
-    smokeLevel: 1, slams: 0, act: null, nextCheck: 0, hintAct: 0,
+    smokeLevel: 1, slams: 0, nextCheck: 0,
     // the townspeople out tonight, the one the light is taking, how long since it last saw you, every stain
     people: [], take: null, lostT: 0, spawned: 0, stains: [],
   };
@@ -115,7 +113,7 @@ export function createGame(canvas, opts = {}) {
       const P = S.player, a = Math.atan2(TOWN.z - P.z, TOWN.x - P.x) + (rnd() - 0.5) * 1.2;
       S.attn = [P.x + Math.cos(a) * 48, P.z + Math.sin(a) * 48]; S.aim = S.attn.slice(); S.aimS = S.attn.slice(); S.aimT = 3;
       AP.t = 0; AP.goal = null;
-      S.people = []; S.spawned = 0; S.take = null; S.act = null; S.lostT = 0; S.nextCheck = 0;
+      S.people = []; S.spawned = 0; S.take = null; S.lostT = 0; S.nextCheck = 0;
     }
     if (p === 'caught') { snd.caught(); S.hitDone = false; S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.aim = [S.player.x, S.player.z]; }
   }
@@ -192,7 +190,7 @@ export function createGame(canvas, opts = {}) {
   // ---------------------------------------------------------------------------------- input
   // keys are read on the window, by position (e.code), so any layout works and nothing has to be focused
   const keys = new Set();
-  const KEYMAP = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', KeyL: 'look', KeyE: 'act', Space: 'act', Enter: 'enter' };
+  const KEYMAP = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', KeyL: 'look', Space: 'go', Enter: 'go' };
   const typing = (e) => e.target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName);
   const onKey = (e, down) => {
     if (typing(e)) return;
@@ -200,7 +198,7 @@ export function createGame(canvas, opts = {}) {
     const k = KEYMAP[e.code];
     if (!k) { if (down && !e.repeat) gesture('key'); return; }
     e.preventDefault();
-    if (down) { if (!e.repeat && gesture(k === 'act' || k === 'enter' ? 'go' : 'key')) return; keys.add(k); } else keys.delete(k);
+    if (down) { if (!e.repeat && gesture(k === 'go' ? 'go' : 'key')) return; keys.add(k); } else keys.delete(k);
     S.idle = 0; if (S.played) S.auto = false;
   };
   window.addEventListener('keydown', (e) => onKey(e, true));
@@ -213,23 +211,8 @@ export function createGame(canvas, opts = {}) {
     if (gesture('go')) return;
     try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
     if (e.button === 2) { S.lookHeld = true; return; }
-    ptr = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, touch: e.pointerType === 'touch', house: null };
-    // pressed on a lit house: hold, and you walk to its door and put its light out (the whole game on a mouse)
-    const r = canvas.getBoundingClientRect();
-    ptr.house = houseAt(((e.clientX - r.left) / r.width) * VW, ((e.clientY - r.top) / r.height) * VH);
+    ptr = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, touch: e.pointerType === 'touch' };
   });
-  // the lit house under a screen point (low-res pixels): inside its footprint, or within a few pixels of its door
-  function houseAt(sx, sy) {
-    if (!(S.phase === 'search' || S.phase === 'plant') || S.card) return null;
-    const ppm = VH / (2 * S.cam.hh);
-    let best = null, bd = 1;
-    for (const H of HM.targets()) {
-      const c = R.project([H.x, standY(H.x, H.z) + H.h * 0.5, H.z]), d = R.project([H.door[0], standY(H.door[0], H.door[1]) + 1, H.door[1]]);
-      const m = Math.min(Math.hypot(c[0] - sx, c[1] - sy) / (Math.max(H.w, H.d) * 0.55 * ppm + 4), Math.hypot(d[0] - sx, d[1] - sy) / 10);
-      if (m < bd) { bd = m; best = H; }
-    }
-    return best;
-  }
   canvas.addEventListener('pointermove', (e) => { if (ptr && e.pointerId === ptr.id) { ptr.x = e.clientX; ptr.y = e.clientY; } });
   const up = (e) => { if (e.button === 2 || !(e.buttons & 2)) S.lookHeld = false; if (ptr && e.pointerId === ptr.id) ptr = null; };
   canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up); canvas.addEventListener('lostpointercapture', up);
@@ -240,14 +223,7 @@ export function createGame(canvas, opts = {}) {
     if (keys.has('right')) x += 1;
     if (keys.has('up')) y += 1;
     if (keys.has('down')) y -= 1;
-    let actPtr = false;
-    if (ptr && ptr.house && (ptr.house.state !== 'lit' || Math.hypot(ptr.x - ptr.x0, ptr.y - ptr.y0) > (ptr.touch ? 10 : 24))) ptr.house = null;
-    if (ptr && ptr.house && !S.card) {
-      // walking to the house's door; there, holding is the action
-      const H = ptr.house, dx = H.door[0] - S.player.x, dz = H.door[1] - S.player.z, d = Math.hypot(dx, dz);
-      if (d > DOOR_REACH * 0.6) { const yaw = Math.PI / 4, rx = Math.cos(yaw), rz = -Math.sin(yaw), fx = -Math.sin(yaw), fz = -Math.cos(yaw); x += (dx * rx + dz * rz) / d; y += (dx * fx + dz * fz) / d; }
-      else actPtr = true;
-    } else if (ptr && !S.card) {
+    if (ptr && !S.card) {
       const r = canvas.getBoundingClientRect();
       let dx, dy;
       if (ptr.touch) { dx = ptr.x - ptr.x0; dy = ptr.y - ptr.y0; const m = Math.hypot(dx, dy); if (m < 8) { dx = 0; dy = 0; } else { const k = Math.min(1, m / 40) / m; dx *= k; dy *= k; } }
@@ -262,7 +238,6 @@ export function createGame(canvas, opts = {}) {
     const m = Math.hypot(x, y); if (m > 1) { x /= m; y /= m; }
     S.input.x = x; S.input.y = y;
     S.input.look = keys.has('look') || !!S.lookHeld || !!S.lookButton;
-    S.input.act = keys.has('act') || !!S.actButton || actPtr;
   }
 
   // ---------------------------------------------------------------------------------- the lantern
@@ -484,9 +459,8 @@ export function createGame(canvas, opts = {}) {
   // and looks up. Later nights: bad hiders, out from the start. One the light holds for a moment is taken:
   // the beam narrows on them, a flash, a pop, and a stain where they stood.
   function updatePeople(dt) {
-    if (S.phase !== 'search') { if (S.phase !== 'caught') S.people = S.people.filter((p) => p.state === 'out' && S.phase === 'plant'); S.take = null; S.act = null; if (S.phase === 'plant') updateAct(dt); return; }
+    if (S.phase !== 'search') { if (S.phase !== 'caught') S.people = S.people.filter((p) => p.state === 'out' && S.phase === 'plant'); S.take = null; return; }
     const want = NT.people, at = S.night === 1 ? 5 : 1.5;
-    updateAct(dt);
     if (S.pt > at && S.spawned < want && (S.spawned === 0 || S.pt > at + S.spawned * 1.5)) {
       S.people.push(spawnPerson(S.night === 1 ? 'curious' : 'hider', rnd, [S.player.x, S.player.z])); S.spawned++;
     }
@@ -505,7 +479,7 @@ export function createGame(canvas, opts = {}) {
       if (T.t >= 1.0 && !T.done) {
         T.done = true; S.flash = Math.max(S.flash, 0.8); snd.pop(panOf(T.pos[0], T.pos[1]));
         if (p) { p.state = 'taken'; R.stain(p.x, p.z, 1.4, rnd); S.stains.push([p.x, p.z]); }
-        if (H) { HM.take(H); S.nightStats.taken++; R.stain(H.door[0], H.door[1], 0.9, rnd); S.stains.push(H.door.slice()); if (S.act && S.act.house === H) S.act = null; }
+        if (H) { HM.take(H); R.stain(H.door[0], H.door[1], 0.9, rnd); S.stains.push(H.door.slice()); }
       }
       if (T.t > 2.4) { S.take = null; S.lostT = 0; S.nextCheck = S.pt + 3; }
     }
@@ -520,17 +494,6 @@ export function createGame(canvas, opts = {}) {
   }
   // the light reaches a lit window: it narrows on the house, a flash, the window dies, the house is taken
   function takeHouse(H) { S.take = { house: H, pos: H.door, t: 0 }; }
-  // you at a lit door, holding the action key: after a second the window goes out and the house is saved
-  function updateAct(dt) {
-    const P = S.player, can = (S.phase === 'search' || S.phase === 'plant') && !S.card;
-    const n = can ? HM.nearest(P.x, P.z) : null, at = n && n.d < DOOR_REACH ? n.house : null;
-    if (at && S.hintAct < 1 && !S.act) S.hintAct = 0.01;
-    if (S.hintAct > 0 && S.hintAct < 1) S.hintAct = Math.min(1, S.hintAct + dt / 5);
-    if (!at || !S.input.act) { S.act = null; return; }
-    if (!S.act || S.act.house !== at) S.act = { house: at, t: 0 };
-    S.act.t += dt;
-    if (S.act.t >= PUT_OUT) { HM.save(at); S.nightStats.saved++; snd.blow(panOf(at.door[0], at.door[1])); S.act = null; }
-  }
   // ---------------------------------------------------------------------------------- the story
   function updateStory(dt) {
     S.pt += dt;
@@ -735,18 +698,6 @@ export function createGame(canvas, opts = {}) {
       plate(8, VH - 30, Math.max(measureWisp(h1), measureWisp(h2)) + 12, 25);
       drawWisp(h1, 14, VH - 26, plot(C.dim)); drawWisp(h2, 14, VH - 16, plot(C.dim));
       ctx.globalAlpha = 1;
-    }
-    // at a lit door: the first time, what to do; while you hold the key, how far along you are
-    if (S.hintAct > 0 && S.hintAct < 1 && !S.card) {
-      ctx.globalAlpha = Math.min(1, S.hintAct * 8) * (1 - ease((S.hintAct - 0.75) / 0.25));
-      const h1 = 'Put out the light:', h2 = 'hold E, or hold the mouse on the house', w = Math.max(measureWisp(h1), measureWisp(h2)) + 12;
-      plate(Math.round((VW - w) / 2), VH - 72, w, 25);
-      drawWisp(h1, Math.round((VW - measureWisp(h1)) / 2), VH - 68, plot(C.accent)); drawWisp(h2, Math.round((VW - measureWisp(h2)) / 2), VH - 58, plot(C.dim));
-      ctx.globalAlpha = 1;
-    }
-    if (S.act) {
-      const pp = R.project([S.player.x, standY(S.player.x, S.player.z) + 2.6, S.player.z]);
-      if (pp[2]) { const x = Math.round(pp[0]) - 8, y = Math.round(pp[1]); plate(x, y - 2, 17, 5); ctx.fillStyle = C.accent; ctx.fillRect(x + 1, y - 1, Math.round(15 * clamp(S.act.t / PUT_OUT)), 3); }
     }
     if (S.intro) {
       // the title: the name, the line, the rule, and the prompt that waits for you

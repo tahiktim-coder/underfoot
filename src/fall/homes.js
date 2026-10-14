@@ -1,7 +1,7 @@
-// UNDERFOOT — the houses through a night. Each house is lit (someone home, windows lit), dark, saved (you
-// put its light out) or taken (the light found it: dark, with a scorch, for the rest of the run). The
-// shader gets one byte per house. The night's stragglers are the lit houses the giant's coming did not
-// put out; they are what the lantern is drawn to and what you can save.
+// UNDERFOOT — the houses through a night. Each house is lit (someone home, windows lit), dark, or taken (the
+// light found it: dark, with a scorch, for the rest of the run). The shader gets one byte per house. The
+// night's stragglers are the lit houses the giant's coming did not put out; they are what the lantern is
+// drawn to when it has lost you.
 import { houses, HOUSE_SLOTS } from './world.js';
 
 export function createHomes(rnd) {
@@ -12,7 +12,7 @@ export function createHomes(rnd) {
   const HM = {
     bytes: new Uint8Array(HOUSE_SLOTS), stragglers: new Set(), relightT: 0,
     lit: () => houses.filter((H) => H.state === 'lit'),
-    // the stragglers you can still save: lit, inside the walls
+    // the stragglers still lit inside the walls: what the lantern is drawn to
     targets: () => houses.filter((H) => H.state === 'lit' && H.inTown && HM.stragglers.has(H.i)),
     sync() { for (const H of houses) HM.bytes[H.i] = H.state === 'lit' ? 255 : H.state === 'taken' ? 128 : 0; },
     // the N who did not hide: lit windows spread across the town, chosen when it starts to come
@@ -43,16 +43,9 @@ export function createHomes(rnd) {
       HM.relightT += dt;
       if (HM.relightT < 0.8) return;
       HM.relightT = 0;
-      const H = relightOrder.find((Q) => Q.state === 'dark' || Q.state === 'saved');
+      const H = relightOrder.find((Q) => Q.state === 'dark');
       if (H) H.state = 'lit';
     },
-    // the nearest house you could still save, and whether you are at its door
-    nearest(x, z) {
-      let best = null, bd = 1e9;
-      for (const H of HM.targets()) { const d = Math.hypot(H.door[0] - x, H.door[1] - z); if (d < bd) { bd = d; best = H; } }
-      return best ? { house: best, d: bd } : null;
-    },
-    save(H) { if (H.state === 'lit') H.state = 'saved'; },
     take(H) { H.state = 'taken'; },
   };
   return HM;

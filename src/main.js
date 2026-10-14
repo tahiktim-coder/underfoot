@@ -124,13 +124,6 @@ function boot() {
     lb.addEventListener('keyup', (e) => { if (e.key === ' ' || e.key === 'Enter') off(); });
     lb.addEventListener('contextmenu', (e) => e.preventDefault());
   }
-  const ab = $('actBtn');
-  if (ab) {
-    const on = (e) => { e.preventDefault(); game.snd.init(); syncSound(); game.S.actButton = true; game.S.idle = 0; game.S.auto = false; ab.classList.add('held'); };
-    const off = () => { game.S.actButton = false; ab.classList.remove('held'); };
-    ab.addEventListener('pointerdown', on); ab.addEventListener('pointerup', off); ab.addEventListener('pointerleave', off); ab.addEventListener('pointercancel', off);
-    ab.addEventListener('contextmenu', (e) => e.preventDefault());
-  }
   // sound: starts with the first touch of the picture; the button shows and flips it
   const sb = $('soundBtn');
   function syncSound() { if (sb) sb.setAttribute('aria-pressed', game.snd.on ? 'true' : 'false'); }
