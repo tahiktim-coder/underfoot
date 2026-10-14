@@ -1,0 +1,324 @@
+// UNDERFOOT — the world. A walled hill town in a wide valley, a river round its south side, fields, woods,
+// and mountains far off. Metres, y up. The camera looks toward -x -z, so -x is the top left of the screen
+// and +x +z comes toward you. The giant comes in from -x, with the low sun behind it.
+import { makeNoise, mulberry, clamp, smooth } from '../lib/noise.js';
+
+export const NEAR = 256;        // the detailed square (±256 m) around the town
+export const FAR = 9000;        // the whole valley (±9 km)
+const N = makeNoise(7), N2 = makeNoise(31);
+
+// ---- the river: a centreline z(x), about 80 m south of the square
+export function riverZ(x) { return 82 + 60 * (Math.sin(x / 400 + 0.3) - Math.sin(0.3)) + 25 * Math.sin(x / 170) + 140 * smooth(600, 3000, Math.abs(x)) * Math.sign(x) * 0.6; }
+export function riverDist(x, z) {
+  const z0 = riverZ(x), d = (riverZ(x + 2) - riverZ(x - 2)) / 4;
+  return Math.abs(z - z0) / Math.sqrt(1 + d * d);
+}
+export const RIVER_W = 9; // half width
+
+// ---- the town: centre, wall ellipse
+export const TOWN = { x: -4, z: -6, rx: 74, rz: 66 };
+export function townR(x, z) { const dx = (x - TOWN.x) / TOWN.rx, dz = (z - TOWN.z) / TOWN.rz; return Math.hypot(dx, dz); }
+
+// ridged noise for the mountains
+const ridge = (x, z) => { let s = 0, a = 0.5, f = 1, n = 0; for (let i = 0; i < 5; i++) { const v = 1 - Math.abs(N2.n2(x * f + i * 7.1, z * f - i * 3.3) * 2 - 1); s += a * v * v; n += a; a *= 0.5; f *= 2.1; } return s / n; };
+
+export function height(x, z) {
+  // valley floor: slow swells
+  let h = (N.fbm(x / 1300, z / 1300, 4) - 0.5) * 46 + (N.fbm(x / 260 + 40, z / 260 - 13, 3) - 0.5) * 9;
+  // the town hill
+  const r = Math.hypot(x - TOWN.x - 8, z - TOWN.z + 4);
+  h += 12 * Math.exp(-((r / 105) ** 2));
+  // a rise to the west for the windmill
+  h += 9 * Math.exp(-((Math.hypot(x + 210, z - 40) / 70) ** 2));
+  // mountains far off: a ring that starts at ~3 km, warped
+  const R = Math.hypot(x * 0.9, z * 1.1) + (N.fbm(x / 3000 + 9, z / 3000 - 4, 3) - 0.5) * 2600;
+  const m = smooth(2600, 7200, R);
+  if (m > 0) h += m * (180 + 1500 * ridge(x / 2600, z / 2600)) + m * m * 400;
+  // the river channel and its flat banks
+  const d = riverDist(x, z);
+  if (d < 60) {
+    const bed = -4.2;
+    const bank = smooth(RIVER_W - 1, RIVER_W + 9, d);
+    const flat = smooth(14, 60, d);
+    const hb = h * flat + (1 - flat) * Math.min(h, 2.5);
+    h = bed * (1 - bank) + hb * bank;
+  }
+  return h;
+}
+export function normalAt(x, z, e = 1) {
+  const dx = (height(x + e, z) - height(x - e, z)) / (2 * e), dz = (height(x, z + e) - height(x, z - e)) / (2 * e);
+  const l = Math.hypot(dx, 1, dz); return [-dx / l, 1 / l, -dz / l];
+}
+
+// ---- roads (polylines). The west road leaves the west gate for the hills; the east road crosses the bridge.
+export const GATE_W = { x: TOWN.x - TOWN.rx, z: TOWN.z + 4 };
+export const GATE_E = { x: TOWN.x + TOWN.rx * 0.94, z: TOWN.z + 22 };
+export const BRIDGE = { x: 70, z: 0, rot: 0 };
+{
+  // the bridge sits where the east road meets the river
+  const bx = 92; BRIDGE.x = bx; BRIDGE.z = riverZ(bx);
+  const d = (riverZ(bx + 2) - riverZ(bx - 2)) / 4; BRIDGE.rot = Math.atan2(-d, 1); // local +z runs across the river
+}
+export const ROADS = [
+  [[GATE_W.x + 6, GATE_W.z], [GATE_W.x - 30, GATE_W.z + 6], [-160, 30], [-205, 30], [-300, 10], [-520, -40], [-900, -60], [-1500, -10], [-2600, 120]],
+  [[GATE_E.x - 6, GATE_E.z], [GATE_E.x + 10, GATE_E.z + 6], [BRIDGE.x - 6, BRIDGE.z - 26], [BRIDGE.x, BRIDGE.z], [BRIDGE.x + 8, BRIDGE.z + 30], [170, 220], [320, 420], [700, 760], [1400, 1200], [2600, 1800]],
+  // a track north to the woods
+  [[TOWN.x - 4, TOWN.z - TOWN.rz + 4], [-20, -110], [-60, -190], [-90, -320], [-60, -520]],
+];
+export function segDist(px, pz, a, b) {
+  const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
+  const t = clamp(((px - a[0]) * dx + (pz - a[1]) * dz) / L2);
+  return Math.hypot(px - a[0] - dx * t, pz - a[1] - dz * t);
+}
+export function roadDist(x, z) { let d = 1e9; for (const R of ROADS) for (let i = 0; i < R.length - 1; i++) d = Math.min(d, segDist(x, z, R[i], R[i + 1])); return d; }
+
+// ---- woods: a noise field, thicker on the hills, never on roads, river or fields near the walls
+export function forest(x, z) {
+  const r = Math.hypot(x, z);
+  let f = N.fbm(x / 520 + 3, z / 520 - 7, 4);
+  f += smooth(1200, 3000, r) * 0.18 - smooth(5500, 7500, r) * 0.3;
+  // two woods near the town: north-west and south beyond the river
+  f += 0.32 * Math.exp(-((x + 150) ** 2 + (z + 210) ** 2) / (130 * 130));
+  f += 0.26 * Math.exp(-((x - 60) ** 2 + (z - 260) ** 2) / (110 * 110));
+  f -= 0.5 * Math.exp(-((r / 170) ** 2));
+  return f;
+}
+export function isForest(x, z) { return forest(x, z) > 0.6 && riverDist(x, z) > 18 && roadDist(x, z) > 7; }
+
+// ---- the town plan: a square, a main street west-east, lanes north and south
+export const SQUARE = { x: 2, z: -4, w: 34, d: 26 };
+export const STREETS = [
+  { a: [GATE_W.x + 2, GATE_W.z], b: [SQUARE.x - SQUARE.w / 2, SQUARE.z + 2], w: 7 },
+  { a: [SQUARE.x + SQUARE.w / 2, SQUARE.z + 4], b: [GATE_E.x - 2, GATE_E.z], w: 7 },
+  { a: [SQUARE.x - 4, SQUARE.z - SQUARE.d / 2], b: [TOWN.x - 4, TOWN.z - TOWN.rz + 6], w: 6 },
+  { a: [SQUARE.x + 6, SQUARE.z + SQUARE.d / 2], b: [TOWN.x + 16, TOWN.z + TOWN.rz - 4], w: 6 },
+  // a back lane in the north-east quarter
+  { a: [SQUARE.x + SQUARE.w / 2, SQUARE.z - 8], b: [48, -46], w: 5 },
+  { a: [-40, 4], b: [-36, 44], w: 5 },
+];
+export function streetDist(x, z) {
+  let d = 1e9;
+  for (const S of STREETS) d = Math.min(d, segDist(x, z, S.a, S.b) - S.w / 2);
+  const sq = Math.max(Math.abs(x - SQUARE.x) - SQUARE.w / 2, Math.abs(z - SQUARE.z) - SQUARE.d / 2);
+  return Math.min(d, sq);
+}
+
+export const CHURCH = { x: 22, z: -36, w: 12, d: 28, rot: 0, towerH: 34 };
+export const HALL = { x: SQUARE.x - 4, z: SQUARE.z + 3, w: 13, d: 8, rot: 0 };   // open market hall on posts: cover
+export const WELL = { x: SQUARE.x + 9, z: SQUARE.z - 6 };
+export const MILL = { x: -210, z: 40 };
+
+// buildings: oriented boxes {x, z, w, d, h, rot, ...}; rot turns local +z (front) toward the street
+export const houses = [];
+export const towers = [];
+export const wallSegs = [];
+const R = mulberry(1213);
+function overlaps(b, pad = 0.6) {
+  const corners = (q) => { const c = Math.cos(q.rot), s = Math.sin(q.rot); return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, k]) => [q.x + (a * q.w / 2) * c + (k * q.d / 2) * s, q.z - (a * q.w / 2) * s + (k * q.d / 2) * c]); };
+  const axes = (q) => [[Math.cos(q.rot), -Math.sin(q.rot)], [Math.sin(q.rot), Math.cos(q.rot)]];
+  const all = [...houses, { x: CHURCH.x, z: CHURCH.z, w: CHURCH.w + 2, d: CHURCH.d + 14, rot: 0 }, { x: HALL.x, z: HALL.z, w: HALL.w + 2, d: HALL.d + 2, rot: 0 }];
+  for (const o of all) {
+    const A = { ...b, w: b.w + pad * 2, d: b.d + pad * 2 }, B = o;
+    let sep = false;
+    for (const ax of [...axes(A), ...axes(B)]) {
+      const pa = corners(A).map((p) => p[0] * ax[0] + p[1] * ax[1]), pb = corners(B).map((p) => p[0] * ax[0] + p[1] * ax[1]);
+      if (Math.max(...pa) < Math.min(...pb) || Math.max(...pb) < Math.min(...pa)) { sep = true; break; }
+    }
+    if (!sep) return true;
+  }
+  return false;
+}
+function clearOfStreets(b, margin) {
+  const c = Math.cos(b.rot), s = Math.sin(b.rot);
+  for (const [a, k] of [[-1, -1], [1, -1], [1, 1], [-1, 1], [0, 0], [0, 1], [0, -1], [1, 0], [-1, 0]]) {
+    const x = b.x + (a * b.w / 2) * c + (k * b.d / 2) * s, z = b.z - (a * b.w / 2) * s + (k * b.d / 2) * c;
+    if (streetDist(x, z) < margin) return false;
+    if (townR(x, z) > 0.9) return false;
+  }
+  return true;
+}
+// houses along each street, both sides, fronts to the street
+for (const S of STREETS) {
+  const dx = S.b[0] - S.a[0], dz = S.b[1] - S.a[1], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L;
+  for (const side of [-1, 1]) {
+    let t = 3 + R() * 3;
+    while (t < L - 3) {
+      const w = 6.5 + R() * 3.5, d = 8 + R() * 3.5;
+      const off = S.w / 2 + 1.2 + d / 2 + R() * 0.8;
+      const nx = -uz * side, nz = ux * side;
+      const cx = S.a[0] + ux * (t + w / 2) + nx * off, cz = S.a[1] + uz * (t + w / 2) + nz * off;
+      const rot = Math.atan2(-nx, -nz); // front (+z local) faces the street
+      const H = { x: cx, z: cz, w, d, h: 5.6 + R() * 3.4, rot, seed: R(), gableFront: R() < 0.45, jetty: R() < 0.5, chimney: R() < 0.7, stone: R() < 0.22, tile: R() < 0.3 };
+      if (!overlaps(H) && clearOfStreets(H, 0.4)) houses.push(H);
+      t += w + 0.4 + (R() < 0.18 ? 2.5 + R() * 3 : 0);
+    }
+  }
+}
+// infill: back houses in the blocks between streets
+for (let i = 0; i < 260; i++) {
+  const a = R() * Math.PI * 2, rr = Math.sqrt(R()) * 0.82;
+  const x = TOWN.x + Math.cos(a) * TOWN.rx * rr, z = TOWN.z + Math.sin(a) * TOWN.rz * rr;
+  const H = { x, z, w: 6 + R() * 3.5, d: 7 + R() * 3, h: 5 + R() * 3, rot: Math.round(R() * 4) * Math.PI / 2 + (R() - 0.5) * 0.1, seed: R(), gableFront: R() < 0.5, jetty: false, chimney: R() < 0.6, stone: R() < 0.3, tile: R() < 0.3 };
+  if (!overlaps(H, 1.4) && clearOfStreets(H, 2.2)) houses.push(H);
+  if (houses.length > 96) break;
+}
+// farmsteads outside the walls
+const farms = [[-150, -40, 0.3], [-120, 70, -0.2], [150, -60, 0.6], [40, 150, 0.1], [-60, 120, 1.2], [190, 40, -0.4]];
+for (const [x, z, rot] of farms) {
+  houses.push({ x, z, w: 9, d: 7.5, h: 4.6, rot, seed: R(), gableFront: false, jetty: false, chimney: true, stone: false, tile: R() < 0.5, farm: true });
+  houses.push({ x: x + Math.cos(rot) * 12, z: z - Math.sin(rot) * 12, w: 12, d: 8, h: 4.2, rot, seed: R(), gableFront: false, jetty: false, chimney: false, stone: false, tile: false, barn: true });
+}
+
+// the wall: an ellipse broken by the two gates, with round towers
+{
+  const n = 64, gateA = [Math.atan2((GATE_W.z - TOWN.z) / TOWN.rz, (GATE_W.x - TOWN.x) / TOWN.rx), Math.atan2((GATE_E.z - TOWN.z) / TOWN.rz, (GATE_E.x - TOWN.x) / TOWN.rx), Math.atan2(-1, -0.06), Math.atan2(1, 0.27)];
+  const pt = (a) => [TOWN.x + Math.cos(a) * TOWN.rx, TOWN.z + Math.sin(a) * TOWN.rz];
+  for (let i = 0; i < n; i++) {
+    const a0 = (i / n) * Math.PI * 2, a1 = ((i + 1) / n) * Math.PI * 2, am = (a0 + a1) / 2;
+    const gap = gateA.some((g) => Math.abs(Math.atan2(Math.sin(am - g), Math.cos(am - g))) < 0.075);
+    const ruin = R() < 0.06;
+    if (!gap) wallSegs.push({ a: pt(a0), b: pt(a1), h: ruin ? 3.2 : 7.5 + R() * 0.8 });
+  }
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2 + 0.2;
+    if (gateA.some((g) => Math.abs(Math.atan2(Math.sin(a - g), Math.cos(a - g))) < 0.2)) continue;
+    const [x, z] = pt(a); towers.push({ x, z, r: 4.2, h: 13 + R() * 3 });
+  }
+  for (const g of gateA.slice(0, 2)) { const [x, z] = pt(g); towers.push({ x, z, r: 0, h: 15, gate: true, rot: g }); }
+}
+
+// trees: woods (instanced near the town), orchards, and singles along the river
+export const trees = [];
+{
+  const TR = mulberry(77);
+  for (let i = 0; i < 9000 && trees.length < 2600; i++) {
+    const x = (TR() - 0.5) * 2 * (NEAR + 140), z = (TR() - 0.5) * 2 * (NEAR + 140);
+    if (townR(x, z) < 1.12 || roadDist(x, z) < 6 || riverDist(x, z) < RIVER_W + 3) continue;
+    if (Math.hypot(x - MILL.x, z - MILL.z) < 30) continue;
+    if (houses.some((H) => Math.hypot(H.x - x, H.z - z) < 12)) continue;
+    const f = forest(x, z);
+    const byRiver = riverDist(x, z) < RIVER_W + 16 && TR() < 0.25;
+    if (f > 0.6 || byRiver || (f > 0.5 && TR() < 0.25)) trees.push({ x, z, h: 9 + TR() * 9, r: 2.6 + TR() * 1.4, seed: TR(), kind: f > 0.6 ? 0 : (TR() < 0.6 ? 1 : 0) });
+  }
+  // an orchard by the south-west farm
+  for (let i = 0; i < 6; i++) for (let j = 0; j < 4; j++) trees.push({ x: -112 + i * 8 + TR(), z: 86 + j * 8 + TR(), h: 5 + TR() * 1.5, r: 2.4, seed: TR(), kind: 1 });
+}
+
+// haystacks and props
+export const props = [];
+{
+  const PR = mulberry(5);
+  for (let i = 0; i < 40; i++) {
+    const a = PR() * 6.28, r = 95 + PR() * 160, x = Math.cos(a) * r, z = Math.sin(a) * r;
+    if (townR(x, z) < 1.15 || riverDist(x, z) < 20 || roadDist(x, z) < 6 || isForest(x, z)) continue;
+    props.push({ x, z, kind: 'hay', r: 2 + PR() * 1.2, seed: PR() });
+  }
+  // carts and barrels in the streets
+  for (let i = 0; i < 26; i++) {
+    const S = STREETS[i % STREETS.length], t = 0.15 + PR() * 0.7;
+    const x = S.a[0] + (S.b[0] - S.a[0]) * t, z = S.a[1] + (S.b[1] - S.a[1]) * t;
+    const dx = S.b[0] - S.a[0], dz = S.b[1] - S.a[1], L = Math.hypot(dx, dz), side = PR() < 0.5 ? -1 : 1;
+    const px = x - (dz / L) * side * (S.w / 2 - 0.8), pz = z + (dx / L) * side * (S.w / 2 - 0.8);
+    props.push({ x: px, z: pz, kind: PR() < 0.25 ? 'cart' : 'barrel', rot: Math.atan2(dx, dz), seed: PR() });
+  }
+}
+
+// ---- collision: a 0.5 m grid over the detailed square. 1 = blocked.
+export const COL_S = 0.5, COL_N = Math.round((NEAR * 2) / COL_S);
+export const COL = new Uint8Array(COL_N * COL_N);
+function stampBox(x, z, w, d, rot, pad = 0.25) {
+  const c = Math.cos(rot), s = Math.sin(rot), r = Math.hypot(w, d) / 2 + 1;
+  for (let j = Math.floor((z - r + NEAR) / COL_S); j <= Math.ceil((z + r + NEAR) / COL_S); j++) for (let i = Math.floor((x - r + NEAR) / COL_S); i <= Math.ceil((x + r + NEAR) / COL_S); i++) {
+    if (i < 0 || j < 0 || i >= COL_N || j >= COL_N) continue;
+    const px = -NEAR + (i + 0.5) * COL_S - x, pz = -NEAR + (j + 0.5) * COL_S - z;
+    const lx = px * c - pz * s, lz = px * s + pz * c;
+    if (Math.abs(lx) < w / 2 + pad && Math.abs(lz) < d / 2 + pad) COL[j * COL_N + i] = 1;
+  }
+}
+function stampCircle(x, z, r) {
+  for (let j = Math.floor((z - r + NEAR) / COL_S); j <= Math.ceil((z + r + NEAR) / COL_S); j++) for (let i = Math.floor((x - r + NEAR) / COL_S); i <= Math.ceil((x + r + NEAR) / COL_S); i++) {
+    if (i < 0 || j < 0 || i >= COL_N || j >= COL_N) continue;
+    if (Math.hypot(-NEAR + (i + 0.5) * COL_S - x, -NEAR + (j + 0.5) * COL_S - z) < r) COL[j * COL_N + i] = 1;
+  }
+}
+houses.forEach((H) => stampBox(H.x, H.z, H.w, H.d, H.rot));
+stampBox(CHURCH.x, CHURCH.z, CHURCH.w, CHURCH.d, 0);
+stampBox(CHURCH.x, CHURCH.z + CHURCH.d / 2 + 3.4, 6.4, 6.4, 0);
+for (const W of wallSegs) { const dx = W.b[0] - W.a[0], dz = W.b[1] - W.a[1]; stampBox((W.a[0] + W.b[0]) / 2, (W.a[1] + W.b[1]) / 2, 1.8, Math.hypot(dx, dz) + 0.4, Math.atan2(dx, dz)); }
+towers.forEach((T) => { if (!T.gate) stampCircle(T.x, T.z, T.r + 0.2); });
+for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) stampCircle(HALL.x + sx * (HALL.w / 2 - 0.4), HALL.z + sz * (HALL.d / 2 - 0.4), 0.45);
+stampCircle(WELL.x, WELL.z, 1.3);
+stampCircle(MILL.x, MILL.z, 5);
+trees.forEach((T) => { if (Math.abs(T.x) < NEAR && Math.abs(T.z) < NEAR) stampCircle(T.x, T.z, 0.5); });
+props.forEach((P) => { if (P.kind === 'hay') stampCircle(P.x, P.z, P.r); else if (P.kind === 'cart') stampBox(P.x, P.z, 1.8, 2.8, P.rot); else stampCircle(P.x, P.z, 0.5); });
+// the river is deep: only the bridge crosses it
+for (let j = 0; j < COL_N; j++) for (let i = 0; i < COL_N; i++) {
+  const x = -NEAR + (i + 0.5) * COL_S, z = -NEAR + (j + 0.5) * COL_S;
+  if (riverDist(x, z) < RIVER_W - 1.5) {
+    const lx = (x - BRIDGE.x) * Math.cos(BRIDGE.rot) - (z - BRIDGE.z) * Math.sin(BRIDGE.rot);
+    if (Math.abs(lx) > 2.2 || Math.hypot(x - BRIDGE.x, z - BRIDGE.z) > 26) COL[j * COL_N + i] = 1;
+  }
+}
+export function blocked(x, z) {
+  const i = Math.floor((x + NEAR) / COL_S), j = Math.floor((z + NEAR) / COL_S);
+  if (i < 2 || j < 2 || i >= COL_N - 2 || j >= COL_N - 2) return true;
+  return COL[j * COL_N + i] === 1;
+}
+
+// walkable height: the bridge deck over the water
+export function standY(x, z) {
+  const h = height(x, z);
+  const lx = (x - BRIDGE.x) * Math.cos(BRIDGE.rot) - (z - BRIDGE.z) * Math.sin(BRIDGE.rot);
+  const lz = (x - BRIDGE.x) * Math.sin(BRIDGE.rot) + (z - BRIDGE.z) * Math.cos(BRIDGE.rot);
+  if (Math.abs(lx) < 2.6 && Math.abs(lz) < 24) return Math.max(h, BRIDGE.deck(lz));
+  return h;
+}
+BRIDGE.len = 44;
+BRIDGE.deck = (lz) => { const e = Math.max(height(BRIDGE.x + Math.sin(BRIDGE.rot) * -22, BRIDGE.z + Math.cos(BRIDGE.rot) * -22), height(BRIDGE.x + Math.sin(BRIDGE.rot) * 22, BRIDGE.z + Math.cos(BRIDGE.rot) * 22)); return e + 1.6 - (lz / 22) ** 2 * 1.4; };
+
+// what the town is made of, for the hiding test: boxes with their roof ridge height
+export const OCCLUDERS = [];
+{
+  for (const H of houses) {
+    const gy = height(H.x, H.z);
+    const rise = H.gableFront ? (H.w / 2) * 1.35 : (H.d / 2) * 1.25;
+    OCCLUDERS.push({ x: H.x, z: H.z, w: H.w + 0.9, d: H.d + 0.9, rot: H.rot, y0: gy - 1, y1: gy + H.h, ridge: gy + H.h + rise, ridgeAlongZ: H.gableFront });
+  }
+  const cy = height(CHURCH.x, CHURCH.z);
+  OCCLUDERS.push({ x: CHURCH.x, z: CHURCH.z, w: CHURCH.w + 1, d: CHURCH.d + 1, rot: 0, y0: cy - 1, y1: cy + 13, ridge: cy + 22, ridgeAlongZ: true });
+  OCCLUDERS.push({ x: CHURCH.x, z: CHURCH.z + CHURCH.d / 2 + 3.4, w: 7, d: 7, rot: 0, y0: cy - 1, y1: cy + CHURCH.towerH, ridge: cy + CHURCH.towerH + 9, ridgeAlongZ: true });
+  const hy = height(HALL.x, HALL.z);
+  OCCLUDERS.push({ x: HALL.x, z: HALL.z, w: HALL.w + 1.4, d: HALL.d + 1.4, rot: 0, y0: hy + 3.3, y1: hy + 3.6, ridge: hy + 6.4, ridgeAlongZ: false, roofOnly: true });
+  for (const W of wallSegs) { const dx = W.b[0] - W.a[0], dz = W.b[1] - W.a[1]; const y = height((W.a[0] + W.b[0]) / 2, (W.a[1] + W.b[1]) / 2); OCCLUDERS.push({ x: (W.a[0] + W.b[0]) / 2, z: (W.a[1] + W.b[1]) / 2, w: 1.8, d: Math.hypot(dx, dz) + 0.4, rot: Math.atan2(dx, dz), y0: y - 1, y1: y + W.h, ridge: y + W.h, ridgeAlongZ: true }); }
+  for (const T of towers) { if (T.gate) continue; const y = height(T.x, T.z); OCCLUDERS.push({ x: T.x, z: T.z, w: T.r * 1.8, d: T.r * 1.8, rot: 0, y0: y - 1, y1: y + T.h, ridge: y + T.h + 5, ridgeAlongZ: true }); }
+}
+
+// a segment from p to q blocked by any occluder (slab test against each oriented box, with the roof as a prism)
+export function segmentBlocked(p, q) {
+  for (const O of OCCLUDERS) {
+    const c = Math.cos(O.rot), s = Math.sin(O.rot);
+    const lp = [(p[0] - O.x) * c - (p[2] - O.z) * s, p[1], (p[0] - O.x) * s + (p[2] - O.z) * c];
+    const lq = [(q[0] - O.x) * c - (q[2] - O.z) * s, q[1], (q[0] - O.x) * s + (q[2] - O.z) * c];
+    // clip the segment to the box footprint
+    let t0 = 0, t1 = 1;
+    const d = [lq[0] - lp[0], lq[1] - lp[1], lq[2] - lp[2]];
+    const ext = [O.w / 2, O.d / 2];
+    let ok = true;
+    for (const [k, e] of [[0, ext[0]], [2, ext[1]]]) {
+      if (Math.abs(d[k]) < 1e-9) { if (Math.abs(lp[k]) > e) { ok = false; break; } continue; }
+      let a = (-e - lp[k]) / d[k], b = (e - lp[k]) / d[k]; if (a > b) [a, b] = [b, a];
+      t0 = Math.max(t0, a); t1 = Math.min(t1, b); if (t0 > t1) { ok = false; break; }
+    }
+    if (!ok) continue;
+    // sample the clipped piece against the roof profile
+    for (let k = 0; k <= 6; k++) {
+      const t = t0 + (t1 - t0) * (k / 6);
+      const x = lp[0] + d[0] * t, y = lp[1] + d[1] * t, z = lp[2] + d[2] * t;
+      const across = O.ridgeAlongZ ? Math.abs(x) / ext[0] : Math.abs(z) / ext[1];
+      const top = O.y1 + (O.ridge - O.y1) * Math.max(0, 1 - across);
+      const bottom = O.roofOnly ? O.y0 : O.y0;
+      if (y < top && y > bottom) return true;
+    }
+  }
+  return false;
+}

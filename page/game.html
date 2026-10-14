@@ -1,0 +1,122 @@
+<title>Underfoot</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* The library frame: warm near-black, the Ashwake whites for text; this volume's accent is the lantern's amber. */
+:root {
+  --ground: #0d0c0e;
+  --panel: #161417;
+  --rule: #2c292d;
+  --text: #e8e4dd;
+  --muted: #a39d97;
+  --dim: #6e6a6b;
+  --amber: #cfaa69;
+  --display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+html { background: var(--ground); }
+body { background: var(--ground); color: var(--text); font: 400 16px/1.6 var(--body); -webkit-font-smoothing: antialiased; margin: 0; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px), min(4vw, 40px)); padding-right: max(16px, env(safe-area-inset-right, 0px), min(4vw, 40px)); padding-block: 26px 72px; display: grid; gap: 40px; }
+header { display: grid; gap: 6px; }
+.eyebrow { margin: 0; font: 600 12px/1.2 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font: 400 clamp(46px, 9vw, 92px)/.95 var(--display); letter-spacing: -.01em; color: var(--text); }
+h1 em { color: var(--amber); font-style: italic; }
+.lede { margin: 8px 0 0; max-width: 66ch; color: var(--muted); text-wrap: pretty; }
+.piece { display: grid; gap: 18px; border-top: 1px solid var(--rule); padding-top: 26px; min-width: 0; }
+.piece-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
+.num { font: 600 12px/1 var(--mono); letter-spacing: .14em; color: var(--dim); }
+h2 { margin: 0; font: 400 clamp(36px, 6vw, 56px)/1 var(--display); color: var(--text); }
+h2 em { font-style: italic; color: var(--muted); font-size: .55em; margin-left: .3em; }
+.say { margin: 0; max-width: 64ch; color: var(--muted); text-wrap: pretty; }
+.screen { position: relative; background: #000; overflow: hidden; user-select: none; -webkit-user-select: none; min-width: 0; width: 100%; aspect-ratio: 16 / 9; touch-action: pan-y; -webkit-touch-callout: none; }
+.screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; image-rendering: pixelated; image-rendering: crisp-edges; }
+.screen canvas:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+.msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; font: 600 13px/1.4 var(--mono); color: var(--muted); background: var(--ground); }
+[hidden] { display: none !important; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.bar .lbl { font: 600 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-left: 8px; }
+.bar button { font: 600 12px/1 var(--mono); letter-spacing: .06em; color: var(--muted); background: var(--panel); border: 1px solid var(--rule); padding: 10px 12px; cursor: pointer; min-height: 40px; touch-action: none; -webkit-user-select: none; user-select: none; }
+.bar button:hover { color: var(--text); }
+.bar button[aria-pressed="true"] { color: var(--ground); background: var(--text); border-color: var(--text); }
+.bar #lookBtn { color: var(--ground); background: var(--amber); border-color: var(--amber); }
+.bar #lookBtn.held { background: var(--text); border-color: var(--text); }
+button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.lookbar { display: flex; flex-wrap: wrap; gap: 6px; }
+.lookbar button { display: inline-flex; align-items: center; gap: 8px; font: 600 12px/1 var(--mono); letter-spacing: .04em; color: var(--muted); background: var(--panel); border: 1px solid var(--rule); padding: 9px 11px; cursor: pointer; min-height: 40px; }
+.lookbar button:hover { color: var(--text); }
+.lookbar button[aria-pressed="true"] { color: var(--ground); background: var(--text); border-color: var(--text); }
+.chip { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 6px; height: 14px; border: 1px solid rgba(0, 0, 0, .35); }
+.chip i { display: block; }
+.keys { margin: 0; font: 500 12px/1.8 var(--mono); color: var(--muted); }
+.keys kbd { font: inherit; color: var(--text); border: 1px solid var(--rule); padding: 0 5px; }
+@media (pointer: coarse) { .keys .desk { display: none; } }
+@media (pointer: fine) { .keys .touch { display: none; } }
+.cols { display: grid; gap: 22px 36px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); align-items: start; }
+.note { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.note h3 { margin: 0; font: 600 12px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--text); }
+.note h3.move { color: var(--amber); }
+.note p, .note li { color: var(--muted); font-size: 15px; }
+.note p { margin: 0; max-width: 62ch; }
+.note ul { margin: 0; padding-left: 1.1em; display: grid; gap: 5px; }
+.note li::marker { color: var(--amber); }
+.note b { color: var(--text); font-weight: 500; }
+.palrow { display: grid; gap: 8px; }
+.palrow span { font: 600 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.swatch { display: grid; gap: 0; border: 1px solid var(--rule); grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); max-width: 560px; }
+.swatch i { display: block; aspect-ratio: 1 / 1; min-width: 0; }
+footer { border-top: 1px solid var(--rule); padding-top: 16px; font: 500 12.5px/1.7 var(--mono); color: var(--muted); }
+footer p { margin: 0; max-width: 92ch; }
+</style>
+<main class="wrap">
+  <header>
+    <p class="eyebrow">Underfoot / the game</p>
+    <h1>Under<em>foot</em></h1>
+    <p class="lede">Ashwake's grey dithered 3D and its near-overhead camera, pushed to a scale far past the Warden. You are one small person in a walled hill town. Something nearly three kilometres tall walks the valley with a lantern on a chain, and when it stops over the town, its light comes in low between the houses, always a few steps behind you. Keep to the shadows, which turn as the lantern moves.</p>
+  </header>
+
+  <section class="piece" aria-labelledby="fallTitle">
+    <div class="piece-head"><span class="num">16.1</span><h2 id="fallTitle">Underfoot <em>grey dither, one warm light</em></h2></div>
+    <div class="lookbar" id="lookbar" role="group" aria-label="Look">
+      <button type="button" data-look="ashwake" aria-pressed="true"><span class="chip" data-chip="ashwake"></span>Ashwake grey</button>
+      <button type="button" data-look="night" aria-pressed="false"><span class="chip" data-chip="night"></span>Night</button>
+      <button type="button" data-look="blood" aria-pressed="false"><span class="chip" data-chip="blood"></span>Ash and blood</button>
+      <button type="button" data-look="fog" aria-pressed="false"><span class="chip" data-chip="fog"></span>Fog</button>
+      <button type="button" data-look="winter" aria-pressed="false"><span class="chip" data-chip="winter"></span>Winter</button>
+      <button type="button" data-look="colossus" aria-pressed="false"><span class="chip" data-chip="colossus"></span>Sunlit</button>
+      <button type="button" data-look="onebit" aria-pressed="false"><span class="chip" data-chip="onebit"></span>One bit</button>
+    </div>
+    <div class="screen" id="fallBox"><canvas id="fall" tabindex="0" aria-label="Underfoot. A walled medieval hill town seen from above, grey and dusty. A giant in old iron armour with a sculpted iron face, nearly three kilometres tall, walks the valley with a lantern on a chain. When it stops beside the town, the lantern hangs over the roofs and its light follows you through the streets."></canvas><div class="msg" id="fallMsg" hidden></div></div>
+    <div class="bar">
+      <button id="lookBtn" type="button">Hold to look up</button>
+      <button id="soundBtn" type="button" aria-pressed="false">Sound</button>
+      <span class="lbl">Jump to</span>
+      <button type="button" data-go="approach">It comes</button>
+      <button type="button" data-go="search">It searches</button>
+      <button type="button" data-go="caught">It finds you</button>
+      <button type="button" data-go="leave">It passes</button>
+    </div>
+    <p class="keys"><span class="desk"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrows to walk, or hold the mouse where you want to go. Hold <kbd>L</kbd>, <kbd>Space</kbd> or the right button to look up. <kbd>M</kbd> for sound. </span><span class="touch">Drag on the picture to walk. Hold the amber button to look up. </span>Leave it alone and the town plays itself.</p>
+    <div class="cols">
+      <div class="note"><h3 class="move">The decision</h3><p>The light is the whole game. It is held to one side and comes in at about 45°, so every house throws a long shadow, and the shadows swing as the lantern moves. It walks your trail about three seconds behind you, so it is always close. The scale is never shown all at once: you see its boots, its chain and its light, and the whole of it only when you look up, or when it finds you and the camera climbs from the roofs to its face.</p></div>
+      <div class="note"><h3>How it's made</h3><ul>
+        <li><b>Ashwake's pipeline at 386×218</b>: flat-shaded meshes lit in colour, then snapped to eight warm greys and four dull ramps (amber, moss, slate, rust). A pixel only takes a hue when it is coloured enough, so the town stays grey and the lantern, roofs and cloak carry the colour.</li>
+        <li>The play camera is a perspective 1.5 km away with a 2° field, near-orthographic like Ashwake's. Looking up and the catch are cuts through a short dip to dark, to cameras that open up to about 75°.</li>
+        <li>The giant is <b>about 2.9 km tall</b>: 23k triangles on 15 bones, skinned on the GPU. The feet follow a step plan, legs and arms solve with two-bone IK, and the head turns to where its light falls. Its face is a sculpted iron mask built from one height function; the shader reuses that function to darken the hollows and brighten the ridges.</li>
+        <li>The lantern trails the hand on a 1.9 km chain. It has its own shadow map, so the houses throw real shadows, and the hiding test traces three lines to it, so a shadow's edge is a band where you are half seen.</li>
+        <li>As it comes, cloud covers the sun and the lantern and a few windows are left. Sun shafts are marched in the palette pass; clouds are a raymarched slab; sound is WebAudio, all synthesized.</li>
+      </ul></div>
+      <div class="note"><h3>For your game</h3><p>A hiding loop for something too big to fight: the light is the searcher, the houses make the shadows, and looking up is how you learn its size. Cellars, market halls and bridges are the next hiding places to add.</p>
+        <div class="palrow"><span id="fallPalName">The current look’s palette</span><div class="swatch" id="fallPal" role="img" aria-label="The palette of the current look: its greys, then its hue ramps"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <footer><p>Everything is drawn and synthesized in code. The giant, the town and the lantern are original designs.</p></footer>
+</main>
+<script>
+__SCRIPT__
+</script>

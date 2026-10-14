@@ -1,0 +1,18 @@
+[
+  {"eval": "__v16.hold=true; const g=__v16.game; for(let i=0;i<50;i++) g.update(0.05); g.render();"},
+  {"shot": "01", "sel": "canvas"},
+  {"eval": "const g=__v16.game; __v16.force('calm'); g.S.cycle=2; for(let i=0;i<200;i++) g.update(0.05); g.S.hint=0; g.render(); return [g.S.phase, g.S.autoLook.toFixed(1), g.S.look.toFixed(2)]"},
+  {"shot": "02", "sel": "canvas"},
+  {"eval": "const g=__v16.game; for(let i=0;i<60;i++) g.update(0.05); g.render(); return [g.S.phase, g.S.look.toFixed(2)]"},
+  {"shot": "03", "sel": "canvas"},
+  {"eval": "const g=__v16.game; __v16.force('plant'); for(let i=0;i<16;i++) g.update(0.05); g.S.hint=0; g.render();"},
+  {"shot": "04", "sel": "canvas"},
+  {"eval": "const g=__v16.game; __v16.force('search'); g.S.cycle=2; for(let i=0;i<260;i++){ g.update(0.05); g.S.player.seen=Math.min(g.S.player.seen,0.25);} g.render(); return [g.S.phase, g.S.player.seen.toFixed(2)]"},
+  {"shot": "05", "sel": "canvas"},
+  {"eval": "const g=__v16.game; __v16.force('caught'); for(let i=0;i<60;i++) g.update(0.05); g.render();"},
+  {"shot": "06", "sel": "canvas"},
+  {"eval": "const g=__v16.game; for(let i=0;i<70;i++) g.update(0.05); g.render();"},
+  {"shot": "07", "sel": "canvas"},
+  {"eval": "const g=__v16.game; __v16.force('leave'); for(let i=0;i<126;i++) g.update(0.05); g.render(); return __v16.errors"},
+  {"shot": "08", "sel": "canvas"}
+]

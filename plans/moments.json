@@ -1,0 +1,10 @@
+[
+  {"eval": "__v16.hold=true; const g=__v16.game; g.S.noUI=true; for(let i=0;i<50;i++) g.update(0.05); g.render();"},
+  {"shot": "1_valley", "sel": "canvas"},
+  {"eval": "const g=__v16.game; __v16.force('search'); g.S.cycle=1; for(let i=0;i<160;i++){ g.update(0.05); g.S.player.seen=Math.min(g.S.player.seen,0.25);} g.render(); return [g.S.player.x|0,g.S.player.z|0,g.S.player.lit]"},
+  {"shot": "2_search", "sel": "canvas"},
+  {"eval": "const g=__v16.game; g.S.lookButton=true; for(let i=0;i<50;i++){ g.update(0.05); g.S.player.seen=Math.min(g.S.player.seen,0.25);} g.render(); g.S.lookButton=false;"},
+  {"shot": "3_look", "sel": "canvas"},
+  {"eval": "const g=__v16.game; __v16.force('caught'); for(let i=0;i<160;i++) g.update(0.05); g.render(); return __v16.errors"},
+  {"shot": "4_face", "sel": "canvas"}
+]

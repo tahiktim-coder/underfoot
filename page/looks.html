@@ -1,0 +1,237 @@
+<title>Underfoot Looks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: a contact sheet. Seven rows of the same four frames, then one live screen to try any of them.
+   The library frame (warm near-black, the Ashwake whites); the accent is the lantern's amber. One dark look by choice. */
+:root {
+  --ground: #0d0c0e;
+  --panel: #161417;
+  --rule: #2c292d;
+  --text: #e8e4dd;
+  --muted: #a39d97;
+  --dim: #6e6a6b;
+  --amber: #cfaa69;
+  --display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+html { background: var(--ground); }
+body { background: var(--ground); color: var(--text); font: 400 16px/1.6 var(--body); -webkit-font-smoothing: antialiased; margin: 0; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px), min(4vw, 40px)); padding-right: max(16px, env(safe-area-inset-right, 0px), min(4vw, 40px)); padding-block: 26px 72px; display: grid; gap: 44px; }
+header.top { display: grid; gap: 6px; }
+.eyebrow { margin: 0; font: 600 12px/1.2 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font: 400 clamp(46px, 9vw, 92px)/.95 var(--display); letter-spacing: -.01em; color: var(--text); text-wrap: balance; }
+h1 em { color: var(--amber); font-style: italic; }
+.lede { margin: 8px 0 0; max-width: 68ch; color: var(--muted); text-wrap: pretty; }
+.piece { display: grid; gap: 18px; border-top: 1px solid var(--rule); padding-top: 26px; min-width: 0; }
+.piece-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
+.num { font: 600 12px/1 var(--mono); letter-spacing: .14em; color: var(--dim); }
+h2 { margin: 0; font: 400 clamp(36px, 6vw, 56px)/1 var(--display); color: var(--text); text-wrap: balance; }
+h2 em { font-style: italic; color: var(--muted); font-size: .55em; margin-left: .3em; }
+@media (max-width: 560px) { h2 em { display: block; margin: 8px 0 0; } }
+.say { margin: 0; max-width: 68ch; color: var(--muted); text-wrap: pretty; }
+.say kbd, .keys kbd { font: 500 12px/1.6 var(--mono); color: var(--text); border: 1px solid var(--rule); padding: 0 5px; }
+[hidden] { display: none !important; }
+
+/* ---- the sheet */
+.sheet { display: grid; gap: 34px; min-width: 0; }
+.cols-head { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; font: 600 11px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; background: var(--ground); padding-block: 8px; border-bottom: 1px solid var(--rule); }
+.look { display: grid; gap: 10px; min-width: 0; scroll-margin-top: 48px; }
+.look-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.look-head h3 { margin: 0; font: 400 clamp(28px, 4vw, 38px)/1 var(--display); color: var(--text); }
+.look-head .tag { font: 600 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--amber); border: 1px solid var(--rule); padding: 5px 7px; }
+.look-head .what { flex: 1 1 32ch; margin: 0; color: var(--muted); font-size: 15px; max-width: 74ch; min-width: 0; }
+.frames { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.still { position: relative; display: block; padding: 0; margin: 0; border: 0; background: #000; cursor: zoom-in; aspect-ratio: 16 / 9; max-width: 100%; overflow: hidden; }
+.still img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.still span { position: absolute; left: 6px; bottom: 6px; font: 600 10px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--text); background: rgba(13, 12, 14, .78); padding: 4px 5px; display: none; }
+.still:hover img { filter: brightness(1.08); }
+.still:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.look-foot { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px 28px; align-items: start; }
+.look-foot p { margin: 0; color: var(--muted); font-size: 14.5px; max-width: 60ch; }
+.look-foot b { display: block; font: 600 11px/1.6 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--text); }
+.look-foot .risk b { color: var(--dim); }
+.pal { display: grid; grid-auto-flow: column; grid-auto-columns: 9px; height: 12px; border: 1px solid var(--rule); align-self: center; }
+.pal i { display: block; }
+.btn { font: 600 12px/1 var(--mono); letter-spacing: .06em; color: var(--muted); background: var(--panel); border: 1px solid var(--rule); padding: 10px 12px; cursor: pointer; min-height: 40px; }
+.btn:hover { color: var(--text); }
+button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+@media (max-width: 760px) {
+  .cols-head { display: none; }
+  .frames { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .still span { display: block; }
+  .look-foot { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---- which fits */
+.read { display: grid; gap: 10px; border: 1px solid var(--rule); background: var(--panel); padding: 18px 20px; }
+.read h3 { margin: 0; font: 600 12px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--amber); }
+.read ul { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; color: var(--muted); max-width: 80ch; }
+.read li::marker { color: var(--amber); }
+.read b { color: var(--text); font-weight: 500; }
+
+/* ---- the live screen */
+.lookbar { display: flex; flex-wrap: wrap; gap: 6px; }
+.lookbar button { display: inline-flex; align-items: center; gap: 8px; font: 600 12px/1 var(--mono); letter-spacing: .04em; color: var(--muted); background: var(--panel); border: 1px solid var(--rule); padding: 9px 11px; cursor: pointer; min-height: 40px; }
+.lookbar button:hover { color: var(--text); }
+.lookbar button[aria-pressed="true"] { color: var(--ground); background: var(--text); border-color: var(--text); }
+.chip { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 6px; height: 14px; border: 1px solid rgba(0, 0, 0, .35); }
+.chip i { display: block; }
+.screen { position: relative; background: #000; overflow: hidden; user-select: none; -webkit-user-select: none; min-width: 0; width: 100%; max-width: 100%; aspect-ratio: 16 / 9; touch-action: pan-y; -webkit-touch-callout: none; }
+.screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; image-rendering: pixelated; image-rendering: crisp-edges; }
+.screen canvas:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+.msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; font: 600 13px/1.4 var(--mono); color: var(--muted); background: var(--ground); }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.bar .lbl { font: 600 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-left: 8px; }
+.bar button { font: 600 12px/1 var(--mono); letter-spacing: .06em; color: var(--muted); background: var(--panel); border: 1px solid var(--rule); padding: 10px 12px; cursor: pointer; min-height: 40px; touch-action: none; -webkit-user-select: none; user-select: none; }
+.bar button:hover { color: var(--text); }
+.bar button[aria-pressed="true"] { color: var(--ground); background: var(--text); border-color: var(--text); }
+.bar #lookBtn { color: var(--ground); background: var(--amber); border-color: var(--amber); }
+.bar #lookBtn.held { background: var(--text); border-color: var(--text); }
+.keys { margin: 0; font: 500 12px/1.8 var(--mono); color: var(--muted); }
+@media (pointer: coarse) { .keys .desk { display: none; } }
+@media (pointer: fine) { .keys .touch { display: none; } }
+.now { display: grid; gap: 8px; border-left: 2px solid var(--amber); padding: 4px 0 4px 16px; }
+.now h3 { margin: 0; font: 400 30px/1 var(--display); color: var(--text); }
+.now p { margin: 0; color: var(--muted); font-size: 15px; max-width: 74ch; }
+.now .look-foot { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+@media (max-width: 760px) { .now .look-foot { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- the large view */
+dialog.box { border: 1px solid var(--rule); background: var(--ground); color: var(--text); padding: 0; width: min(1200px, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); overflow: auto; }
+dialog.box::backdrop { background: rgba(6, 6, 7, .86); }
+.box-in { display: grid; gap: 10px; padding: 12px; }
+.box-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 14px; }
+.box-top h3 { margin: 0; font: 400 28px/1 var(--display); }
+.box-top h3 span { font: 600 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-left: 10px; }
+.box img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #000; image-rendering: auto; }
+.box-nav { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.box-nav .sp { flex: 1; }
+.box-nav .hint { font: 500 11.5px/1.4 var(--mono); color: var(--dim); }
+@media (pointer: coarse) { .box-nav .hint { display: none; } }
+
+footer { border-top: 1px solid var(--rule); padding-top: 16px; font: 500 12.5px/1.7 var(--mono); color: var(--muted); }
+footer p { margin: 0; max-width: 92ch; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+<main class="wrap">
+  <header class="top">
+    <p class="eyebrow">Style library / Volume 17</p>
+    <h1>Underfoot, <em>seven looks</em></h1>
+    <p class="lede">The town, the giant and the lantern from Volume 16, drawn seven ways. Only the picture changes: the palette, the light, the sky, the fog and the grain. The hunt, the camera and the timing stay the same, and each column below is the same frame of the same run, so the looks compare like for like.</p>
+  </header>
+
+  <section class="piece" aria-labelledby="sheetTitle">
+    <div class="piece-head"><span class="num">17.1</span><h2 id="sheetTitle">Side by side <em>four moments, seven looks</em></h2></div>
+    <p class="say">Each row is one look at the same four moments: the giant far off in the valley, the lantern searching the streets, looking up at it from the street, and its face when it finds you. Click a frame to see it large. Then <kbd>↑</kbd> <kbd>↓</kbd> change the look and <kbd>←</kbd> <kbd>→</kbd> the moment.</p>
+    <div class="sheet" id="sheet">
+      <div class="cols-head" aria-hidden="true"><span>In the valley</span><span>The search</span><span>Looking up</span><span>Its face</span></div>
+
+      <article class="look" id="look-ashwake" data-look="ashwake">
+        <div class="look-head"><h3>Ashwake grey</h3><span class="tag">Volume 16 now</span><span class="pal" data-pal="ashwake" role="img" aria-label="Palette: eight warm greys, then amber, moss, slate and rust ramps"></span><p class="what">The game as it stands. Eight warm greys and four dull ramps; the lantern, the roofs and the cloak carry the colour.</p></div>
+        <div class="frames"><button class="still" type="button" data-shot="valley"><img src="stills/t/ashwake-valley.webp" data-full="stills/ashwake-valley.webp" alt="Ashwake grey: the giant far off in the valley, seen from the town" width="576" height="324" loading="lazy" decoding="async"><span>In the valley</span></button><button class="still" type="button" data-shot="search"><img src="stills/t/ashwake-search.webp" data-full="stills/ashwake-search.webp" alt="Ashwake grey: the lantern's light on the streets, seen from above" width="576" height="324" loading="lazy" decoding="async"><span>The search</span></button><button class="still" type="button" data-shot="look"><img src="stills/t/ashwake-look.webp" data-full="stills/ashwake-look.webp" alt="Ashwake grey: looking up at the giant and its chain from the street" width="576" height="324" loading="lazy" decoding="async"><span>Looking up</span></button><button class="still" type="button" data-shot="face"><img src="stills/t/ashwake-face.webp" data-full="stills/ashwake-face.webp" alt="Ashwake grey: its iron face looking down when it finds you" width="576" height="324" loading="lazy" decoding="async"><span>Its face</span></button></div>
+        <div class="look-foot"><p><b>For this game</b>The lantern is the one strong colour in the hunt, so the light reads, and the grey keeps the scale quiet and old.</p><p class="risk"><b>Risk</b>It sits in the middle. Less dread than the night or the red, and calm and search look alike until the cloud comes.</p><button class="btn" type="button" data-play="ashwake">Play this look</button></div>
+      </article>
+
+      <article class="look" id="look-night" data-look="night">
+        <div class="look-head"><h3>Night lantern</h3><span class="pal" data-pal="night" role="img" aria-label="Palette: eight blue-black greys, then amber, moss, moon blue and rust ramps"></span><p class="what">Moonlit blue-blacks under stars. The lantern and a few windows are the only warm light.</p></div>
+        <div class="frames"><button class="still" type="button" data-shot="valley"><img src="stills/t/night-valley.webp" data-full="stills/night-valley.webp" alt="Night lantern: the giant far off in the valley, seen from the town" width="576" height="324" loading="lazy" decoding="async"><span>In the valley</span></button><button class="still" type="button" data-shot="search"><img src="stills/t/night-search.webp" data-full="stills/night-search.webp" alt="Night lantern: the lantern's light on the streets, seen from above" width="576" height="324" loading="lazy" decoding="async"><span>The search</span></button><button class="still" type="button" data-shot="look"><img src="stills/t/night-look.webp" data-full="stills/night-look.webp" alt="Night lantern: looking up at the giant and its chain from the street" width="576" height="324" loading="lazy" decoding="async"><span>Looking up</span></button><button class="still" type="button" data-shot="face"><img src="stills/t/night-face.webp" data-full="stills/night-face.webp" alt="Night lantern: its iron face looking down when it finds you" width="576" height="324" loading="lazy" decoding="async"><span>Its face</span></button></div>
+        <div class="look-foot"><p><b>For this game</b>The clearest hiding game of the seven: amber means seen, blue means hidden. Against the stars the giant is a silhouette with a cold rim.</p><p class="risk"><b>Risk</b>Blue night is a common look, and the moon has to stay bright enough to play by, so it is lighter than a real night.</p><button class="btn" type="button" data-play="night">Play this look</button></div>
+      </article>
+
+      <article class="look" id="look-blood" data-look="blood">
+        <div class="look-head"><h3>Ash and blood</h3><span class="pal" data-pal="blood" role="img" aria-label="Palette: eight warm blacks to bone, then blood, ember, olive and steel ramps"></span><p class="what">Warm blacks to bone, one blood-red ramp, a huge low sun behind the giant and ash falling. The lantern is bone-white.</p></div>
+        <div class="frames"><button class="still" type="button" data-shot="valley"><img src="stills/t/blood-valley.webp" data-full="stills/blood-valley.webp" alt="Ash and blood: the giant far off in the valley, seen from the town" width="576" height="324" loading="lazy" decoding="async"><span>In the valley</span></button><button class="still" type="button" data-shot="search"><img src="stills/t/blood-search.webp" data-full="stills/blood-search.webp" alt="Ash and blood: the lantern's light on the streets, seen from above" width="576" height="324" loading="lazy" decoding="async"><span>The search</span></button><button class="still" type="button" data-shot="look"><img src="stills/t/blood-look.webp" data-full="stills/blood-look.webp" alt="Ash and blood: looking up at the giant and its chain from the street" width="576" height="324" loading="lazy" decoding="async"><span>Looking up</span></button><button class="still" type="button" data-shot="face"><img src="stills/t/blood-face.webp" data-full="stills/blood-face.webp" alt="Ash and blood: its iron face looking down when it finds you" width="576" height="324" loading="lazy" decoding="async"><span>Its face</span></button></div>
+        <div class="look-foot"><p><b>For this game</b>The most dread. The red sky makes its outline read from the street, and the pale pool still stands out on the dark stones.</p><p class="risk"><b>Risk</b>Red tires the eye over a long session, and this is the look closest to Bloodborne and Berserk. The red has to stay in the sky and the accents.</p><button class="btn" type="button" data-play="blood">Play this look</button></div>
+      </article>
+
+      <article class="look" id="look-fog" data-look="fog">
+        <div class="look-head"><h3>White fog</h3><span class="pal" data-pal="fog" role="img" aria-label="Palette: eight cool greys to white, then amber, moss, slate and rust ramps"></span><p class="what">Cool greys and a low, dense fog. The streets round you stay clear, the valley goes white, and only its upper body rises out of the bank.</p></div>
+        <div class="frames"><button class="still" type="button" data-shot="valley"><img src="stills/t/fog-valley.webp" data-full="stills/fog-valley.webp" alt="White fog: the giant far off in the valley, seen from the town" width="576" height="324" loading="lazy" decoding="async"><span>In the valley</span></button><button class="still" type="button" data-shot="search"><img src="stills/t/fog-search.webp" data-full="stills/fog-search.webp" alt="White fog: the lantern's light on the streets, seen from above" width="576" height="324" loading="lazy" decoding="async"><span>The search</span></button><button class="still" type="button" data-shot="look"><img src="stills/t/fog-look.webp" data-full="stills/fog-look.webp" alt="White fog: looking up at the giant and its chain from the street" width="576" height="324" loading="lazy" decoding="async"><span>Looking up</span></button><button class="still" type="button" data-shot="face"><img src="stills/t/fog-face.webp" data-full="stills/fog-face.webp" alt="White fog: its iron face looking down when it finds you" width="576" height="324" loading="lazy" decoding="async"><span>Its face</span></button></div>
+        <div class="look-foot"><p><b>For this game</b>You hear it before you see it. The fog hides the scale until it is close, and the lantern pool reads once the fog darkens.</p><p class="risk"><b>Risk</b>Far shots go flat and nearly empty, and looking up gives grey on grey.</p><button class="btn" type="button" data-play="fog">Play this look</button></div>
+      </article>
+
+      <article class="look" id="look-winter" data-look="winter">
+        <div class="look-head"><h3>Winter village</h3><span class="pal" data-pal="winter" role="img" aria-label="Palette: eight cold greys to snow white, then red, amber, ice and pine ramps"></span><p class="what">Ashwake's first look: snow on every upward face, its shoulders included, black timber, a red accent ramp and snow falling.</p></div>
+        <div class="frames"><button class="still" type="button" data-shot="valley"><img src="stills/t/winter-valley.webp" data-full="stills/winter-valley.webp" alt="Winter village: the giant far off in the valley, seen from the town" width="576" height="324" loading="lazy" decoding="async"><span>In the valley</span></button><button class="still" type="button" data-shot="search"><img src="stills/t/winter-search.webp" data-full="stills/winter-search.webp" alt="Winter village: the lantern's light on the streets, seen from above" width="576" height="324" loading="lazy" decoding="async"><span>The search</span></button><button class="still" type="button" data-shot="look"><img src="stills/t/winter-look.webp" data-full="stills/winter-look.webp" alt="Winter village: looking up at the giant and its chain from the street" width="576" height="324" loading="lazy" decoding="async"><span>Looking up</span></button><button class="still" type="button" data-shot="face"><img src="stills/t/winter-face.webp" data-full="stills/winter-face.webp" alt="Winter village: its iron face looking down when it finds you" width="576" height="324" loading="lazy" decoding="async"><span>Its face</span></button></div>
+        <div class="look-foot"><p><b>For this game</b>The cleanest town of the seven, and snow lying on its armour makes it feel old and still.</p><p class="risk"><b>Risk</b>Lamplight on snow is pale on pale, so light and shadow read less well. Snow also feels cosy rather than frightening.</p><button class="btn" type="button" data-play="winter">Play this look</button></div>
+      </article>
+
+      <article class="look" id="look-colossus" data-look="colossus">
+        <div class="look-head"><h3>Sunlit colossus</h3><span class="pal" data-pal="colossus" role="img" aria-label="Palette: eight bleached greys, then sage, sand, sky and terracotta ramps"></span><p class="what">A high sun in a blue sky, white cloud, bloom, bleached ground, sage and terracotta.</p></div>
+        <div class="frames"><button class="still" type="button" data-shot="valley"><img src="stills/t/colossus-valley.webp" data-full="stills/colossus-valley.webp" alt="Sunlit colossus: the giant far off in the valley, seen from the town" width="576" height="324" loading="lazy" decoding="async"><span>In the valley</span></button><button class="still" type="button" data-shot="search"><img src="stills/t/colossus-search.webp" data-full="stills/colossus-search.webp" alt="Sunlit colossus: the lantern's light on the streets, seen from above" width="576" height="324" loading="lazy" decoding="async"><span>The search</span></button><button class="still" type="button" data-shot="look"><img src="stills/t/colossus-look.webp" data-full="stills/colossus-look.webp" alt="Sunlit colossus: looking up at the giant and its chain from the street" width="576" height="324" loading="lazy" decoding="async"><span>Looking up</span></button><button class="still" type="button" data-shot="face"><img src="stills/t/colossus-face.webp" data-full="stills/colossus-face.webp" alt="Sunlit colossus: its iron face looking down when it finds you" width="576" height="324" loading="lazy" decoding="async"><span>Its face</span></button></div>
+        <div class="look-foot"><p><b>For this game</b>The most epic giant. It stands in the cloud lit from the side, and its size reads at once.</p><p class="risk"><b>Risk</b>It works against the game. In daylight the lantern is a faint pool, so hiding barely reads unless cloud covers the sun for the whole hunt.</p><button class="btn" type="button" data-play="colossus">Play this look</button></div>
+      </article>
+
+      <article class="look" id="look-onebit" data-look="onebit">
+        <div class="look-head"><h3>One bit</h3><span class="pal" data-pal="onebit" role="img" aria-label="Palette: black and paper only"></span><p class="what">Black and paper only, in three flat levels: ink, a 50% screen and paper.</p></div>
+        <div class="frames"><button class="still" type="button" data-shot="valley"><img src="stills/t/onebit-valley.webp" data-full="stills/onebit-valley.webp" alt="One bit: the giant far off in the valley, seen from the town" width="576" height="324" loading="lazy" decoding="async"><span>In the valley</span></button><button class="still" type="button" data-shot="search"><img src="stills/t/onebit-search.webp" data-full="stills/onebit-search.webp" alt="One bit: the lantern's light on the streets, seen from above" width="576" height="324" loading="lazy" decoding="async"><span>The search</span></button><button class="still" type="button" data-shot="look"><img src="stills/t/onebit-look.webp" data-full="stills/onebit-look.webp" alt="One bit: looking up at the giant and its chain from the street" width="576" height="324" loading="lazy" decoding="async"><span>Looking up</span></button><button class="still" type="button" data-shot="face"><img src="stills/t/onebit-face.webp" data-full="stills/onebit-face.webp" alt="One bit: its iron face looking down when it finds you" width="576" height="324" loading="lazy" decoding="async"><span>Its face</span></button></div>
+        <div class="look-foot"><p><b>For this game</b>Light becomes paper and shadow becomes ink: the plainest read of the mechanic and the most graphic picture.</p><p class="risk"><b>Risk</b>The face breaks into black shapes, the town loses its detail, and it sits close to an ink style.</p><button class="btn" type="button" data-play="onebit">Play this look</button></div>
+      </article>
+    </div>
+
+    <aside class="read" aria-labelledby="readTitle">
+      <h3 id="readTitle">Which fits this game</h3>
+      <ul>
+        <li><b>Night lantern</b> if the hiding comes first. It reads light and shadow most clearly, so every second of the hunt is legible.</li>
+        <li><b>Ash and blood</b> if dread comes first. It is the most frightening of the seven and needs the most restraint.</li>
+        <li><b>Ashwake grey</b> is the safe middle, and it already works.</li>
+        <li><b>White fog</b> has the best mood for the approach but loses the far shots. Winter, Sunlit and One bit each weaken something the game needs: the light on snow, the lantern in daylight, the face in one bit.</li>
+        <li>They can also be mixed. The cycle already darkens as it comes, so the look can move with it: grey or sunlit while it walks the valley, night or red once it stops over the town.</li>
+      </ul>
+    </aside>
+  </section>
+
+  <section class="piece" id="live" aria-labelledby="liveTitle">
+    <div class="piece-head"><span class="num">17.2</span><h2 id="liveTitle">Play it <em>switch looks while it runs</em></h2></div>
+    <div class="lookbar" id="lookbar" role="group" aria-label="Look">
+      <button type="button" data-look="ashwake" aria-pressed="true"><span class="chip" data-chip="ashwake"></span>Ashwake grey</button>
+      <button type="button" data-look="night" aria-pressed="false"><span class="chip" data-chip="night"></span>Night</button>
+      <button type="button" data-look="blood" aria-pressed="false"><span class="chip" data-chip="blood"></span>Ash and blood</button>
+      <button type="button" data-look="fog" aria-pressed="false"><span class="chip" data-chip="fog"></span>Fog</button>
+      <button type="button" data-look="winter" aria-pressed="false"><span class="chip" data-chip="winter"></span>Winter</button>
+      <button type="button" data-look="colossus" aria-pressed="false"><span class="chip" data-chip="colossus"></span>Sunlit</button>
+      <button type="button" data-look="onebit" aria-pressed="false"><span class="chip" data-chip="onebit"></span>One bit</button>
+    </div>
+    <div class="screen" id="fallBox"><canvas id="fall" tabindex="0" aria-label="Underfoot. A walled hill town seen from above. A giant in old iron armour, nearly three kilometres tall, walks the valley with a lantern on a chain and searches the streets with its light. The buttons above change how the picture is drawn."></canvas><div class="msg" id="fallMsg" hidden></div></div>
+    <div class="bar">
+      <button id="lookBtn" type="button">Hold to look up</button>
+      <button id="soundBtn" type="button" aria-pressed="false">Sound</button>
+      <span class="lbl">Jump to</span>
+      <button type="button" data-go="approach">It comes</button>
+      <button type="button" data-go="search">It searches</button>
+      <button type="button" data-go="caught">It finds you</button>
+      <button type="button" data-go="leave">It passes</button>
+    </div>
+    <p class="keys"><span class="desk"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrows to walk, or hold the mouse where you want to go. Hold <kbd>L</kbd>, <kbd>Space</kbd> or the right button to look up. <kbd>M</kbd> for sound. </span><span class="touch">Drag on the picture to walk. Hold the amber button to look up. </span>Leave it alone and the town plays itself.</p>
+    <div class="now" id="now" aria-live="polite">
+      <h3 id="nowName">Ashwake grey</h3>
+      <p id="nowWhat">The game as it stands. Eight warm greys and four dull ramps; the lantern, the roofs and the cloak carry the colour.</p>
+      <div class="look-foot" id="nowFoot"></div>
+    </div>
+  </section>
+
+  <footer><p>Everything is drawn and synthesized in code. The giant, the town, the lantern and all seven palettes are original. The stills are frames of the same seeded run, rendered at the game's own 384 × 216 and scaled up three times.</p></footer>
+</main>
+
+<dialog class="box" id="box" aria-labelledby="boxName">
+  <div class="box-in">
+    <div class="box-top"><h3 id="boxName">Night lantern<span id="boxMoment">The search</span></h3><button class="btn" type="button" id="boxClose">Close</button></div>
+    <img id="boxImg" alt="" width="1152" height="648">
+    <div class="box-nav">
+      <button class="btn" type="button" id="boxUp">Previous look</button>
+      <button class="btn" type="button" id="boxDown">Next look</button>
+      <button class="btn" type="button" id="boxLeft">Previous moment</button>
+      <button class="btn" type="button" id="boxRight">Next moment</button>
+      <span class="sp"></span>
+      <span class="hint">↑ ↓ look · ← → moment · Esc closes</span>
+    </div>
+  </div>
+</dialog>
+<script>
+__SCRIPT__
+</script>

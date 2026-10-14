@@ -1,0 +1,19 @@
+{
+  "name": "underfoot",
+  "version": "1.2.0",
+  "description": "Hide in a hill town from a giant nearly three kilometres tall, under seven looks. WebGL2, no engine.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node tools/build.mjs dist/index.html --tpl=page/looks.html && node tools/build.mjs dist/game.html --tpl=page/game.html",
+    "build:looks": "node tools/build.mjs dist/index.html --tpl=page/looks.html",
+    "build:game": "node tools/build.mjs dist/game.html --tpl=page/game.html",
+    "build:test": "node tools/build.mjs out/test.html --dev --tpl=page/test.html",
+    "shots": "node tools/moments.mjs",
+    "shots:cycle": "npm run build:test && node tools/shot.mjs out/test.html out/cycle plans/cycle.json"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.2",
+    "playwright": "1.56.0"
+  }
+}
