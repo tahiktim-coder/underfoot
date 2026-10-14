@@ -1,0 +1,18 @@
+[
+  {"eval": "__v16.hold=true; const g=__v16.game; g.S.played=true; g.S.auto=false; __v16.force('search'); const P=g.S.player; window.st=()=>{ const p=g.S.people[0]; return [g.S.pt.toFixed(1), 'people', g.S.people.length, p && [p.x.toFixed(1), p.z.toFixed(1), p.mode, p.state, p.tier, p.litT.toFixed(1)], 'take', g.S.take && g.S.take.t.toFixed(2), 'aim', g.S.aimS.map(v=>v|0), 'lost', g.S.lostT.toFixed(1), 'seen', P.seen.toFixed(2)]; }; window.hide=()=>{ const q=(()=>{ const aim=g.S.aimS; for(let r=25;r<60;r+=1) for(let a=0;a<24;a++){ const x=aim[0]+Math.cos(a/24*6.283+r)*r, z=aim[1]+Math.sin(a/24*6.283+r)*r; if(g.blocked(x,z)||g.S.player&&Math.hypot(x,z)>70) continue; if(g.isLit([x,g.standY(x,z)+1.6,z]).tier==='deep') return [x,z]; } return null; })(); if(q){P.x=q[0];P.z=q[1];} }; hide(); for(let i=0;i<110;i++){ g.update(0.05); if(P.tier!=='deep') hide(); } g.render(); return st()"},
+  {"shot": "p0_out", "sel": "canvas"},
+  {"eval": "const g=__v16.game; const P=g.S.player; let log=[]; for(let i=0;i<200;i++){ g.update(0.05); if(P.tier!=='deep') hide(); const p=g.S.people[0]; if(i%20===0) log.push((p?p.tier+'/'+p.state+'/'+p.litT.toFixed(1):'-')+' aim'+g.S.aimS.map(v=>v|0)+' take'+(g.S.take?g.S.take.t.toFixed(1):'-')); if(g.S.take && g.S.take.t>0.5 && g.S.take.t<0.6) break; } g.render(); return [log, st()]"},
+  {"shot": "p1_narrow", "sel": "canvas"},
+  {"eval": "const g=__v16.game; const P=g.S.player; const p=g.S.people[0]; g.S.view={x:p.x,y:g.standY(p.x,p.z)+1,z:p.z,yaw:Math.PI/4,pitch:0.84,hh:9,D:1500}; g.S.cam=g.S.view; g.render(); g.S.view=null; return st()"},
+  {"shot": "p1_narrow_zoom", "sel": "canvas"},
+  {"eval": "const g=__v16.game; const P=g.S.player; for(let i=0;i<12;i++){ g.update(0.05); if(P.tier!=='deep') hide(); } g.render(); return st()"},
+  {"shot": "p2_flash", "sel": "canvas"},
+  {"eval": "const g=__v16.game; const P=g.S.player; for(let i=0;i<40;i++){ g.update(0.05); if(P.tier!=='deep') hide(); } const p=g.S.people[0]; g.S.view={x:p.x,y:g.standY(p.x,p.z)+1,z:p.z,yaw:Math.PI/4,pitch:0.84,hh:9,D:1500}; g.S.cam=g.S.view; g.render(); g.S.view=null; return [st(), g.S.stains]"},
+  {"shot": "p3_stain_zoom", "sel": "canvas"},
+  {"eval": "const g=__v16.game; const P=g.S.player; for(let i=0;i<100;i++){ g.update(0.05); if(P.tier!=='deep') hide(); } g.render(); return st()"},
+  {"shot": "p4_after", "sel": "canvas"},
+  {"eval": "const g=__v16.game; const P=g.S.player; g.startNight(3); __v16.force('search'); g.S.night=3; for(let i=0;i<160;i++){ g.update(0.05); if(P.tier!=='deep') hide(); } g.render(); return [st(), g.S.people.map(p=>[p.mode,p.state,p.tier]), __v16.errors]"},
+  {"shot": "p5_night3", "sel": "canvas"},
+  {"eval": "const g=__v16.game; const P=g.S.player; for(let i=0;i<400;i++){ g.update(0.05); if(P.tier!=='deep') hide(); if(g.S.phase!=='search') break; } __v16.view('town'); g.S.cam=g.S.view; g.S.noUI=true; g.render(); return [g.S.phase, g.S.pt.toFixed(1), g.S.people.map(p=>[p.mode,p.state]), 'stains', g.S.stains.length, __v16.errors]"},
+  {"shot": "p6_night3_town", "sel": "canvas"}
+]

@@ -102,6 +102,14 @@ export function createSound() {
       s.connect(bp); bp.connect(g); g.connect(o); s.start(t); v.start(t); s.stop(t + 3); v.stop(t + 3);
       burst(white, t + 0.8, 0.4, 2.8, 0.12 * k, o, 'lowpass', 700, 0.7, 250);
     },
+    // someone is taken: a short dry pop and a hiss going out
+    pop(pan) {
+      if (!ctx) return;
+      const t = now(), o = out(pan * 0.7, null);
+      burst(white, t, 0.002, 0.09, 0.6, o, 'lowpass', 2600, 0.7, 300);
+      osc('sine', 180, 40, t, 0.003, 0.16, 0.5, o);
+      burst(white, t + 0.08, 0.05, 0.7, 0.12, o, 'bandpass', 3800, 1.2, 900);
+    },
     // the light has found you: a short rising note, dry
     notice() {
       if (!ctx) return;

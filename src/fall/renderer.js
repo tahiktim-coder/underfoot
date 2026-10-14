@@ -6,7 +6,7 @@ import { getGL, program, texture, framebuffer, upload, VS_TRI, fitCanvas } from 
 import { mul, lookAt, ortho } from '../lib/mat4.js';
 import * as SH from './shaders.js';
 import { buildWorld, buildTerrain, STRIDE, makeArr } from './mesh.js';
-import { noiseTex, nearMap, farMap, poolMap } from './textures.js';
+import { noiseTex, nearMap, farMap, poolMap, stainMap, stampStain, clearStains } from './textures.js';
 import { mulberry } from '../lib/noise.js';
 
 export const LW = 386, LH = 218, VW = 384, VH = 216;
@@ -20,6 +20,7 @@ const HUES = [
   ['#281917', '#442824', '#653e34', '#88584a', '#ab7966'],   // rust
 ];
 const hex3 = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+const CANDLES_NONE = new Float32Array(16);
 // the player's coat, hood and scarf albedo when the look gives none (looks.js `player`)
 const PLAYER_DEFAULT = [0.16, 0.16, 0.18, 0.16, 0.16, 0.18, 0.55, 0.2, 0.13, 0, 0, 0];
 const luma = (c) => c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114;
@@ -127,7 +128,7 @@ export function createRenderer(canvas, giantMesh) {
   const ashVAO = gl.createVertexArray(); gl.bindVertexArray(ashVAO); buf(ashData); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 16, 0); gl.bindVertexArray(null);
 
   // textures and targets
-  const tNoise = noiseTex(gl), tNear = nearMap(gl), tFar = farMap(gl), tPool = poolMap(gl);
+  const tNoise = noiseTex(gl), tNear = nearMap(gl), tFar = farMap(gl), tPool = poolMap(gl), tStain = stainMap(gl);
   // one texel per house: 0 dark, 255 windows lit, 128 taken (dark, with a scorch); the game uploads it each frame
   const tHouses = texture(gl, 128, 1, { fmt: 'r8' });
   const SHS = 2048, GSS = 2048, LTS = 1024;
@@ -268,10 +269,10 @@ export function createRenderer(canvas, giantMesh) {
     if (scene.cut) { const c = xform(VP, scene.cut); cutP = [(c[0] / c[3] * 0.5 + 0.5) * LW, (c[1] / c[3] * 0.5 + 0.5) * LH, c[2] / c[3] * 0.5 + 0.5, 3.0 / px]; }
     const meshU = (p) => {
       common(p.use()).set('uVP', VP).set('uLVP', LVP || VP).set('uGVP', GVP).set('uLtVP', LtVP || VP)
-        .set('uShTexel', 1 / SHS, 1 / SHS).set('uGShTexel', 1 / GSS, 1 / GSS).set('uLtTexel', 1 / LTS, 1 / LTS).set('uLtK', ltK).set('uRing', scene.ring || [0.3, 0.3, 0.32, 1]).set('uLocalOn', localOn ? 1 : 0)
+        .set('uShTexel', 1 / SHS, 1 / SHS).set('uGShTexel', 1 / GSS, 1 / GSS).set('uLtTexel', 1 / LTS, 1 / LTS).set('uLtK', ltK).set('uRing', scene.ring || [0.3, 0.3, 0.32, 1]).set('uCandles', scene.candles || CANDLES_NONE).set('uLocalOn', localOn ? 1 : 0)
         .set('uLan', lan && lan.on > 0 ? [lan.pos[0], lan.pos[1], lan.pos[2], lan.I * lan.on] : [0, 0, 0, 0]).set('uLanDir', lan ? [lan.dir[0], lan.dir[1], lan.dir[2], lan.cosOuter] : [0, -1, 0, 0.9]).set('uLanInner', lan ? lan.cosInner : 0.95).set('uLanCol', L.lanCol)
         .set('uEye', scene.eye ?? 1).set('uSeen', scene.seen ?? 0).set('uSnow', scene.snow ?? 0).set('uWin', scene.windows ?? 0.5).set('uPlayer', scene.player || PLAYER_DEFAULT).set('uStreetAlb', scene.streetAlb ?? 0.55).set('uWinPool', scene.winPool ?? 0.4).set('uCloudShadow', scene.cloudShadow ?? 1).set('uWind', 7, 2.5).set('uHoleC', scene.holeC || [-300, 0]).set('uCloudCov', scene.cloudCov ?? 0).set('uPrints', scene.prints || new Float32Array(24)).set('uCut', cutP)
-        .tex('uNearMap', tNear, 0).tex('uFarMap', tFar, 1).tex('uShadow', tSh, 2).tex('uGShadow', tGSh, 4).tex('uLtShadow', tLt, 5).tex('uPoolMap', tPool, 6).tex('uHouses', tHouses, 7);
+        .tex('uNearMap', tNear, 0).tex('uFarMap', tFar, 1).tex('uShadow', tSh, 2).tex('uGShadow', tGSh, 4).tex('uLtShadow', tLt, 5).tex('uPoolMap', tPool, 6).tex('uHouses', tHouses, 7).tex('uStainMap', tStain, 8);
       return p;
     };
     meshU(P.mesh).set('uIsGiant', 0);
@@ -340,6 +341,6 @@ export function createRenderer(canvas, giantMesh) {
     puffData.set([x, y, z, t, vx, vy, vz, life, s0, s1, Math.random(), kind], o);
     puffHead = (puffHead + 1) % PUFFS; puffDirty = true;
   }
-  const api = { gl, canvas, render, project, view, genMs, dyn, puff, setPalette(greys, hues) { PAL = buildPalette(greys, hues); }, stats: { worldTris: world.verts / 3, terrTris: terr.idx.length / 3, giantTris: giantN / 3 } };
+  const api = { gl, canvas, render, project, view, genMs, dyn, puff, stain: (x, z, r, rnd) => stampStain(gl, tStain, x, z, r, rnd), clearStains: () => clearStains(gl, tStain), setPalette(greys, hues) { PAL = buildPalette(greys, hues); }, stats: { worldTris: world.verts / 3, terrTris: terr.idx.length / 3, giantTris: giantN / 3 } };
   return api;
 }

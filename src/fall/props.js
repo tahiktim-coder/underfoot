@@ -126,6 +126,13 @@ export function person(A, x, y, z, yaw, ph, run, look = {}) {
   const hy = 1.62;
   boxI(Q, -0.1, hy - 0.12, -0.1, 0.1, hy + 0.1, 0.1, skin, 0.1);
   if (look.hood !== false) { boxI(Q, -0.13, hy - 0.08, -0.14, 0.13, hy + 0.16, 0.08, hood, 0.2); }
+  // a candle held out in front: a stub and a small flame (the glow is a screen glow and a point light)
+  if (look.candle && !only) {
+    const h = Q(0.22, 1.0, -0.2);
+    bar(A, Q(0.22, 0.9, -0.2), h, 0.025 * k, 0.025 * k, [1, 0, 0], M.P_LIGHT);
+    tri(A, add(h, [-0.04, 0, 0]), add(h, [0.04, 0, 0]), add(h, [0, 0.12, 0]), M.G_FLAME, [0, 0], [1, 0], [0.5, 1], 0, add(h, [0, -1, 0]));
+    tri(A, add(h, [0, 0, -0.04]), add(h, [0, 0, 0.04]), add(h, [0, 0.12, 0]), M.G_FLAME, [0, 0], [1, 0], [0.5, 1], 0, add(h, [0, -1, 0]));
+  }
   // scarf
   if (look.scarf !== false) { boxI(Q, -0.15, 1.38, -0.13, 0.15, 1.5, 0.15, scarf, 0.1); barI(Q(0.08, 1.42, -0.13), Q(0.12 + Math.sin(ph) * 0.05, 1.05, -0.2 - run * 0.25), 0.05 * k, 0.02 * k, [0, 0, 1], scarf); }
 }

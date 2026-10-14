@@ -1,7 +1,7 @@
 // UNDERFOOT — baked textures: tileable noise, and two ground maps (near: 1 m texels over the town square;
 // far: 18 m texels over the whole valley) that tell the terrain shader where streets, roads, fields,
 // woods and water are.
-import { texture } from '../lib/gl.js';
+import { texture, upload } from '../lib/gl.js';
 import { mulberry, smooth, clamp } from '../lib/noise.js';
 const R0 = 0;
 import { NEAR, height, normalAt, riverDist, RIVER_W, roadDist, streetDist, townR, forest, houses, wallSegs, towers, CHURCH, TOWN } from './world.js';
@@ -70,6 +70,29 @@ export function poolMap(gl) {
   }
   return texture(gl, S, S, { data: d, fmt: 'rg8', filter: 'nearest' });
 }
+
+// The stains: where the light took someone. A map of 0.5 m texels over the near square, empty at start,
+// written at run time: 255 inside the stain, 110 in the scorched ring round it. The terrain shader reads it.
+export const STAIN_S = 1024;
+export function stainMap(gl) {
+  return texture(gl, STAIN_S, STAIN_S, { data: new Uint8Array(STAIN_S * STAIN_S), fmt: 'r8', filter: 'linear' });
+}
+export function stampStain(gl, t, x, z, r = 1.5, rnd = Math.random) {
+  const k = (NEAR * 2) / STAIN_S, R = r * 2.1, n = Math.ceil(R / k) * 2 + 2;
+  const i0 = Math.max(0, Math.floor((x - R + NEAR) / k)), j0 = Math.max(0, Math.floor((z - R + NEAR) / k));
+  const w = Math.min(n, STAIN_S - i0), h = Math.min(n, STAIN_S - j0);
+  if (w <= 0 || h <= 0) return;
+  const d = new Uint8Array(w * h);
+  const lobes = [[0, 0, r]]; for (let q = 0; q < 3; q++) { const a = rnd() * 6.28, rr = r * (0.4 + rnd() * 0.5); lobes.push([Math.cos(a) * r * 0.55, Math.sin(a) * r * 0.55, rr]); }
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const px = -NEAR + (i0 + i + 0.5) * k - x, pz = -NEAR + (j0 + j + 0.5) * k - z;
+    let inside = false; for (const [lx, lz, lr] of lobes) if (Math.hypot(px - lx, pz - lz) < lr) inside = true;
+    const dd = Math.hypot(px, pz);
+    d[j * w + i] = inside ? 255 : dd < R ? 110 : 0;
+  }
+  upload(gl, t, d, i0, j0, w, h);
+}
+export function clearStains(gl, t) { upload(gl, t, new Uint8Array(STAIN_S * STAIN_S)); }
 
 export function farMap(gl) {
   const S = 512, H = 9216, k = (H * 2) / S, d = new Uint8Array(S * S * 4);

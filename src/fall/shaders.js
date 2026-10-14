@@ -126,6 +126,8 @@ uniform mat4 uLVP, uGVP, uLtVP;
 uniform vec2 uShTexel, uGShTexel, uLtTexel;
 uniform float uLtK;            // the lantern map's 1/(2 tan(fov/2)): metres to map width at a distance
 uniform vec4 uRing;            // the ring under your feet: its colour, and how much of the circle is drawn
+uniform vec4 uCandles[4];      // candles in the street: x, y, z, strength (0 = none)
+uniform sampler2D uStainMap;   // where the light took someone: 1 in the stain, ~0.43 in the scorch round it
 uniform float uLocalOn;
 uniform vec4 uLan; uniform vec4 uLanDir; uniform float uLanInner; uniform vec3 uLanCol;
 uniform float uWin;            // how many windows are still lit, 0..1
@@ -359,6 +361,15 @@ void main(){
       float cob = (0.9 + 0.15*hash2(ci))*(1.0 - 0.3*step(0.86, max(c.x, c.y))*lodF(0.4));
       alb = mix(alb, vec3(1.0, 0.96, 0.9)*uStreetAlb*cob, street);
     }
+    // where the light took someone: a dark red-brown stain with a ring of scorched ground round it
+    if (nearIn){
+      float st = texture(uStainMap, gN).r;
+      if (st > 0.05){
+        float core = smoothstep(0.55, 0.8, st + (N3(P.xz, 0.7) - 0.5)*0.3), scorch = smoothstep(0.15, 0.4, st);
+        alb = mix(alb, alb*vec3(0.42, 0.3, 0.26), scorch);
+        alb = mix(alb, vec3(0.3, 0.075, 0.045)*(0.8 + 0.4*N2(P.xz, 1.2)), core);
+      }
+    }
     // warm pools on the ground under the windows that are still lit
     if (nearIn && uWinPool > 0.0){
       vec2 wp = texture(uPoolMap, gN).rg;
@@ -582,6 +593,12 @@ void main(){
   if (m >= 50 && m <= 55) col = max(col, alb*uPlayer[3].x);
   float lsh; float L = lanternLight(P, n, lsh);
   col += alb*uLanCol*L;
+  // candles carried through the streets: a small warm pool on the ground and the walls near them
+  if (m < 30) for (int i = 0; i < 4; i++){
+    if (uCandles[i].w <= 0.0) continue;
+    vec3 cd = uCandles[i].xyz - P; float cl = length(cd);
+    col += alb*vec3(1.0, 0.6, 0.28)*uCandles[i].w*(0.3 + 0.7*max(dot(n, cd/cl), 0.0))/(1.0 + (cl/1.6)*(cl/1.6));
+  }
   if (spec > 0.0){
     vec3 vd = normalize(P - uCam), hv = normalize(uSun - vd);
     col += uSunCol*pow(max(dot(n, hv), 0.0), 18.0)*0.35*sh*spec;

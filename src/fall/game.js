@@ -14,6 +14,7 @@ import { mulberry } from '../lib/noise.js';
 import { createSound } from './sound.js';
 import { LOOKS, LOOK_ORDER } from './looks.js';
 import { NIGHTS, LAST_NIGHT, night, RULE, nightCard, overCard, endCard, best } from './nights.js';
+import { brain, walk, spawnPerson } from './people.js';
 
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -38,6 +39,8 @@ const DIP_OUT = 0.12, DIP_IN = 0.2;   // the quick dip to dark on a camera cut
 const LAN = 40, LAN_Y = 70;   // the lantern's size, and how high its ring rides over the ground while it searches
 const SHADOW_DRAIN = 0.3;     // how fast the eye empties per second in deep shadow
 const OFF_PERIOD = 36;        // seconds for the lantern to drift from low to nearly overhead and back
+const LOST_AFTER = 6;         // seconds without a sight of you before the light goes looking for other lights
+const TAKE_LIT = 1.2;         // seconds the light must hold a townsperson before it narrows on them
 const TITLE_LOOP = 14;        // the title's slow push repeats every this many seconds until you begin
 const CARD_HOLD = 7;          // a night card moves on by itself after this long
 const PUFF_KEEP_OUT = 150;    // no footfall dust ring spawns closer to you than this (metres)
@@ -93,6 +96,8 @@ export function createGame(canvas, opts = {}) {
     // the houses: one byte each for the shader (0 dark, 255 lit, 128 taken), the stragglers whose windows stay
     // lit at the plant, how much chimney smoke is up, how many doors have slammed tonight
     homes: new Uint8Array(HOUSE_SLOTS), stragglers: new Set(), smokeLevel: 1, slams: 0, relightT: 0,
+    // the townspeople out tonight, the one the light is taking, how long since it last saw you, every stain
+    people: [], take: null, lostT: 0, spawned: 0, stains: [],
   };
   for (let i = 0; i < 26; i++) { const a = rnd() * 6.28, r = 20 + rnd() * 60; const x = TOWN.x + Math.cos(a) * r, z = TOWN.z + Math.sin(a) * r; S.birds.push({ x, z, y: standY(x, z) + 0.3, fly: 0, ph: rnd(), hx: 0, hz: 0, seed: rnd() }); }
   // about two thirds of the houses have someone home: those windows are lit in the calm. A house is lit,
@@ -110,6 +115,7 @@ export function createGame(canvas, opts = {}) {
       const P = S.player, a = Math.atan2(TOWN.z - P.z, TOWN.x - P.x) + (rnd() - 0.5) * 1.2;
       S.attn = [P.x + Math.cos(a) * 48, P.z + Math.sin(a) * 48]; S.aim = S.attn.slice(); S.aimS = S.attn.slice(); S.aimT = 3;
       AP.t = 0; AP.goal = null;
+      S.people = []; S.spawned = 0; S.take = null; S.lostT = LOST_AFTER;
     }
     if (p === 'caught') { snd.caught(); S.hitDone = false; S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.aim = [S.player.x, S.player.z]; }
   }
@@ -182,7 +188,7 @@ export function createGame(canvas, opts = {}) {
     updateGiant(0); stepLantern(0.016);
     Object.assign(smoothCam, playCam());
   }
-  function newRun() { S.run = { saved: 0, taken: 0 }; setHouses('reset'); startNight(firstNight); }
+  function newRun() { S.run = { saved: 0, taken: 0 }; setHouses('reset'); R.clearStains(); S.stains = []; startNight(firstNight); }
   const card = (kind, lines) => ({ kind, lines, t: 0 });
   function dismissCard() {
     const c = S.card; if (!c) return;
@@ -281,7 +287,7 @@ export function createGame(canvas, opts = {}) {
     const mark = [S.aimS[0], height(S.aimS[0], S.aimS[1]) + 1, S.aimS[1]];
     const k = ease(pose.search);
     const dir = nrm(lerp3([0, -1, 0], nrm(sub(mark, pos)), k));
-    const narrow = S.phase === 'caught' ? ease(S.pt / 1.2) : 0;
+    const narrow = S.phase === 'caught' ? ease(S.pt / 1.2) : S.take ? ease(S.take.t / 0.9) * (1 - ease((S.take.t - 1.4) / 0.8)) : 0;
     return { pos, dir, cosOuter: Math.cos(0.36 - narrow * 0.12), cosInner: Math.cos(0.11 - narrow * 0.04), I: L.I * (1 + narrow * 0.5), on: L.on };
   }
   // How lit a point is. The lantern is 40 m of glass, so it is tested with three rays to points across it;
@@ -416,11 +422,16 @@ export function createGame(canvas, opts = {}) {
     const P = S.player, srch = S.phase === 'search' ? 1 : 0;
     if (srch) {
       const tr = S.trail, back = tr.length ? tr[Math.max(0, tr.length - 1 - NT.lag)] : [P.x, P.z];
-      const want = P.seen > 0.3 || P.lit ? [P.x, P.z] : back;
-      const dx = want[0] - S.attn[0], dz = want[1] - S.attn[1], dd = Math.hypot(dx, dz), stepM = Math.min(dd, (P.seen > 0.3 ? 6.5 : 4.3) * dt);
+      S.lostT = P.seen > 0 || P.lit ? 0 : S.lostT + dt;
+      // once it has lost you for a while it goes to the nearest other light (the curious one with his
+      // candle draws it whenever you are not in sight); while it takes someone it holds on them
+      const lu = S.lostT > LOST_AFTER || S.people.some((p) => p.state === 'out' && p.mode === 'curious') ? lure() : null;
+      const want = S.take ? [S.take.p.x, S.take.p.z] : P.seen > 0.3 || P.lit ? [P.x, P.z] : lu || back;
+      const dx = want[0] - S.attn[0], dz = want[1] - S.attn[1], dd = Math.hypot(dx, dz), stepM = Math.min(dd, (P.seen > 0.3 || S.take ? 6.5 : 4.3) * dt);
       if (dd > 1e-3) { S.attn[0] += (dx / dd) * stepM; S.attn[1] += (dz / dd) * stepM; }
-      // the light hunts a little round that point, as if looking
-      S.aim = [S.attn[0] + 7 * Math.sin(t * 0.9) + 3 * Math.sin(t * 2.1), S.attn[1] + 6 * Math.cos(t * 0.73) + 3 * Math.sin(t * 1.7 + 1)];
+      // the light hunts a little round that point, as if looking; on a take it holds still
+      const w = S.take ? Math.max(0, 1 - S.take.t * 2) : 1;
+      S.aim = [S.attn[0] + (7 * Math.sin(t * 0.9) + 3 * Math.sin(t * 2.1)) * w, S.attn[1] + (6 * Math.cos(t * 0.73) + 3 * Math.sin(t * 1.7 + 1)) * w];
     }
     S.aimS[0] += (S.aim[0] - S.aimS[0]) * Math.min(1, dt * 2.2); S.aimS[1] += (S.aim[1] - S.aimS[1]) * Math.min(1, dt * 2.2);
     // the lantern is held to one side of the mark, swinging slowly round it, so the beam comes in low and
@@ -453,62 +464,19 @@ export function createGame(canvas, opts = {}) {
   }
 
   // ---------------------------------------------------------------------------------- the player
+  // under the title the town plays itself: a hider on odd cycles, the curious one on even
   const AP = { goal: null, t: 0 };
+  const env = { get aimS() { return S.aimS; }, get pt() { return S.pt; }, isLit, rnd };
   function autopilot(dt) {
-    const P = S.player;
-    AP.t -= dt;
-    const daring = S.cycle % 2 === 0;
-    if (S.phase === 'search' && !daring) {
-      if (AP.t <= 0 || !AP.goal) {
-        AP.t = 0.8;
-        const here = [P.x, standY(P.x, P.z) + 1.6, P.z];
-        const lp = [S.aimS[0], 0, S.aimS[1]], near = Math.hypot(P.x - lp[0], P.z - lp[2]) < 30;
-        if (isLit(here).tier !== 'deep' || !AP.goal || near) {
-          // somewhere close that is dark now, tucked against a house, away from where the light is, and
-          // inside the walls (out in the fields there is nothing to hide behind)
-          let best = null, bs = -1e9;
-          for (let r = 3; r <= 27; r += 3) for (let k = 0; k < 16; k++) {
-            const a = (k / 16) * Math.PI * 2 + r, x = P.x + Math.cos(a) * r, z = P.z + Math.sin(a) * r;
-            if (blocked(x, z)) continue;
-            let clear = true; for (let q = 1; q < 8; q++) if (blocked(lerp(P.x, x, q / 8), lerp(P.z, z, q / 8))) { clear = false; break; }
-            if (!clear) continue;
-            let tucked = 0; for (let q = 0; q < 8; q++) if (blocked(x + Math.cos(q * 0.785) * 3, z + Math.sin(q * 0.785) * 3)) tucked++;
-            const sc = (isLit([x, standY(x, z) + 1.6, z]).tier === 'deep' ? 100 : 0) + Math.min(4, tucked) * 6 + Math.min(30, Math.hypot(x - lp[0], z - lp[2])) * 0.6 - r * 0.3 - (townR(x, z) > 0.92 ? 80 : 0);
-            if (sc > bs) { bs = sc; best = [x, z]; }
-          }
-          AP.goal = best;
-        }
-      }
-    } else if (S.phase === 'search' && daring) {
-      // the curious one: walks out to see the light
-      // and once the light is on it, it stands there looking up into it
-      if (P.lit) AP.goal = [P.x, P.z];
-      else if (AP.t <= 0 || !AP.goal) { AP.t = 1.5; AP.goal = S.pt < 6 ? [SQUARE.x + (rnd() - 0.5) * 16, SQUARE.z + (rnd() - 0.5) * 12] : [S.aimS[0], S.aimS[1]]; }
-    } else if (AP.t <= 0 || !AP.goal) {
-      AP.t = 5 + rnd() * 5;
-      const St = STREETS[Math.floor(rnd() * STREETS.length)], u = rnd();
-      AP.goal = [lerp(St.a[0], St.b[0], u), lerp(St.a[1], St.b[1], u)];
-    }
-    if (!AP.goal) return [0, 0];
-    const dx = AP.goal[0] - P.x, dz = AP.goal[1] - P.z, d = Math.hypot(dx, dz);
-    if (d < 0.6) return [0, 0];
-    const yaw = Math.PI / 4, rx = Math.cos(yaw), rz = -Math.sin(yaw), fx = -Math.sin(yaw), fz = -Math.cos(yaw);
-    const k = Math.min(1, d / 2);
-    return [((dx * rx + dz * rz) / d) * k, ((dx * fx + dz * fz) / d) * k];
+    const mode = S.phase !== 'search' ? 'stroll' : S.cycle % 2 === 0 ? 'curious' : 'hider';
+    return brain(S.player, AP, mode, env, dt);
   }
   function updatePlayer(dt) {
     const P = S.player;
     let ix = S.input.x, iy = S.input.y;
     if (S.auto) { const a = autopilot(dt); ix = a[0]; iy = a[1]; }
     if (S.phase === 'caught' || S.camMode === 'look' || S.card) { ix = 0; iy = 0; }
-    const yaw = Math.PI / 4, rx = Math.cos(yaw), rz = -Math.sin(yaw), fx = -Math.sin(yaw), fz = -Math.cos(yaw);
-    let vx = rx * ix + fx * iy, vz = rz * ix + fz * iy;
-    const m = Math.hypot(vx, vz), sp = 4.6 * Math.min(1, Math.hypot(ix, iy));
-    if (m > 1e-3) { vx = (vx / m) * sp; vz = (vz / m) * sp; P.yaw = Math.atan2(vx, vz); }
-    const nx = P.x + vx * dt, nz = P.z + vz * dt;
-    if (!blocked(nx, nz)) { P.x = nx; P.z = nz; } else if (!blocked(nx, P.z)) P.x = nx; else if (!blocked(P.x, nz)) P.z = nz;
-    P.run += ((m > 1e-3 ? 1 : 0) - P.run) * Math.min(1, dt * 8);
-    P.ph += dt * (6 + 5 * P.run) * P.run;
+    walk(P, ix, iy, dt);
     const li = S.phase === 'search' ? isLit([P.x, standY(P.x, P.z) + 1.6, P.z]) : { L: 0, rays: 3, tier: 'none' };
     const was = P.tier;
     P.lit = li.tier === 'lit'; P.tier = li.tier;
@@ -522,6 +490,40 @@ export function createGame(canvas, opts = {}) {
     P.crouch += ((!P.lit && S.phase === 'search' && P.run < 0.2 ? 1 : 0) - P.crouch) * Math.min(1, dt * 4);
   }
 
+  // ---------------------------------------------------------------------------------- the townspeople
+  // Night 1: five seconds into the search the curious one steps out with a candle, walks into the square
+  // and looks up. Later nights: bad hiders, out from the start. One the light holds for a moment is taken:
+  // the beam narrows on them, a flash, a pop, and a stain where they stood.
+  function updatePeople(dt) {
+    if (S.phase !== 'search') { if (S.phase !== 'caught') S.people = S.people.filter((p) => p.state === 'out' && S.phase === 'plant'); S.take = null; return; }
+    const want = NT.people, at = S.night === 1 ? 5 : 1.5;
+    if (S.pt > at && S.spawned < want && (S.spawned === 0 || S.pt > at + S.spawned * 1.5)) {
+      S.people.push(spawnPerson(S.night === 1 ? 'curious' : 'hider', rnd, [S.player.x, S.player.z])); S.spawned++;
+    }
+    for (const p of S.people) {
+      if (p.state !== 'out') continue;
+      const taking = S.take && S.take.p === p;
+      if (!taking) { const [ix, iy] = brain(p, p.mem, p.mode, env, dt); walk(p, ix, iy, dt, 3.6); }
+      else walk(p, 0, 0, dt);
+      p.tier = isLit([p.x, standY(p.x, p.z) + 1.6, p.z]).tier;
+      p.litT = p.tier === 'lit' ? p.litT + dt : Math.max(0, p.litT - dt * 2);
+      if (!S.take && p.litT > TAKE_LIT) S.take = { p, t: 0 };
+    }
+    if (S.take) {
+      const T = S.take, p = T.p; T.t += dt;
+      if (T.t >= 1.0 && p.state === 'out') {
+        p.state = 'taken'; S.flash = Math.max(S.flash, 0.8); snd.pop(panOf(p.x, p.z));
+        R.stain(p.x, p.z, 1.4, rnd); S.stains.push([p.x, p.z]);
+      }
+      if (T.t > 2.4) S.take = null;
+    }
+  }
+  // what draws the light when it has lost you: the nearest candle in the street
+  function lure() {
+    let best = null, bd = 1e9;
+    for (const p of S.people) { if (p.state !== 'out') continue; const d = Math.hypot(p.x - S.attn[0], p.z - S.attn[1]) - (p.mode === 'curious' ? 1000 : 0); if (d < bd) { bd = d; best = [p.x, p.z]; } }
+    return best;
+  }
   // ---------------------------------------------------------------------------------- the story
   function updateStory(dt) {
     S.pt += dt;
@@ -789,6 +791,7 @@ export function createGame(canvas, opts = {}) {
       out.push([ls.x, ls.y, ls.zNear, Math.max(8, ls.size * 1.4), 0.22, 1]);
       out.push([ls.x, ls.y, ls.zNear, Math.max(4, ls.size * 0.5), 0.12, 1]);
     }
+    for (const p of S.people) if (p.state === 'out') { const cp = R.project([p.x + Math.sin(p.yaw) * 0.4, standY(p.x, p.z) + 1.0, p.z + Math.cos(p.yaw) * 0.4]); if (cp[2] && out.length < 4) out.push([cp[0], cp[1], cp[3], 2.2, 0.35, 1]); }
     if (G.W.eyes) for (const e of G.W.eyes) { const ep = R.project(e); if (ep[2]) out.push([ep[0], ep[1], ep[3], 1.5 + 0.8 * S.player.seen + 1.4 * (S.eye - 1), 0.15 + 0.35 * S.player.seen + 0.14 * (S.eye - 1), 2]); }
     return out;
   }
@@ -811,6 +814,7 @@ export function createGame(canvas, opts = {}) {
     updateGiant(dt);
     stepLantern(dt);
     updatePlayer(dt);
+    updatePeople(dt);
     updateBirds(dt);
     updateCamera(dt);
     S.shake = Math.max(0, S.shake - dt * (S.shake * 1.8 + 0.2));
@@ -842,8 +846,17 @@ export function createGame(canvas, opts = {}) {
     const ringU = tier === 'lit' ? [lc[0] * 0.9, lc[1] * 0.9, lc[2] * 0.9, 1]
       : tier === 'shallow' ? [lc[0] * 0.4 * pulse, lc[1] * 0.4 * pulse, lc[2] * 0.4 * pulse, Math.max(0.08, 1 - P.seen)]
       : tier === 'deep' ? [0.12, 0.22, 0.55, 1] : [0.3, 0.3, 0.32, 1];
+    // the townspeople: pale coats, bare heads, a candle in the hand; then every figure's outline hull
+    const out = S.people.filter((p) => p.state === 'out'), candles = new Float32Array(16);
+    out.forEach((p, i) => {
+      const yy = standY(p.x, p.z);
+      person(A, p.x, yy, p.z, p.yaw, p.ph, p.run, { cloak: M.P_LIGHT, hood: false, scarf: false, candle: true });
+      if (i < 4) candles.set([p.x + Math.sin(p.yaw) * 0.4, yy + 1.0, p.z + Math.cos(p.yaw) * 0.4, 0.5], i * 4);
+    });
+    const inflate = clamp((2 * S.cam.hh / VH) * 1.1, 0.06, 0.5);
     A.hull();
-    person(A, P.x, py, P.z, P.yaw, P.ph, P.run, { crouch: P.crouch, inflate: clamp((2 * S.cam.hh / VH) * 1.1, 0.06, 0.5), mat: M.P_OUTLINE });
+    person(A, P.x, py, P.z, P.yaw, P.ph, P.run, { crouch: P.crouch, inflate, mat: M.P_OUTLINE });
+    for (const p of out) person(A, p.x, standY(p.x, p.z), p.z, p.yaw, p.ph, p.run, { hood: false, scarf: false, inflate, mat: M.P_OUTLINE });
     const sh = S.phase === 'caught' ? 0 : S.shake;
     const ll = lanLight(), ls = lanScreen();
     syncHouses();
@@ -853,7 +866,7 @@ export function createGame(canvas, opts = {}) {
       lantern: { ...ll, I: ll.I * LK.lanI / 1.5 }, lanGlow: LK.light.lanCol,
       lanShaft: ls && S.lan.on > 0 ? { ...ls, strength: (LK.lanShaft ?? 1) * LK.lanI / 1.5 } : null,
       glows,
-      windows: Math.max(LK.winMin, S.windows), houses: S.homes, ring: ringU, prints: S.prints, streetAlb: LK.streetAlb, winPool: LK.winPool, player: LK.player ? [...LK.player.coat, ...LK.player.hood, ...LK.player.scarf, LK.player.fill || 0, 0, 0] : null,
+      windows: Math.max(LK.winMin, S.windows), houses: S.homes, ring: ringU, candles, prints: S.prints, streetAlb: LK.streetAlb, winPool: LK.winPool, player: LK.player ? [...LK.player.coat, ...LK.player.hood, ...LK.player.scarf, LK.player.fill || 0, 0, 0] : null,
       cloudK: S.cam.hh > 120 ? Math.min(1, (S.cam.hh - 120) / 400) : 0, holeC: [-300, 0], cloudCov: LK.cloudCov,
       cut: S.cam.hh < 60 ? [P.x, standY(P.x, P.z) + 1.2, P.z] : null,
       gCentre: [lerp(G.x, TOWN.x, 0.5), 0, lerp(G.z, TOWN.z, 0.5)],
@@ -872,7 +885,7 @@ export function createGame(canvas, opts = {}) {
   updateGiant(0);
 
   const api = {
-    R, G, S, snd, LOOKS, LOOK_ORDER, NIGHTS, isLit, inCover, blocked, standY, lanLight, segmentBlocked, OCCLUDERS, houses,
+    R, G, S, snd, LOOKS, LOOK_ORDER, NIGHTS, isLit, inCover, blocked, standY, lanLight, segmentBlocked, OCCLUDERS, houses, updatePeople,
     get look() { return lookName; },
     get night() { return S.night; },
     begin, startNight, retryNight, dismissCard,
