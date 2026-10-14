@@ -796,8 +796,12 @@ vec3 rampPick(int o0, int n, float L, float b){
       return fr > b ? uRamp[o0 + i + 1] : uRamp[o0 + i];
     }
   }
-  float top = uRampL[o0 + n - 1];
-  float f = clamp((L - top)/max(0.02, uRampL[7] - top), 0.0, 1.0);
+  // over the top of a ramp the picture goes to the palest grey, an overexposed highlight, but only when
+  // that grey is brighter than the ramp's top. Where a hue ramp climbs past the greys (Night's amber) it
+  // stays at the ramp's top, so the lantern's pool reads amber at its brightest and never white.
+  float top = uRampL[o0 + n - 1], pale = uRampL[7];
+  if (pale <= top + 0.02) return uRamp[o0 + n - 1];
+  float f = clamp((L - top)/max(0.02, pale - top), 0.0, 1.0);
   return f > b ? uRamp[7] : uRamp[o0 + n - 1];
 }
 void main(){
