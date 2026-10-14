@@ -271,7 +271,7 @@ export function createRenderer(canvas, giantMesh) {
       gl.bindVertexArray(giantVAO); gl.drawArrays(gl.TRIANGLES, 0, giantN);
     }
     // dust and clods
-    common(P.puff.use()).set('uVP', VP).set('uRight', right[0], right[1], right[2]).set('uUp', up[0], up[1], up[2]).set('uLanOn', lan && lan.on > 0 ? 1 : 0).set('uLanPos', lan ? [lan.pos[0], lan.pos[1], lan.pos[2], lan.I * lan.on] : [0, 0, 0, 0]).set('uLanDir', lan ? [lan.dir[0], lan.dir[1], lan.dir[2], lan.cosOuter] : [0, -1, 0, 0.9]);
+    common(P.puff.use()).set('uVP', VP).set('uHH', cam.hh).set('uRight', right[0], right[1], right[2]).set('uUp', up[0], up[1], up[2]).set('uLanOn', lan && lan.on > 0 ? 1 : 0).set('uLanPos', lan ? [lan.pos[0], lan.pos[1], lan.pos[2], lan.I * lan.on] : [0, 0, 0, 0]).set('uLanDir', lan ? [lan.dir[0], lan.dir[1], lan.dir[2], lan.cosOuter] : [0, -1, 0, 0.9]);
     gl.bindVertexArray(puffVAO); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, PUFFS);
     // birds
     const nb = Math.min(256, (scene.birds || []).length);

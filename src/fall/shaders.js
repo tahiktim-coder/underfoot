@@ -652,6 +652,7 @@ layout(location=1) in vec4 iA;
 layout(location=2) in vec4 iB;
 layout(location=3) in vec4 iC;
 uniform mat4 uVP; uniform vec3 uRight, uUp; uniform float uTime;
+uniform float uHH;   // the camera's half-height in metres: a puff wider than the frame is dropped
 out vec2 vC; out float vT; flat out vec4 vK; out vec3 vW;
 void main(){
   float t = uTime - iA.w, u = t/iB.w;
@@ -659,9 +660,10 @@ void main(){
   vec3 p = iA.xyz + iB.xyz*(k == 1 ? t : (1.0 - exp(-t*0.9))/0.9);
   if (k == 1) p.y -= 4.9*t*t;           // falling clod
   float r = mix(iC.x, iC.y, k == 1 ? 0.0 : 1.0 - pow(1.0 - clamp(u, 0.0, 1.0), 2.5));
+  bool gone = u < 0.0 || u > 1.0 || r > uHH*1.5;
   vec3 w = p + (uRight*aC.x + uUp*aC.y)*r;
   vC = aC; vT = u; vK = iC; vW = w;
-  gl_Position = (u < 0.0 || u > 1.0) ? vec4(2.0, 2.0, 2.0, 1.0) : uVP*vec4(w, 1.0);
+  gl_Position = gone ? vec4(2.0, 2.0, 2.0, 1.0) : uVP*vec4(w, 1.0);
 }`;
 export const FS_PUFF = `#version 300 es
 precision highp float;

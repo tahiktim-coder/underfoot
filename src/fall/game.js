@@ -37,6 +37,7 @@ const DIP_OUT = 0.12, DIP_IN = 0.2;   // the quick dip to dark on a camera cut
 const LAN = 40, LAN_Y = 70;   // the lantern's size, and how high its ring rides over the ground while it searches
 const LAN_OFF = 48;           // how far to the side of the lit spot it holds the lantern
 const TRAIL_LAG = 14;         // it aims where you were this many trail samples (0.25 s each) ago
+const PUFF_KEEP_OUT = 150;    // no footfall dust ring spawns closer to you than this (metres)
 
 function walkPlan(from, to, t0, stepLen, end) {
   // plants along a line, alternating, each foot to its own side; the last two are replaced by `end`
@@ -221,7 +222,11 @@ export function createGame(canvas, opts = {}) {
       const lx = u * (150 + rnd() * 50), lz = 100 + v * (290 + rnd() * 60);
       const cx = pl.x + fx * lz + fz * lx, cz = pl.z + fz * lz - fx * lx;
       const ox = fx * v + fz * u, oz = fz * v - fx * u;
-      R.puff(cx, height(cx, cz) + 12, cz, S.t, ox * 34, 5 + rnd() * 8, oz * 34, 6 + rnd() * 4, 30, 80 + rnd() * 80, 0);
+      const vy = 5 + rnd() * 8, life = 6 + rnd() * 4, size = 80 + rnd() * 80;
+      // never near you or over the town: from the play camera one of these billboards is a wall across the
+      // whole picture (a disc while small, a checkerboard once big)
+      if (Math.hypot(cx - P.x, cz - P.z) < PUFF_KEEP_OUT || townR(cx, cz) < 1.2) continue;
+      R.puff(cx, height(cx, cz) + 12, cz, S.t, ox * 34, vy, oz * 34, life, 30, size, 0);
     }
     if (d < 1500) {
       for (let k = 0; k < 70; k++) {
