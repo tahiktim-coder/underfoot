@@ -9,6 +9,8 @@
     "build:looks": "node tools/build.mjs dist/index.html --tpl=page/looks.html",
     "build:game": "node tools/build.mjs dist/game.html --tpl=page/game.html",
     "build:test": "node tools/build.mjs out/test.html --dev --tpl=page/test.html",
+    "build:itch": "node tools/build.mjs itch/index.html --tpl=page/itch.html --entry=src/itch.js",
+    "zip:itch": "npm run build:itch && node tools/zip.mjs itch/underfoot-itch.zip itch/index.html",
     "shots": "node tools/moments.mjs",
     "shots:cycle": "npm run build:test && node tools/shot.mjs out/test.html out/cycle plans/cycle.json"
   },

@@ -10,8 +10,9 @@ import path from 'path';
 const [PAGE, OUT, planArg] = process.argv.slice(2);
 const plan = JSON.parse(planArg && fs.existsSync(planArg) ? fs.readFileSync(planArg, 'utf8') : planArg || '[]');
 fs.mkdirSync(OUT, { recursive: true });
-const body = fs.readFileSync(PAGE, 'utf8');
-const html = body.trimStart().startsWith('<!doctype') ? body : '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0;font:14px system-ui}[hidden]{display:none!important}</style></head><body>' + body + '</body></html>';
+// the page is served exactly as built, so a screenshot tests what ships (a page without a doctype runs in
+// quirks mode here as it would on itch)
+const html = fs.readFileSync(PAGE, 'utf8');
 const TYPES = { '.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg', '.css': 'text/css', '.js': 'text/javascript' };
 const srv = http.createServer((q, r) => {
   if (q.url.startsWith('/fonts')) { r.writeHead(404); return r.end(); }
@@ -19,7 +20,7 @@ const srv = http.createServer((q, r) => {
   const rel = decodeURIComponent(q.url.split('?')[0]).replace(/^\/+/, '');
   const f = rel && path.join(path.dirname(PAGE), rel);
   if (f && !rel.includes('..') && fs.existsSync(f) && fs.statSync(f).isFile()) { r.writeHead(200, { 'content-type': TYPES[path.extname(f)] || 'application/octet-stream' }); return r.end(fs.readFileSync(f)); }
-  r.writeHead(200, { 'content-type': 'text/html' }); r.end(html);
+  r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(html);
 });
 await new Promise((r) => srv.listen(0, r));
 const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] });
