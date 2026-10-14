@@ -17,7 +17,7 @@ export const LOOKS = {
       hues: [['#2a2118', '#4b3b29', '#725b3d', '#9f8151', '#cfaa69'], ['#1d231c', '#303a2c', '#4a5741', '#6a7757', '#8f9a74'], ['#1a2028', '#2d3542', '#465161', '#697482', '#919ba7'], ['#281917', '#442824', '#653e34', '#88584a', '#ab7966']],
     },
     chroma: [0.05, 0.14], contrast: 1.05, dither: 0, bloom: 0, stars: 0, sunSize: 1, sunDisc: 1.4, snow: 0,
-    ash: { amount: 0.45, lum: 0.7, fall: 1 }, grain: 0.045, vignette: 0.4, tilt: 1, winMin: 0, lanI: 1.5, cloudCov: 0,
+    ash: { amount: 0.45, lum: 0.7, fall: 1 }, grain: 0.045, vignette: 0.4, tilt: 0, winMin: 0, lanI: 1.5, cloudCov: 0,
     ui: { text: '#dfd9cf', dim: '#b5aea6', accent: '#cfaa69', title: '#1f1d20', sub: '#34313a', plate: 'rgba(15,14,16,0.82)', edge: '#6b6667' },
   },
 
@@ -25,14 +25,14 @@ export const LOOKS = {
   night: {
     name: 'Night lantern', short: 'Night',
     note: 'Moonlit blue-blacks. The lantern and the windows are the only warm colour, so light and shadow read at a glance; the giant is a silhouette with a cold rim.',
-    light: { sun: nrm([-0.94, 0.24, -0.27]), sunCol: [0.42, 0.5, 0.74], skyCol: [0.06, 0.075, 0.13], gndCol: [0.03, 0.035, 0.05], fogCol: [0.05, 0.062, 0.1], fogSunCol: [0.2, 0.25, 0.38], fogA: 1 / 7000, fogB: 1 / 1100, exposure: 2.0, lanCol: [1.0, 0.62, 0.3] },
+    light: { sun: nrm([-0.94, 0.36, -0.27]), sunCol: [0.7, 0.8, 1.15], skyCol: [0.08, 0.1, 0.17], gndCol: [0.03, 0.035, 0.05], fogCol: [0.05, 0.062, 0.1], fogSunCol: [0.2, 0.25, 0.38], fogA: 1 / 7000, fogB: 1 / 1100, exposure: 2.2, lanCol: [1.0, 0.62, 0.3] },
     dimK: { sun: 0.35, sky: 0.15, gnd: 0.2, fog: 0.15, fogSun: 0.1, exp: 0.1 },
     palette: {
       greys: ['#06070b', '#0d111b', '#171e2c', '#232d40', '#334058', '#4a5872', '#6d7b94', '#a9b4c6'],
       hues: [['#2a1a0c', '#57361a', '#8a5522', '#c4842e', '#f2bd62'], ['#0e1612', '#18241d', '#26372c', '#3a4f40', '#55705b'], ['#0f1726', '#1b2a42', '#2b4163', '#456189', '#7290b6'], ['#1f0f0e', '#3d1915', '#62261c', '#8c3a27', '#b8583a']],
     },
-    chroma: [0.035, 0.1], contrast: 1.08, dither: 0, bloom: 0.35, stars: 1, sunSize: 3.2, sunDisc: 2.4, snow: 0,
-    ash: { amount: 0.35, lum: 0.55, fall: 0.7 }, grain: 0.05, vignette: 0.55, tilt: 1, winMin: 0.4, lanI: 1.6, cloudCov: -0.04,
+    chroma: [0.035, 0.1], contrast: 1.15, dither: 0, bloom: 0.55, stars: 1, sunSize: 3.2, sunDisc: 2.4, snow: 0,
+    ash: { amount: 0.35, lum: 0.12, fall: 0.7 }, grain: 0.03, vignette: 0.35, tilt: 0, winMin: 0.4, lanI: 2.1, cloudCov: -0.04,
     ui: { text: '#a9b4c6', dim: '#6d7b94', accent: '#f2bd62', title: '#a9b4c6', sub: '#a9b4c6', plate: 'rgba(6,7,11,0.85)', edge: '#334058' },
   },
 
@@ -47,7 +47,7 @@ export const LOOKS = {
       hues: [['#260908', '#470e0b', '#741812', '#a5261a', '#d8452a'], ['#2a170b', '#53301a', '#83502a', '#b8803f', '#e9b866'], ['#141410', '#24241b', '#38372a', '#504e3c', '#6d6a52'], ['#141518', '#25272d', '#3a3d46', '#545964', '#767c89']],
     },
     chroma: [0.07, 0.16], contrast: 1.1, dither: 0, bloom: 0.25, stars: 0, sunSize: 5.5, sunDisc: 1.1, snow: 0,
-    ash: { amount: 1, lum: 0.3, fall: 0.8 }, grain: 0.06, vignette: 0.55, tilt: 1, winMin: 0, lanI: 1.5, cloudCov: 0,
+    ash: { amount: 1, lum: 0.3, fall: 0.8 }, grain: 0.06, vignette: 0.55, tilt: 0, winMin: 0, lanI: 1.5, cloudCov: 0,
     ui: { text: '#cfb798', dim: '#9c745f', accent: '#d8452a', title: '#cfb798', sub: '#cfb798', plate: 'rgba(11,8,7,0.85)', edge: '#533731' },
   },
 
@@ -62,7 +62,7 @@ export const LOOKS = {
       hues: [['#2b2016', '#55402a', '#82643f', '#b28d5c', '#ddb67f'], ['#1a1f1b', '#2d362f', '#465249', '#667468', '#8e9a8f'], ['#1b2027', '#2f3743', '#4a5462', '#6b7686', '#95a0ae'], ['#2a1c19', '#4c322c', '#744c42', '#9c6a5c', '#c28e7e']],
     },
     chroma: [0.06, 0.16], contrast: 1.05, dither: 0, bloom: 0, stars: 0, sunSize: 0, sunDisc: 0, snow: 0,
-    ash: { amount: 0.3, lum: 0.85, fall: 0.25 }, grain: 0.04, vignette: 0.3, tilt: 1, winMin: 0, lanI: 2.2, cloudCov: 0.12,
+    ash: { amount: 0.3, lum: 0.85, fall: 0.25 }, grain: 0.04, vignette: 0.3, tilt: 0, winMin: 0, lanI: 2.2, cloudCov: 0.12,
     ui: { text: '#edefee', dim: '#cdd0d3', accent: '#ddb67f', title: '#2a2c30', sub: '#44474c', plate: 'rgba(20,21,23,0.8)', edge: '#62666c' },
   },
 
@@ -77,7 +77,7 @@ export const LOOKS = {
       hues: [['#2a0b0b', '#52130f', '#861c15', '#bd281d', '#e44a35'], ['#2b1e10', '#57391b', '#8a5b2a', '#c38d43', '#efc070'], ['#151b24', '#263142', '#3c4b62', '#5b6d86', '#8597b0'], ['#0f1612', '#1b261e', '#2b3a2e', '#3f5443', '#5a735d']],
     },
     chroma: [0.05, 0.14], contrast: 1.08, dither: 0, bloom: 0, stars: 0, sunSize: 1, sunDisc: 1.2, snow: 1,
-    ash: { amount: 0.8, lum: 0.97, fall: 0.6 }, grain: 0.04, vignette: 0.4, tilt: 1, winMin: 0, lanI: 1.45, cloudCov: 0,
+    ash: { amount: 0.8, lum: 0.97, fall: 0.6 }, grain: 0.04, vignette: 0.4, tilt: 0, winMin: 0, lanI: 1.45, cloudCov: 0,
     ui: { text: '#f3f2ef', dim: '#cbcbd0', accent: '#e44a35', title: '#1c1c21', sub: '#2f2f36', plate: 'rgba(14,14,17,0.82)', edge: '#4b4b53' },
   },
 
@@ -92,7 +92,7 @@ export const LOOKS = {
       hues: [['#1a1f17', '#30392b', '#4b5843', '#6c7b60', '#939f84'], ['#2a2318', '#51432d', '#7e6a49', '#ab926a', '#d4bc93'], ['#1a2129', '#2e3a48', '#4a5a6c', '#6d8094', '#98a9ba'], ['#261a17', '#47302a', '#6b4a3f', '#906656', '#b48a77']],
     },
     chroma: [0.04, 0.12], contrast: 1.0, dither: 0, bloom: 0.45, stars: 0, sunSize: 1.5, sunDisc: 2.0, snow: 0,
-    ash: { amount: 0.25, lum: 0.9, fall: 0.3 }, grain: 0.07, vignette: 0.45, tilt: 0.6, winMin: 0, lanI: 2.8, cloudCov: 0.02,
+    ash: { amount: 0.25, lum: 0.9, fall: 0.3 }, grain: 0.07, vignette: 0.45, tilt: 0, winMin: 0, lanI: 2.8, cloudCov: 0.02,
     ui: { text: '#fbf6ea', dim: '#d8d1c2', accent: '#d4bc93', title: '#292824', sub: '#45433d', plate: 'rgba(19,19,18,0.78)', edge: '#66625a' },
   },
 
