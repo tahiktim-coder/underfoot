@@ -128,7 +128,8 @@ uniform float uNear, uFar;
 uniform float uCloudShadow;
 uniform vec4 uCut;             // see-through near the player: screen xy, depth, radius in px
 uniform float uIsGiant;
-uniform float uEye;
+uniform float uEye;            // 1, rising to 3.5 as it sees you; uSeen is the eye meter 0..1
+uniform float uSeen;
 uniform float uSnow;
 uniform vec3 uPlayer[4];       // your coat, hood and scarf albedo, then (fill light, 0, 0), from the look
 const float LAME[7] = float[7](0.0, 60.0, 110.0, 155.0, 200.0, 245.0, 290.0);   // where the foot's lames start
@@ -427,7 +428,7 @@ void main(){
   } else if (m == 43 || m == 44){
     // old iron plate, near black: seams every ~100 m with a lip that catches the light, rust bleeding down
     // from them, moss where it faces up; the feet are lames with rivets, caked with dried mud
-    float lw = lodF(4.0);
+    float lw = lodF(7.0);
     vec3 base = vec3(0.1, 0.097, 0.093)*(0.85 + 0.3*N1(T.xz + T.y*0.5, 70.0));
     float ax = abs(T.x) - 180.0;
     bool foot = T.y < 140.0 && abs(ax) < 140.0 && T.z > -150.0;
@@ -444,7 +445,7 @@ void main(){
       below = 0.5;
     } else {
       float fy = mod(T.y - 40.0, 104.0);
-      seam = step(fy, 3.5); lip = step(3.5, fy)*step(fy, 7.5);
+      seam = step(fy, 4.0); lip = step(4.0, fy)*step(fy, 10.0);
       below = smoothstep(50.0, 103.0, fy);
     }
     float streak = N2(vec2(T.x*0.7 + T.z*0.7, T.y*0.07), 16.0);
@@ -467,13 +468,13 @@ void main(){
     float lw = lodF(3.0);
     float rel = maskRelief(T.xy);
     float cav = clamp(-rel/36.0, 0.0, 1.0), ridge = clamp(rel/24.0, 0.0, 1.0);
-    vec3 base = vec3(0.2, 0.195, 0.19)*(0.9 + 0.2*N1(T.xy*vec2(1.0, 0.6), 60.0));
+    vec3 base = vec3(0.27, 0.26, 0.25)*(0.9 + 0.2*N1(T.xy*vec2(1.0, 0.6), 60.0));
     base *= (1.0 - 0.55*cav)*(1.0 + 0.7*ridge);
     vec2 e = vec2(abs(T.x) - 51.0, T.y - 2731.0);
     float sock = exp(-(e.x*e.x)/(24.0*24.0) - (e.y*e.y)/(20.0*20.0));
     base *= 1.0 - 0.92*smoothstep(0.3, 0.8, sock);
-    float pupil = 1.0 - smoothstep(0.4, 1.0, length(e/vec2(7.5, 5.5)));
-    emit = vec3(1.0, 0.28, 0.06)*0.42*uEye*pupil;
+    float pupil = 1.0 - smoothstep(0.4, 1.0, length(e/vec2(10.0, 7.0)));
+    emit = vec3(1.0, 0.3, 0.07)*(0.5 + 0.6*uSeen + 0.9*(uEye - 1.0))*pupil;
     float side = T.x > 0.0 ? 37.0 : 0.0;
     float tears = smoothstep(0.54, 0.76, N2(vec2(e.x + side, T.y*0.04), 4.0))*step(e.y, -14.0)*exp((e.y + 14.0)/150.0)*(1.0 - smoothstep(14.0, 24.0, abs(e.x)));
     base = mix(base, vec3(0.2, 0.11, 0.07), tears*0.85*lw);
@@ -561,7 +562,9 @@ void main(){
     col += mix(uSkyCol, uFogSunCol, pow(max(dot(rr, uSun), 0.0), 3.0))*0.4*smoothstep(-0.1, 0.5, rr.y)*fr*spec;
   }
   if (uIsGiant > 0.5){
-    col += alb*uLanCol*uLan.w*(m == 45 ? 0.05 : 0.06)*max(-n.y*0.8 + 0.2, 0.0)*smoothstep(1400.0, 2400.0, T.y);
+    // the lantern lights it from below as a point light (no shadow): the forearm, the chest, the
+    // underside of the helm and the face go amber while it searches
+    if (uLan.w > 0.0){ vec3 ld = uLan.xyz - P; float dl = length(ld); col += alb*uLanCol*uLan.w*0.45*max(dot(n, ld/dl), 0.0)/(1.0 + (dl/900.0)*(dl/900.0)); }
     vec3 vd = normalize(P - uCam);
     float rim = pow(1.0 - abs(dot(n, vd)), 7.0)*smoothstep(0.2, 0.8, dot(vd, uSun));
     col += uSunCol*rim*0.7*cloudShadow(P);

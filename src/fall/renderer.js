@@ -266,7 +266,7 @@ export function createRenderer(canvas, giantMesh) {
       common(p.use()).set('uVP', VP).set('uLVP', LVP || VP).set('uGVP', GVP).set('uLtVP', LtVP || VP)
         .set('uShTexel', 1 / SHS, 1 / SHS).set('uGShTexel', 1 / GSS, 1 / GSS).set('uLtTexel', 1 / LTS, 1 / LTS).set('uLocalOn', localOn ? 1 : 0)
         .set('uLan', lan && lan.on > 0 ? [lan.pos[0], lan.pos[1], lan.pos[2], lan.I * lan.on] : [0, 0, 0, 0]).set('uLanDir', lan ? [lan.dir[0], lan.dir[1], lan.dir[2], lan.cosOuter] : [0, -1, 0, 0.9]).set('uLanInner', lan ? lan.cosInner : 0.95).set('uLanCol', L.lanCol)
-        .set('uEye', scene.eye ?? 1).set('uSnow', scene.snow ?? 0).set('uWin', scene.windows ?? 0.5).set('uPlayer', scene.player || PLAYER_DEFAULT).set('uCloudShadow', scene.cloudShadow ?? 1).set('uWind', 7, 2.5).set('uHoleC', scene.holeC || [-300, 0]).set('uCloudCov', scene.cloudCov ?? 0).set('uPrints', scene.prints || new Float32Array(24)).set('uCut', cutP)
+        .set('uEye', scene.eye ?? 1).set('uSeen', scene.seen ?? 0).set('uSnow', scene.snow ?? 0).set('uWin', scene.windows ?? 0.5).set('uPlayer', scene.player || PLAYER_DEFAULT).set('uCloudShadow', scene.cloudShadow ?? 1).set('uWind', 7, 2.5).set('uHoleC', scene.holeC || [-300, 0]).set('uCloudCov', scene.cloudCov ?? 0).set('uPrints', scene.prints || new Float32Array(24)).set('uCut', cutP)
         .tex('uNearMap', tNear, 0).tex('uFarMap', tFar, 1).tex('uShadow', tSh, 2).tex('uGShadow', tGSh, 4).tex('uLtShadow', tLt, 5);
       return p;
     };

@@ -274,7 +274,7 @@ export function createGame(canvas, opts = {}) {
     G.pelvisDrop = lerp(40, 70, k);
     G.twist = Math.sin(t * (Math.PI / STEP_T)) * 0.05 * (1 - k) - 0.12 * k;
     G.roll = Math.sin(t * (Math.PI / STEP_T)) * 0.025 * (1 - k);
-    G.handR = null; G.headLook = null;
+    G.handR = null; G.headLook = null; G.t = t;
     G.pose();
     const sh = G.W.shoulderR;
     const hang = add(sh, add(scl(G.W.left, -120), add([0, -760, 0], scl(G.W.fwd, 330))));
@@ -606,7 +606,7 @@ export function createGame(canvas, opts = {}) {
       out.push([ls.x, ls.y, ls.zNear, Math.max(8, ls.size * 1.4), 0.22, 1]);
       out.push([ls.x, ls.y, ls.zNear, Math.max(4, ls.size * 0.5), 0.12, 1]);
     }
-    if (S.eye > 1.05 && G.W.eyes) for (const e of G.W.eyes) { const ep = R.project(e); if (ep[2]) out.push([ep[0], ep[1], ep[3], 1.5 + 1.4 * (S.eye - 1), 0.14 * (S.eye - 1), 2]); }
+    if (G.W.eyes) for (const e of G.W.eyes) { const ep = R.project(e); if (ep[2]) out.push([ep[0], ep[1], ep[3], 1.5 + 0.8 * S.player.seen + 1.4 * (S.eye - 1), 0.15 + 0.35 * S.player.seen + 0.14 * (S.eye - 1), 2]); }
     return out;
   }
   // ---------------------------------------------------------------------------------- frame
@@ -653,7 +653,7 @@ export function createGame(canvas, opts = {}) {
     const ll = lanLight(), ls = lanScreen();
     R.render({
       t: S.t, cam: S.cam, light: dimmed(S.dim),
-      giant: { bones: G.bones, sway: [0, 0, 0] },
+      giant: { bones: G.bones, sway: G.sway },
       lantern: { ...ll, I: ll.I * LK.lanI / 1.5 }, lanGlow: LK.light.lanCol,
       lanShaft: ls && S.lan.on > 0 ? { ...ls, strength: (LK.lanShaft ?? 1) * LK.lanI / 1.5 } : null,
       glows,
@@ -663,7 +663,7 @@ export function createGame(canvas, opts = {}) {
       gCentre: [lerp(G.x, TOWN.x, 0.5), 0, lerp(G.z, TOWN.z, 0.5)],
       tilt: clamp(1 - (S.cam.hh - 40) / 60) * LK.tilt, focus: 0.5, grain: LK.grain, vignette: LK.vignette,
       shake: [Math.sin(S.t * 63) * sh, Math.cos(S.t * 71) * sh * 0.7],
-      fade: Math.max(S.fade, S.dipT < 0 ? 0 : S.dipT < DIP_OUT ? S.dipT / DIP_OUT : 1 - (S.dipT - DIP_OUT) / DIP_IN), flash: S.flash * 0.85, eye: S.eye,
+      fade: Math.max(S.fade, S.dipT < 0 ? 0 : S.dipT < DIP_OUT ? S.dipT / DIP_OUT : 1 - (S.dipT - DIP_OUT) / DIP_IN), flash: S.flash * 0.85, eye: S.eye, seen: S.player.seen,
       birds: S.birds.map((b) => [b.x, b.y + 0.4, b.z, b.fly ? b.ph : 0.25]),
       ash: S.cam.hh < 60 ? LK.ash.amount : 0, ashLum: LK.ash.lum, ashFall: LK.ash.fall,
       chromaLo: LK.chroma[0], chromaHi: LK.chroma[1], contrast: LK.contrast, lift: LK.lift || 0, gamma: LK.gamma || 1, dither: LK.dither, bloom: LK.bloom,

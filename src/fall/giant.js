@@ -76,8 +76,10 @@ const nrm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] /
 const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-// A grid surface P(i, j) with smooth normals; skin(i, j, p) gives [b0, b1, w]; mat(i, j) the material.
-function surface(B, nu, nv, P, mat, skin, closeU = true, outward = null) {
+// A grid surface P(i, j); skin(i, j, p) gives [b0, b1, w]; mat(i, j) the material. Normals are flat (each
+// triangle its own face normal, so plates read as plates in a dithered palette) unless flat is false, when
+// they are averaged over the neighbouring faces.
+function surface(B, nu, nv, P, mat, skin, closeU = true, outward = null, flat = true) {
   const pts = [];
   for (let j = 0; j <= nv; j++) for (let i = 0; i <= nu; i++) pts.push(P(closeU && i === nu ? 0 : i, j));
   const idx = (i, j) => j * (nu + 1) + i;
@@ -101,13 +103,14 @@ function surface(B, nu, nv, P, mat, skin, closeU = true, outward = null) {
   for (let f of faces) {
     // wind each triangle counter-clockwise as seen from the side its normals face, so gl_FrontFacing is
     // true on the outside
-    const gn = crs(sub(pts[f[1]], pts[f[0]]), sub(pts[f[2]], pts[f[0]]));
+    let gn = crs(sub(pts[f[1]], pts[f[0]]), sub(pts[f[2]], pts[f[0]]));
     const vn = add(add(norms[f[0]], norms[f[1]]), norms[f[2]]);
-    if (dot(gn, vn) * flip < 0) f = [f[0], f[2], f[1]];
+    if (dot(gn, vn) * flip < 0) { f = [f[0], f[2], f[1]]; gn = scl(gn, -1); }
+    const fn = flat ? nrm(gn) : null;
     for (const k of f) {
       const i = k % (nu + 1), j = Math.floor(k / (nu + 1));
       const s = skin(i, j, pts[k]);
-      B.v(pts[k], scl(nrm(norms[k]), flip), mat(i, j), s[0], s[1], s[2]);
+      B.v(pts[k], fn || scl(nrm(norms[k]), flip), mat(i, j), s[0], s[1], s[2]);
     }
   }
 }
@@ -150,25 +153,25 @@ export function buildGiantMesh() {
 
   // ---- cuirass: a barrel of plate, a ridge down the front; three lames at the belly
   const cuR = (y) => 250 + 55 * sm(1450, 1950, y) - 15 * sm(1950, 2250, y) - 95 * sm(2250, 2440, y);
-  loft(1640, 2440, 44, 16, (t) => { const y = 1640 + 800 * t, r = cuR(y); return [0, 6, r, r * 0.72]; }, I, one(1), (p, a) => { if (Math.sin(a) > 0) p[2] += 20 * Math.exp(-((p[0] / 55) ** 2)); return p; });
+  loft(1640, 2440, 20, 12, (t) => { const y = 1640 + 800 * t, r = cuR(y); return [0, 6, r, r * 0.72]; }, I, one(1), (p, a) => { if (Math.sin(a) > 0) p[2] += 20 * Math.exp(-((p[0] / 55) ** 2)); return p; });
   for (let k = 0; k < 3; k++) {
     const y0 = 1440 + k * 72, y1 = y0 + 92;
-    loft(y0, y1, 40, 2, (t) => { const r = cuR(y0 + 92 * t) + 14 - 10 * t; return [0, 6, r, r * 0.72]; }, I, () => [0, 1, sm(1400, 1700, y0)]);
+    loft(y0, y1, 20, 2, (t) => { const r = cuR(y0 + 92 * t) + 14 - 10 * t; return [0, 6, r, r * 0.72]; }, I, () => [0, 1, sm(1400, 1700, y0)]);
   }
   // gorget
-  loft(2400, 2520, 32, 3, (t) => [0, 10, 182 - 40 * t, 150 - 30 * t], I, one(1));
+  loft(2400, 2520, 16, 2, (t) => [0, 10, 182 - 40 * t, 150 - 30 * t], I, one(1));
   // ---- helm: a rounded skull with a comb over the top, a sculpted face-mask visor, mail hanging behind
-  loft(2515, 2870, 40, 10, (t) => [0, 30, 168 - 6 * t, 180 - 8 * t], Hm, one(2));
-  shell([0, 2868, 30], [162, 70, 172], 0, Math.PI / 2, 0, TAU, 40, 6, Hm, one(2));
+  loft(2515, 2870, 20, 6, (t) => [0, 30, 168 - 6 * t, 180 - 8 * t], Hm, one(2));
+  shell([0, 2868, 30], [162, 70, 172], 0, Math.PI / 2, 0, TAU, 20, 4, Hm, one(2));
   surface(B, 46, 60, (i, j) => {
     const v = j / 60, x = (-1 + (i / 46) * 2) * maskW(v), y = FACE_Y0 + v * FACE_H;
     return [x, y, maskZ(x, y)];
-  }, () => M.G_FACE, one(2), false, (p) => [0, p[1], 30]);
-  surface(B, 40, 6, (i, j) => {
-    const a = Math.PI / 2 + 0.78 + (i / 40) * (TAU - 1.56), t = j / 6;
+  }, () => M.G_FACE, one(2), false, (p) => [0, p[1], 30], false);
+  surface(B, 20, 4, (i, j) => {
+    const a = Math.PI / 2 + 0.78 + (i / 20) * (TAU - 1.56), t = j / 4;
     const wave = 1 + 0.03 * Math.sin(a * 15) * t;
     return [Math.cos(a) * (172 + 50 * t * t) * wave, 2545 - t * 125, 30 + Math.sin(a) * (182 + 42 * t * t) * wave];
-  }, () => M.G_MAIL, (i, j) => [2, 1, j / 6], false, (p) => [0, p[1], 30]);
+  }, () => M.G_MAIL, (i, j) => [2, 1, j / 4], false, (p) => [0, p[1], 30]);
   // the comb: a thin blade over the crown, front to back
   for (const sx of [-1, 1]) surface(B, 1, 14, (i, j) => {
     const u = -1 + (j / 14) * 2, z = 30 + u * 175, top = 2868 + Math.sqrt(Math.max(0, 1 - u * u)) * 70;
@@ -179,7 +182,7 @@ export function buildGiantMesh() {
     const sh = REST[side > 0 ? 9 : 12], b = side > 0 ? 9 : 12;
     for (let k = 0; k < 2; k++) {
       const c = add(sh, [side * (40 + k * 8), 60 - k * 95, 0]), r = [235 + k * 18, 175 - k * 12, 220 + k * 16];
-      shell(c, r, k === 0 ? 0 : 0.95, 1.3 + k * 0.1, 0, TAU, 36, k === 0 ? 9 : 3, I, () => [b, 1, 0.25]);
+      shell(c, r, k === 0 ? 0 : 0.95, 1.3 + k * 0.1, 0, TAU, 18, k === 0 ? 6 : 2, I, () => [b, 1, 0.25]);
     }
     // haute-piece: a curved plate standing up along the inner edge
     surface(B, 12, 2, (i, j) => {
@@ -192,11 +195,11 @@ export function buildGiantMesh() {
   for (const side of [1, -1]) {
     const sh = REST[side > 0 ? 9 : 12], el = REST[side > 0 ? 10 : 13], wr = REST[side > 0 ? 11 : 14];
     const bU = side > 0 ? 9 : 12, bF = side > 0 ? 10 : 13, bH = side > 0 ? 11 : 14;
-    loft(el[1] + 40, sh[1] - 40, 20, 6, (t) => [sh[0], sh[2], 100 + 6 * t, 96 + 6 * t], I, one(bU));
-    shell(el, [120, 120, 120], 0.3, 2.6, 0, TAU, 20, 8, I, () => [bU, bF, 0.6], (p) => { p[2] -= Math.max(0, -p[2]) * 0.25; return p; });
-    loft(wr[1] + 10, el[1] - 30, 20, 5, (t) => [wr[0], wr[2], 82 + 12 * t, 80 + 12 * t], I, one(bF));
+    loft(el[1] + 40, sh[1] - 40, 16, 4, (t) => [sh[0], sh[2], 100 + 6 * t, 96 + 6 * t], I, one(bU));
+    shell(el, [120, 120, 120], 0.3, 2.6, 0, TAU, 16, 6, I, () => [bU, bF, 0.6], (p) => { p[2] -= Math.max(0, -p[2]) * 0.25; return p; });
+    loft(wr[1] + 10, el[1] - 30, 16, 3, (t) => [wr[0], wr[2], 82 + 12 * t, 80 + 12 * t], I, one(bF));
     // the cuff flares over the wrist
-    loft(wr[1] - 80, wr[1] + 30, 20, 3, (t) => [wr[0], wr[2], 112 - 26 * t, 108 - 24 * t], I, one(bH));
+    loft(wr[1] - 80, wr[1] + 30, 16, 2, (t) => [wr[0], wr[2], 112 - 26 * t, 108 - 24 * t], I, one(bH));
   }
   // gauntlets: the back of the hand a plate; the right closes round the chain
   const finger = (pts, r0, r1, b, mat) => {
@@ -222,7 +225,7 @@ export function buildGiantMesh() {
   // ---- faulds and tassets
   for (let k = 0; k < 2; k++) {
     const y1 = 1450 - k * 70, y0 = y1 - 95;
-    loft(y0, y1, 40, 2, (t) => { const r = 300 - 26 * t + k * 12; return [0, 6, r, r * 0.74]; }, I, (i, j) => [0, 0, 0]);
+    loft(y0, y1, 20, 2, (t) => { const r = 300 - 26 * t + k * 12; return [0, 6, r, r * 0.74]; }, I, (i, j) => [0, 0, 0]);
   }
   for (const side of [1, -1]) {
     const hip = REST[side > 0 ? 3 : 6], b = side > 0 ? 3 : 6;
@@ -240,10 +243,10 @@ export function buildGiantMesh() {
     const hip = REST[side > 0 ? 3 : 6], kn = REST[side > 0 ? 4 : 7], an = REST[side > 0 ? 5 : 8];
     const bT = side > 0 ? 3 : 6, bS = side > 0 ? 4 : 7;
     const keel = (a) => Math.exp(-(((Math.atan2(Math.sin(a - Math.PI / 2), Math.cos(a - Math.PI / 2))) / 0.16) ** 2));
-    loft(kn[1] + 60, hip[1] - 60, 28, 6, (t) => [hip[0], hip[2], 128 - 10 * (1 - t), 122 - 10 * (1 - t)], I, one(bT), (p, a) => { p[2] += 22 * keel(a); return p; });
-    shell(add(kn, [0, 10, 30]), [128, 120, 110], 0.2, 2.5, -0.2, Math.PI + 0.2, 16, 8, I, one(bS));
+    loft(kn[1] + 60, hip[1] - 60, 18, 4, (t) => [hip[0], hip[2], 128 - 10 * (1 - t), 122 - 10 * (1 - t)], I, one(bT), (p, a) => { p[2] += 22 * keel(a); return p; });
+    shell(add(kn, [0, 10, 30]), [128, 120, 110], 0.2, 2.5, -0.2, Math.PI + 0.2, 12, 6, I, one(bS));
     shell(add(kn, [side * 105, 0, 10]), [40, 120, 95], 0.3, 2.8, side > 0 ? -1.6 : 1.6, side > 0 ? 1.6 : 4.7, 10, 6, I, one(bS));
-    loft(an[1] + 40, kn[1] - 40, 32, 10, (t) => { const calf = Math.exp(-((t - 0.65) ** 2) / 0.05); return [an[0] + (kn[0] - an[0]) * t, 0, 84 + 16 * t + 14 * calf, 88 + 14 * t + 20 * calf]; }, I, one(bS), (p, a) => { p[2] += 26 * keel(a); return p; });
+    loft(an[1] + 40, kn[1] - 40, 18, 6, (t) => { const calf = Math.exp(-((t - 0.65) ** 2) / 0.05); return [an[0] + (kn[0] - an[0]) * t, 0, 84 + 16 * t + 14 * calf, 88 + 14 * t + 20 * calf]; }, I, one(bS), (p, a) => { p[2] += 26 * keel(a); return p; });
   }
   // ---- sabatons: lames from the heel to a blunt point, the sole flat on the ground
   for (const side of [1, -1]) {
@@ -252,8 +255,8 @@ export function buildGiantMesh() {
     const H = (z) => (z < 20 ? 150 - 25 * sm(-60, 20, z) : 125 - 85 * sm(20, 300, z) - 15 * sm(300, 330, z));
     const lames = [[-125, 10], [0, 70], [60, 120], [110, 165], [155, 210], [200, 255], [245, 300], [290, 335]];
     for (const [z0, z1] of lames) {
-      surface(B, 24, 3, (i, j) => {
-        const a = (i / 24) * Math.PI, t = j / 3, z = z0 + (z1 - z0) * t;
+      surface(B, 14, 2, (i, j) => {
+        const a = (i / 14) * Math.PI, t = j / 2, z = z0 + (z1 - z0) * t;
         const w = W(z) + 6 * (1 - t), h = H(z) + 8 * (1 - t) + 16 * Math.exp(-(((a - Math.PI / 2) / 0.17) ** 2)) * sm(-120, 40, z);
         return [an[0] + Math.cos(a) * w, gy + Math.sin(a) * h + 1, an[2] + z];
       }, () => I, one(b), false, () => [an[0], gy - 50, an[2] + (z0 + z1) / 2]);
@@ -265,14 +268,15 @@ export function buildGiantMesh() {
     surface(B, 8, 1, (i, j) => { const a = (i / 8) * Math.PI; return j ? [an[0], gy + 2, an[2] + 338] : [an[0] + Math.cos(a) * W(335), gy + Math.sin(a) * H(335) + 1, an[2] + 335]; }, () => I, one(b), false, () => [an[0], gy, an[2] + 300]);
   }
   // ---- the cloak: down the back from under the pauldrons, ragged, the hood thrown back as a heavy roll
-  const CU = 46, CV = 34, cTop = 2400, cHem = 430;
-  const cj = Array.from({ length: CU + 1 }, () => (R() - 0.6) * 120);
+  const CU = 36, CV = 14, cTop = 2400, cHem = 430;
+  const cj = Array.from({ length: CU + 1 }, () => (R() - 0.7) * 220);
   const cloakP = (i, j) => {
     const u = i / CU, a = Math.PI - 0.55 + u * (Math.PI + 1.1), t = j / CV;
     let y = cTop - (cTop - cHem) * t;
     if (j === CV) y += cj[i];
-    const r = (cuR(Math.max(1450, y)) + 35) * (1 - t) + (360 + 70 * Math.abs(Math.cos(a))) * t;
-    const fold = 1 + 0.06 * t * Math.sin(a * 13 + 0.6 * Math.sin(a * 4));
+    // it hangs close under the pauldrons and flares to a wide ragged hem
+    const r = (cuR(Math.max(1450, y)) + 35) * (1 - t) + (400 + 110 * Math.abs(Math.cos(a))) * t * (1 + 0.25 * t * t);
+    const fold = 1 + 0.07 * t * Math.sin(a * 11 + 0.6 * Math.sin(a * 4));
     let x = Math.cos(a) * r * fold, z = Math.sin(a) * r * 0.8 * fold - 30 * t;
     if (y > 2200) { const k = sm(2200, 2400, y); x *= 1 + 0.15 * k; }
     return [x, y, z];
@@ -284,8 +288,8 @@ export function buildGiantMesh() {
     return [1, p[0] > 0 ? 3 : 6, Math.min(1, (1500 - y) / 700) * side * 0.8];
   }, false, (p) => [0, p[1], 60]);
   // the hood, down: a thick roll round the back of the neck
-  surface(B, 28, 8, (i, j) => {
-    const a = Math.PI - 0.9 + (i / 28) * (Math.PI + 1.8), b = (j / 8) * TAU;
+  surface(B, 20, 6, (i, j) => {
+    const a = Math.PI - 0.9 + (i / 20) * (Math.PI + 1.8), b = (j / 6) * TAU;
     const rr = 230 + Math.cos(b) * 62, y = 2445 + Math.sin(b) * 55;
     return [Math.cos(a) * rr, y, Math.sin(a) * rr * 0.85 + 5];
   }, () => C, one(1), false, () => [0, 2445, 0]);
@@ -347,7 +351,7 @@ export function createGiant() {
     x: -4200, z: -900, yaw: Math.PI / 2,
     feet: [{ p: [0, 0, 0], yaw: 0, pitch: 0 }, { p: [0, 0, 0], yaw: 0, pitch: 0 }], // L, R: ankle on the ground, yaw, toe pitch
     pelvisDrop: 0, lean: 0.12, twist: 0, roll: 0, headPitch: 0.15, headYaw: 0, headLook: null,
-    handR: null, handL: null, sway: [0, 0, 0],
+    handR: null, handL: null, sway: [0, 0, 0], t: 0,
     W, bones,
   };
   function setBone(i, R, p) {
@@ -430,6 +434,10 @@ export function createGiant() {
       W[s ? 'shoulderR' : 'shoulderL'] = sh;
     }
     W.chest = chestJ; W.chestR = chestR; W.root = [G.x, 0, G.z]; W.fwd = fwd; W.left = leftV;
+    // the wind: the cloak's hem drifts to the side and trails behind, in slow gusts (the skin shader
+    // applies it to the lower rows of the robe)
+    const t = G.t, gust = Math.sin(t * 0.43) * 0.5 + 0.5;
+    G.sway = add(scl(leftV, 45 * Math.sin(t * 0.61) + 18 * Math.sin(t * 1.7 + 1.0) * gust), scl(fwd, -30 - 35 * gust + 12 * Math.sin(t * 1.1)));
     void toW;
   }
   G.pose = pose;
