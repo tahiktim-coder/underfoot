@@ -2,15 +2,17 @@
 // best run kept in the browser. The hiding test never reads a look; it reads this table.
 export const LAST_NIGHT = 3;
 
-// search: seconds the lantern hunts. k: the shallow-shadow divisor (the eye fills at the lit rate / k).
-// offLo, offHi: the range the lantern's side offset drifts over (nearly overhead to low). lit: houses whose
-// windows stay lit at the plant. check: seconds before the lantern goes to a lit window anyway. lag: trail
-// samples (0.25 s each) it aims behind you. people: townspeople out in the search.
+// search: seconds the lantern hunts. fill: how fast the eye fills in the light, as a share of the full rate
+// (about 3 s to catch at 1). k: the shallow-shadow divisor (the eye fills at the lit rate / k). offLo,
+// offHi: the range the lantern's side offset drifts over (nearly overhead to low). lit: houses whose windows
+// stay lit at the plant. check: seconds before the lantern goes to a lit window anyway. lag: trail samples
+// (0.25 s each) it aims behind you. people: townspeople out in the search. walk: how fast the light's mark
+// moves along your trail or toward another light, hunt: once it has half seen you (you walk at 4.6).
 export const NIGHTS = [
   null,
-  { search: 30, k: 2, offLo: 30, offHi: 60, lit: 3, check: 10, lag: 25, people: 1 },
-  { search: 35, k: 1.75, offLo: 25, offHi: 60, lit: 4, check: 8, lag: 20, people: 2 },
-  { search: 40, k: 1.5, offLo: 20, offHi: 60, lit: 6, check: 6, lag: 14, people: 3 },
+  { search: 30, fill: 0.55, k: 2, offLo: 30, offHi: 60, lit: 3, check: 10, lag: 25, people: 1, walk: 3.6, hunt: 4.2 },
+  { search: 35, fill: 0.75, k: 1.75, offLo: 25, offHi: 60, lit: 4, check: 8, lag: 20, people: 2, walk: 4.2, hunt: 5.4 },
+  { search: 40, fill: 1.0, k: 1.5, offLo: 20, offHi: 60, lit: 6, check: 5, lag: 10, people: 3, walk: 5.0, hunt: 6.5 },
 ];
 export const night = (n) => NIGHTS[Math.max(1, Math.min(LAST_NIGHT, n))];
 

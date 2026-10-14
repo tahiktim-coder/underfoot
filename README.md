@@ -52,37 +52,43 @@ CLAUDE.md           short notes for working on this with Claude Code
 
 | Action | Keyboard and mouse | Touch | Page button |
 | --- | --- | --- | --- |
+| Begin, skip a card, play again | Space, Enter, or a click on the picture | A tap | |
 | Walk | W A S D or the arrow keys, or hold the left mouse button where you want to go | Drag anywhere on the picture (a virtual stick: the further you drag, up to 40 px, the faster) | |
-| Look up at it | Hold L, Space or the right mouse button | | Hold "Hold to look up" |
+| Put out a light | Hold the mouse button on a lit house (you walk to its door), or hold E or Space at the door, for a second | Hold a finger on the house | Hold "Hold to put out" |
+| Look up at it | Hold L or the right mouse button | | Hold "Hold to look up" |
 | Sound on or off | M | | "Sound" |
-| Jump to a moment | | | "It comes", "It searches", "It finds you", "It passes" |
+| Jump to a moment (`?debug` only) | | | "It comes", "It searches", "It finds you", "It passes" |
 | Change the look | | | The look bar: Ashwake grey, Night, Ash and blood, Fog, Winter, Sunlit, One bit |
 
-- Sound starts with your first click or key press in the picture (browsers need a gesture before audio).
-- Leave it alone for 8 seconds and an autopilot plays. Every other cycle it hides well; on the other cycles it is curious and walks out into the light, so the catch plays too.
+- The title waits for your first key or click. That gesture starts the sound (browsers need a gesture before audio), focuses the picture and begins night 1.
+- Until then the town plays itself under the title: an autopilot hides well on odd cycles and walks out into the light on even ones. Once you have begun, nothing plays for you.
+- **Three nights.** Each night the lantern searches longer, aims closer behind you, fills the eye faster and checks the lit windows sooner (`src/fall/nights.js`). A card after each night says what you saved and what was taken; a game-over card shows nights survived and your best (kept in the browser); after night 3 the ending plays on the relit town. A failed night retries from the plant ("It is still here"). `game.html?night=3` starts there.
+- **Put out the lights.** At the plant a few windows stay lit: the people who did not hide. The lantern is drawn to light. When it has lost you, and after a few seconds anyway, it goes to the nearest lit window; if it reaches one, the house is taken (a flash, a scorch, a stain on the step). Stand at a lit door and hold E for a second to put the light out: the house is saved.
+- **Deep and shallow shadow.** Inside a shadow the eye drains; at its edge (where only part of the lantern's glass is hidden) it fills slowly; in the light it fills fast. The ring under your feet is blue, dim amber or bright amber for the three, and the eye meter matches. The market hall, the church porch, the gate arches and the banks under the bridge are always deep.
 - The picture only runs while it is on screen and the tab is visible.
 - The look can also be picked in the address: `game.html?look=night`. The last look chosen is remembered in the browser (`localStorage`, key `underfoot.look`).
 
 HUD, top left:
 
 - **Phase label**: Quiet, It is coming, It is here, Hide, It sees you, It is passing.
-- **The eye** (during the search): opens as it notices you. Filled with the look's accent colour means you are lit right now. When it is fully open, it has you.
+- **The eye** (during the search): opens as it notices you. Its colour is your shadow: cold in deep shadow, dim amber in shallow, the look's accent when you are lit. When it is fully open, it has you.
+- **Night N**, top right.
 
 ---
 
 ## 2. The loop, phase by phase
 
-One cycle lasts about 80 to 95 seconds and repeats forever. Times are approximate.
+One night lasts about 85 to 100 seconds; three nights make a run. Times are approximate.
 
 | Phase | Length | What happens |
 | --- | --- | --- |
-| **Title** (first load only) | 5.6 s | A low camera at the east end of the town. The giant walks toward you up the valley, left of centre, with the low sun behind it and shafts of light around it. "UNDERFOOT / something is walking the valley". A short dip to black, then play. Any key after 1.5 s skips it. |
+| **Title** | until you begin | A low camera at the east end of the town, pushing in on a 14 s loop. The giant walks toward you up the valley, left of centre. "UNDERFOOT / something is walking the valley / It takes what its light finds." Any key or click begins: a dip to black, then night 1. |
 | **Calm** ("Quiet") | 2 to 11 s | Daylight. Windows lit. Birds on the roofs. The giant is about 4.7 km away. |
-| **Approach** ("It is coming") | ~26 s | It walks in: one footfall every 8.5 s, each a long boom that arrives seconds late, a camera shake, dust, birds taking off, roof dust shaking down. Cloud slowly covers the sun (the world dims over 18 s) and most windows go out. From the second cycle on, the camera cuts up to look at it coming for 6.5 s. In the last 4 s the play camera pulls out to show the boot coming down outside the west wall. |
+| **Approach** ("It is coming") | ~26 s | It walks in: one footfall every 8.5 s, each a long boom that arrives seconds late, a camera shake, dust, birds taking off, roof dust shaking down. Each boom puts out the windows nearest the boot and thins the chimney smoke; close booms bang the shutters and slam a door. Cloud slowly covers the sun (the world dims over 18 s). From the second night on, the camera cuts up to look at it coming for 6.5 s. In the last 4 s the play camera pulls out to show the boot coming down outside the west wall. |
 | **Plant** ("It is here") | 3.5 s | The boot lands outside the west wall, its toe about 60 m from it. Dust ring, shake, the view holds wide, then closes back in on you. |
-| **Search** ("Hide") | 26 s | It lowers the lantern on the full length of the chain until it rides 70 m over the ground, and hunts you with it (section 3). |
-| **Caught** ("It sees you") | 9.5 s | If the eye fills: the light narrows and brightens on you (1.1 s), a flash and a cut to a low camera behind the town, a slow tilt from the roofs up the chain and the legs to its face, the eyes catch fire, a push in on the face, "it sees you", a flash, a fade. Then a new cycle. |
-| **Leave** ("It is passing") | 21 s | If you lasted the search: the camera cuts to the street and looks up as its boot swings over the south side of the town and lands beyond the east wall. It walks away across the picture to the south-east. The cloud lifts and the light comes back. Then a new cycle. |
+| **Search** ("Hide") | 30 to 40 s | It lowers the lantern on the full length of the chain until it rides 70 m over the ground, and hunts you with it (section 3). The lit windows draw it; townspeople come out and are taken; you put lights out at their doors. |
+| **Caught** ("It sees you") | 9.5 s | If the eye fills: the light narrows and brightens on you (1.1 s), a flash and a cut to a low camera behind the town, a slow tilt from the roofs up the chain and the legs to its face, the eyes catch fire, a push in on the face, "it sees you", a flash, a fade. Then the game-over card, and the same night again from the plant. |
+| **Leave** ("It is passing") | 21 s | If you lasted the search: the camera cuts to the street and looks up as its boot swings over the south side of the town and lands beyond the east wall. It walks away across the picture to the south-east. The cloud lifts, the windows come back one by one (the taken stay dark), the smoke returns. Then the night card, and the next night. |
 
 ---
 

@@ -1,0 +1,16 @@
+[
+  {"eval": "__v16.hold=true; const g=__v16.game; g.S.played=true; g.S.auto=false; const P=g.S.player; const YAW=Math.PI/4, RX=Math.cos(YAW), RZ=-Math.sin(YAW), FX=-Math.sin(YAW), FZ=-Math.cos(YAW); const toward=(x,z)=>{ const dx=x-P.x, dz=z-P.z, d=Math.hypot(dx,dz)||1; return [(dx*RX+dz*RZ)/d, (dx*FX+dz*FZ)/d]; }; window.runNight=(n, how)=>{ g.startNight(n); __v16.force('search'); g.S.night=n; const AP={goal:null,t:0}; const env={get aimS(){return g.S.aimS;}, get pt(){return g.S.pt;}, isLit:g.isLit, rnd:Math.random}; let log=[], maxSeen=0, litT=0, shallowT=0; for(let i=0;i<1400;i++){ let ix=0, iy=0; g.S.actButton=false; if(how==='hider'){ [ix,iy]=g.brain(P, AP, 'hider', env, 0.05); } else if(how==='saver'){ const t=g.HM.nearest(P.x,P.z); const lightFar=t && Math.hypot(t.house.door[0]-g.S.aimS[0], t.house.door[1]-g.S.aimS[1])>18; if(t && t.d<60 && lightFar && P.tier!=='lit'){ if(t.d>1.8) [ix,iy]=toward(t.house.door[0], t.house.door[1]); else g.S.actButton=true; AP.goal=null; } else [ix,iy]=g.brain(P, AP, 'hider', env, 0.05); } g.S.drive={x:ix,y:iy}; g.update(0.05); g.S.drive=null; maxSeen=Math.max(maxSeen,P.seen); if(P.tier==='lit') litT+=0.05; if(P.tier==='shallow') shallowT+=0.05; if(i%100===0) log.push(g.S.pt.toFixed(0)+':'+P.tier[0]+P.seen.toFixed(2)); if(g.S.phase!=='search') break; } g.S.actButton=false; return [n, how, g.S.phase, 'maxSeen', maxSeen.toFixed(2), 'lit', litT.toFixed(1), 'shallow', shallowT.toFixed(1), 'saved', g.S.nightStats.saved, 'taken', g.S.nightStats.taken, 'people', g.S.people.map(p=>p.state[0]).join(''), log.join(' ')]; }; return 'ok'"},
+  {"eval": "return runNight(1,'still')"},
+  {"eval": "return runNight(1,'hider')"},
+  {"eval": "return runNight(1,'hider')"},
+  {"eval": "return runNight(1,'saver')"},
+  {"eval": "return runNight(1,'saver')"},
+  {"eval": "return runNight(2,'hider')"},
+  {"eval": "return runNight(2,'saver')"},
+  {"eval": "return runNight(2,'saver')"},
+  {"eval": "return runNight(3,'hider')"},
+  {"eval": "return runNight(3,'hider')"},
+  {"eval": "return runNight(3,'saver')"},
+  {"eval": "return runNight(3,'saver')"},
+  {"eval": "return [runNight(3,'still'), __v16.errors]"}
+]

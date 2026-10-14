@@ -66,3 +66,65 @@ Recommendation: A, with the night 1 townsperson from section 3 as the wordless t
 - textures.js: stains written into the near ground map at run time (a small `texSubImage2D`).
 - sound.js: shutters, the pop, the shallow tick.
 - props.js: the candle on the townsperson.
+
+## 7. What was built (2026-10-15)
+
+Option A, in six commits on top of the visual pass (`git log`): the shell, the town afraid, the shadow tiers, the townspeople, put out the lights, and this tune. Each was checked with a plan under `plans/` (`shell`, `afraid`, `tiers`, `people`, `lights`, `playtest`, `docnight`) run through `tools/shot.mjs`, and night 1 was played in a real browser (Space on the title begins, sound starts, the autopilot stays off, the jump buttons are hidden without `?debug`).
+
+The frames below are the game's own 384 x 216 pixels, from `plans/docnight.json`:
+
+| Frame | What it shows |
+| --- | --- |
+| `docs/night/01_title.png` | the title that waits: the name, the line, the rule, "click or press any key" |
+| `docs/night/02_approach_lights_out.png` | two booms into the approach: the windows nearest the boot are out, the stragglers still lit |
+| `docs/night/03_curious_taken.png` | night 1, 11 s in: the beam narrowed on the curious one in the square |
+| `docs/night/04_stain.png` | the stain and the scorched ring where he stood |
+| `docs/night/05_shallow_ring.png` | shallow shadow: the amber band at a house's edge, the ring under the player dim amber with its arc closing, the eye meter the same colour |
+| `docs/night/06_put_out.png` | at a lit door, holding E: the bar over the player's head |
+| `docs/night/07_taken_house.png` | a taken house after night 3: soot up the walls from the eaves, black round the door, the stain on the step |
+| `docs/night/08_card.png` | the ending card on the relit town |
+
+### The numbers
+
+The night table (`src/fall/nights.js`):
+
+| | Night 1 | Night 2 | Night 3 |
+| --- | --- | --- | --- |
+| Search length | 30 s | 35 s | 40 s |
+| Eye fill in the light (share of the full rate; 1 catches in about 3 s) | 0.55 | 0.75 | 1.0 |
+| Shallow divisor k | 2 | 1.75 | 1.5 |
+| Lantern offset range (nearly overhead to low) | 30 to 60 m | 25 to 60 m | 20 to 60 m |
+| Lit houses at the plant | 3 | 4 | 6 |
+| Lantern checks a lit house after | 10 s | 8 s | 5 s |
+| Trail lag | 25 samples (6 s) | 20 (5 s) | 10 (2.5 s) |
+| Townspeople out | 1 (the curious one) | 2 bad hiders | 3 bad hiders |
+| The light's mark walks / hunts at | 3.6 / 4.2 m/s | 4.2 / 5.4 | 5.0 / 6.5 |
+
+The whole game plays on a mouse: a click begins, holding walks, and holding on a lit house walks you to its door and puts its light out (`houseAt()` in game.js picks the house under the pointer; moving the pointer more than 24 px drops it and you walk free again; `plans/mouse.json` checks it with a synthetic press).
+
+Fixed (`src/fall/game.js`): deep shadow drains the eye at 0.3/s; the lantern offset drifts on a 36 s cycle; the light goes to other lights once it has lost you for 6 s; it must hold a townsperson in the light for 1.2 s before it narrows on them, and narrows for 1 s before the flash; a door is reachable within 2.6 m and takes 1 s of holding; each boom of the approach puts out 45% of the remaining lit windows; windows come back one every 0.8 s over the leave; a night card moves on by itself after 7 s. You walk at 4.6 m/s, so on night 1 the light's mark is slower than you and on night 3 it is faster once it has half seen you. Two changes to the section 5 table: the eye fill rate is scaled per night (without it a motionless player was caught in 5 s on night 1), and the lantern's walking speed is in the table (at the old fixed 4.3 m/s night 1 and night 3 felt the same).
+
+### Scripted playtests
+
+`plans/playtest.json` drives the player through `S.drive` with three brains: still (stands in the open), hider (the game's own hiding brain, a perfect player) and saver (goes to a lit door whenever the light is more than 18 m from it, otherwise hides). Fourteen runs on the final numbers:
+
+| Night | Brain | Survived | Notes |
+| --- | --- | --- | --- |
+| 1 | still | 0 of 1 | caught at 18 s: standing in the open is death, by design |
+| 1 | hider | 3 of 4 | the loss was a hide spot the lantern walked round at 30 m offset |
+| 1 | saver | 2 of 4 | saved 1 of 3 twice; the losses walked to a door as the light arrived |
+| 2 | hider | 2 of 3 | |
+| 2 | saver | 2 of 4 | saved 1 |
+| 3 | hider | 2 of 4 | max eye 0.28 on the wins: it is the lantern's visits that end you |
+| 3 | saver | 2 of 3 | saved 1, taken 2 each time |
+| 3 | still | 0 of 1 | caught at 5 s |
+
+So night 1 is survivable by hiding alone and the curious one shows what the light does to someone who does not; night 3 takes a few tries even for the perfect hider. A human will be worse than the hider brain, so the fill and lag may want easing after real playtests.
+
+### Not done, for later
+
+- The look-up camera and the catch cinematic still play on every death; the review's short "burn" fail after the first death is not in.
+- The give-up tell over the last five seconds of the search (the lantern lifting, the pool widening) is not in.
+- No itch page template yet (page/itch.html, `build:itch`); page/game.html still has no doctype or charset, so served without a charset header it shows mojibake in the notes under the picture.
+- The sound (shutters, the pop, the tick, the sting, the blow) has been heard once in a browser, not tuned by ear.
+- Touch: holding a finger on a lit house walks you there and puts its light out (the same code as the mouse), and the put-out button sits beside the look-up button; the second-finger look-up from the review is not in. Neither has been tried on a phone.

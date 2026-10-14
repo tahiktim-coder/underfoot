@@ -1,0 +1,18 @@
+[
+  {"eval": "const w=document.getElementById('wrap'); w.style.width='384px'; w.style.height='216px'; __v16.hold=true; const g=__v16.game; for(let i=0;i<50;i++) g.update(0.05); g.render(); return [g.S.phase, g.S.played]"},
+  {"shot": "01_title", "sel": "canvas"},
+  {"eval": "const g=__v16.game; g.S.played=true; g.S.auto=false; __v16.force('approach'); for(let i=0;i<350;i++) g.update(0.05); g.render(); return [g.S.phase, g.houses.filter(h=>h.state==='lit'&&h.inTown).length]"},
+  {"shot": "02_approach_lights_out", "sel": "canvas"},
+  {"eval": "const g=__v16.game; const P=g.S.player; window.hide=()=>{ const aim=g.S.aimS; for(let r=25;r<60;r+=1) for(let a=0;a<24;a++){ const x=aim[0]+Math.cos(a/24*6.283+r)*r, z=aim[1]+Math.sin(a/24*6.283+r)*r; if(g.blocked(x,z)||Math.hypot(x,z)>70) continue; if(g.isLit([x,g.standY(x,z)+1.6,z]).tier==='deep'){ P.x=x; P.z=z; return; } } }; __v16.force('search'); hide(); for(let i=0;i<230;i++){ g.update(0.05); if(P.tier!=='deep') hide(); if(g.S.take && g.S.take.t>0.6 && g.S.take.t<0.7) break; } g.render(); return [g.S.pt.toFixed(1), g.S.take && g.S.take.t.toFixed(1)]"},
+  {"shot": "03_curious_taken", "sel": "canvas"},
+  {"eval": "const g=__v16.game; const P=g.S.player; for(let i=0;i<50;i++){ g.update(0.05); if(P.tier!=='deep') hide(); } const q=g.S.stains[0]; g.S.view={x:q[0],y:g.standY(q[0],q[1])+1,z:q[1],yaw:Math.PI/4,pitch:0.84,hh:9,D:1500}; g.S.cam=g.S.view; g.S.noUI=true; g.render(); g.S.view=null; g.S.noUI=false; return g.S.stains"},
+  {"shot": "04_stain", "sel": "canvas"},
+  {"eval": "const g=__v16.game; const P=g.S.player; const aim=g.S.aimS; for(let r=1;r<45;r+=1) for(let a=0;a<24;a++){ const x=aim[0]+Math.cos(a/24*6.283+r)*r, z=aim[1]+Math.sin(a/24*6.283+r)*r; if(g.blocked(x,z)) continue; if(g.isLit([x,g.standY(x,z)+1.6,z]).tier==='shallow'){ P.x=x; P.z=z; r=99; break; } } P.seen=0.35; g.update(0.016); g.S.view={x:P.x,y:g.standY(P.x,P.z)+1,z:P.z,yaw:Math.PI/4,pitch:0.84,hh:12,D:1500}; g.S.cam=g.S.view; g.render(); g.S.view=null; return [P.tier, P.seen]"},
+  {"shot": "05_shallow_ring", "sel": "canvas"},
+  {"eval": "const g=__v16.game; const P=g.S.player; const t=g.HM.targets()[0]; P.x=t.door[0]; P.z=t.door[1]; g.S.actButton=true; for(let i=0;i<12;i++) g.update(0.05); g.render(); g.S.actButton=false; return [g.S.act && g.S.act.t.toFixed(2), t.state]"},
+  {"shot": "06_put_out", "sel": "canvas"},
+  {"eval": "const g=__v16.game; const P=g.S.player; g.startNight(3); __v16.force('search'); g.S.night=3; hide(); for(let i=0;i<820;i++){ g.update(0.05); if(P.tier!=='deep') hide(); if(g.S.phase!=='search') break; } for(let i=0;i<40;i++) g.update(0.05); const H=g.houses.find(h=>h.state==='taken'); g.S.view={x:H.x,y:g.standY(H.x,H.z)+1,z:H.z,yaw:Math.PI/4,pitch:0.84,hh:12,D:1500}; g.S.cam=g.S.view; g.S.noUI=true; g.render(); g.S.view=null; g.S.noUI=false; return [g.S.nightStats, H.state]"},
+  {"shot": "07_taken_house", "sel": "canvas"},
+  {"eval": "const g=__v16.game; for(let i=0;i<440;i++){ g.update(0.05); if(g.S.card) break; } for(let i=0;i<20;i++) g.update(0.05); g.render(); return [g.S.card && g.S.card.lines, __v16.errors]"},
+  {"shot": "08_card", "sel": "canvas"}
+]
