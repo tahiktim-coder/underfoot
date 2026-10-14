@@ -299,6 +299,25 @@ export const OCCLUDERS = [];
   for (const T of towers) { if (T.gate) continue; const y = height(T.x, T.z); OCCLUDERS.push({ x: T.x, z: T.z, w: T.r * 1.8, d: T.r * 1.8, rot: 0, y0: y - 1, y1: y + T.h, ridge: y + T.h + 5, ridgeAlongZ: true }); }
 }
 
+// the covers: under a roof with no walls, where the light never reaches whatever the lantern does. The
+// market hall, the church porch (in front of the tower), the two gate arches, and the banks under the
+// bridge. Oriented rectangles {x, z, w, d, rot}, tested like the houses' footprints.
+export const COVERS = [
+  { x: HALL.x, z: HALL.z, w: HALL.w - 0.4, d: HALL.d - 0.4, rot: 0, name: 'the market hall' },
+  { x: CHURCH.x, z: CHURCH.z + CHURCH.d / 2 + 3.4 + 3.4 + 2.2, w: 5, d: 4.4, rot: 0, name: 'the church porch' },
+  { x: BRIDGE.x + Math.cos(BRIDGE.rot) * 3.9, z: BRIDGE.z - Math.sin(BRIDGE.rot) * 3.9, w: 2.6, d: 10, rot: BRIDGE.rot, name: 'under the bridge' },
+  { x: BRIDGE.x - Math.cos(BRIDGE.rot) * 3.9, z: BRIDGE.z + Math.sin(BRIDGE.rot) * 3.9, w: 2.6, d: 10, rot: BRIDGE.rot, name: 'under the bridge' },
+];
+for (const T of towers) if (T.gate) COVERS.push({ x: T.x, z: T.z, w: 4.2, d: 9, rot: -T.rot, name: 'the gate' });
+export function inCover(x, z) {
+  for (const C of COVERS) {
+    const c = Math.cos(C.rot), s = Math.sin(C.rot), px = x - C.x, pz = z - C.z;
+    const lx = px * c - pz * s, lz = px * s + pz * c;
+    if (Math.abs(lx) < C.w / 2 && Math.abs(lz) < C.d / 2) return C;
+  }
+  return null;
+}
+
 // a segment from p to q blocked by any occluder (slab test against each oriented box, with the roof as a prism)
 export function segmentBlocked(p, q) {
   for (const O of OCCLUDERS) {

@@ -104,8 +104,8 @@ export function person(A, x, y, z, yaw, ph, run, look = {}) {
   const barI = (a, b, w, d, side, m) => { const ax = nrm(sub(b, a)); bar(A, sub(a, scl(ax, o)), add(b, scl(ax, o)), w + o, d + o, side, m); };
   const boxI = (F, x0, y0, z0, x1, y1, z1, m, seed) => box(A, F, x0 - ol, y0 - ol, z0 - ol, x1 + ol, y1 + ol, z1 + ol, m, seed);
   if (look.ring > 0 && !only) {
-    // the ring: a flat disc 1.8 m across just over the ground, a soft edge, dithered in the shader
-    const n = 10, r = 0.9, c = P0(0, 0.12, 0), hint = P0(0, -2, 0);
+    // the ring: a flat disc 2.6 m across just over the ground, a soft edge, dithered in the shader
+    const n = 12, r = 1.3, c = P0(0, 0.12, 0), hint = P0(0, -2, 0);
     for (let i = 0; i < n; i++) {
       const a0 = (i / n) * Math.PI * 2, a1 = ((i + 1) / n) * Math.PI * 2;
       tri(A, c, P0(Math.cos(a0) * r, 0.12, Math.sin(a0) * r), P0(Math.cos(a1) * r, 0.12, Math.sin(a1) * r), M.P_RING, [0, 0], [Math.cos(a0), Math.sin(a0)], [Math.cos(a1), Math.sin(a1)], look.ring, hint);

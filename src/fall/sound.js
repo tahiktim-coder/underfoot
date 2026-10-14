@@ -7,7 +7,7 @@
 export function createSound() {
   let ctx = null, master = null, white = null, brown = null;
   let wind = null, whistle = null, roar = null, drone = null;
-  const S = { muted: false, clinkT: 0 };
+  const S = { muted: false, clinkT: 0, tickT: 0 };
 
   function makeNoise(seconds, brownian) {
     const b = ctx.createBuffer(1, Math.floor(ctx.sampleRate * seconds), ctx.sampleRate), d = b.getChannelData(0);
@@ -102,6 +102,13 @@ export function createSound() {
       s.connect(bp); bp.connect(g); g.connect(o); s.start(t); v.start(t); s.stop(t + 3); v.stop(t + 3);
       burst(white, t + 0.8, 0.4, 2.8, 0.12 * k, o, 'lowpass', 700, 0.7, 250);
     },
+    // the light has found you: a short rising note, dry
+    notice() {
+      if (!ctx) return;
+      const t = now(), o = out(0, 2600);
+      osc('triangle', 440, 1180, t, 0.03, 0.42, 0.14, o);
+      osc('sine', 220, 590, t, 0.03, 0.42, 0.08, o);
+    },
     // the town bolts itself in: a few wooden bangs round you, and now and then a door slammed
     shutters(pan, slam) {
       if (!ctx) return;
@@ -141,6 +148,13 @@ export function createSound() {
       whistle.gain.setTargetAtTime(0.03 * st.wind, t, 0.8);
       roar.gain.setTargetAtTime(0.5 * st.roar * st.roar, t, 0.2);
       drone.gain.setTargetAtTime(0.055 * st.tension, t, 1.2);
+      // in shallow shadow a faint tick, quicker as your time there runs out (st.tick 0 = none, 1 = fastest)
+      S.tickT -= dt;
+      if (st.tick > 0 && S.tickT <= 0) {
+        S.tickT = 0.9 - 0.72 * st.tick;
+        const o = out(0, 3200);
+        burst(white, t, 0.001, 0.025, 0.07 + 0.05 * st.tick, o, 'bandpass', 2600 + 900 * st.tick, 6);
+      }
       // the chain: a clink now and then, more when the lantern is moving
       S.clinkT -= dt;
       if (st.chain > 0.02 && S.clinkT <= 0) {

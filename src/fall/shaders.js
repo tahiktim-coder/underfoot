@@ -124,6 +124,8 @@ uniform float uWinPool;        // how much light the lit windows throw on the gr
 uniform highp sampler2DShadow uShadow, uGShadow, uLtShadow;
 uniform mat4 uLVP, uGVP, uLtVP;
 uniform vec2 uShTexel, uGShTexel, uLtTexel;
+uniform float uLtK;            // the lantern map's 1/(2 tan(fov/2)): metres to map width at a distance
+uniform vec4 uRing;            // the ring under your feet: its colour, and how much of the circle is drawn
 uniform float uLocalOn;
 uniform vec4 uLan; uniform vec4 uLanDir; uniform float uLanInner; uniform vec3 uLanCol;
 uniform float uWin;            // how many windows are still lit, 0..1
@@ -188,6 +190,12 @@ float cloudShadow(vec3 P){
   float c = cloudCov(q.xz);
   return 1.0 - uCloudShadow*0.72*smoothstep(0.47, 0.58, c);
 }
+// The hiding test (game.js isLit) fires three rays to points 24 m apart across the lantern's glass, so its
+// shadows have a penumbra that wide: eight taps over a disc the size of that spread as seen from the
+// receiver (assuming the blocker is a house, about eight metres nearer the lantern), rotated per cell so the
+// band dithers. Where only part of the glass shows, the ground gets a tenth of the light at least: under
+// the overexposed pool that is a mid amber, so the shallow shadow is faintly amber and the deep shadow
+// black, and the picture says what the rule says.
 float lanternLight(vec3 P, vec3 n, out float sh){
   sh = 1.0;
   if (uLan.w <= 0.0) return 0.0;
@@ -197,8 +205,16 @@ float lanternLight(vec3 P, vec3 n, out float sh){
   float att = 1.0/(1.0 + (dist/260.0)*(dist/260.0));
   float ndl = max(dot(n, -ld), 0.0)*0.85 + 0.15;
   vec4 l = uLtVP*vec4(P - ld*0.6, 1.0); vec3 lc = l.xyz/l.w*0.5 + 0.5;
-  if (lc.x > 0.0 && lc.y > 0.0 && lc.x < 1.0 && lc.y < 1.0 && lc.z < 1.0) sh = pcf4(uLtShadow, lc, uLtTexel, 0.00002);
-  return uLan.w*cone*att*ndl*sh;
+  if (lc.x > 0.0 && lc.y > 0.0 && lc.x < 1.0 && lc.y < 1.0 && lc.z < 1.0){
+    float pen = clamp(24.0*8.0/max(dist - 8.0, 20.0), 0.8, 4.0);      // the penumbra's width in metres
+    float r = pen*uLtK/dist;                                           // in map units
+    float rot = hash2(floor(P.xz*2.0))*6.28; mat2 R = mat2(cos(rot), -sin(rot), sin(rot), cos(rot));
+    float acc = 0.0;
+    for (int i = 0; i < 8; i++) acc += texture(uLtShadow, vec3(lc.xy + R*PD[i]*r, lc.z - 0.00002));
+    sh = acc/8.0;
+  }
+  float lit = sh > 0.02 ? mix(0.1, 1.0, sh*sh) : 0.0;
+  return uLan.w*cone*att*ndl*lit;
 }
 
 // half-timbering; seed packs wall length and eave height, its fraction is the house
@@ -545,10 +561,14 @@ void main(){
     // the outline hull round you: the darkest grey, unlit, unfogged
     o = vec4(0.0, 0.0, 0.0, 1.0); return;
   } else if (m == 57){
-    // the ring on the ground under your feet: pale, soft-edged, dithered by its strength (the seed)
+    // the ring on the ground under your feet: a soft disc, dithered by its strength (the seed), in the colour
+    // of your shadow (uRing: blue in deep shadow, amber in the light), drawn as an arc that shrinks while the
+    // light has half found you
     float d = length(vUV);
+    float ang = fract(atan(vUV.x, vUV.y)/6.28318 + 1.0);
+    if (ang > uRing.w) discard;
     if ((1.0 - d*d)*vS < bayerF(gl_FragCoord.xy + vec2(1.0, 3.0))) discard;
-    alb = vec3(0.62, 0.62, 0.64); emit = vec3(0.1, 0.1, 0.11);
+    o = toneOut(uRing.rgb); return;
   }
   if (uSnow > 0.0 && m != 0 && m != 36 && m != 38 && m != 40 && m < 50) alb = mix(alb, vec3(0.86, 0.875, 0.9), uSnow*smoothstep(0.5, 0.85, n.y)*0.95);
   if (inside){ alb *= 0.55; ao *= 0.6; }
