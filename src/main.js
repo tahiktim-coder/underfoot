@@ -113,6 +113,7 @@ function boot() {
   V.view = (n) => game.view(n);
   V.setLook = (n) => setLook(n);
   V.begin = () => game.begin();
+  canvas.focus({ preventScroll: true });
 
   // hold to look up
   const lb = $('lookBtn');
@@ -140,7 +141,7 @@ function boot() {
     requestAnimationFrame(loop);
     const dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
     if (V.hold || document.hidden || !visible) return;
-    try { game.frame(dt); } catch (e) { V.errors.push(String((e && e.stack) || e)); console.error(e); V.hold = true; }
+    try { game.frame(dt); } catch (e) { V.errors.push(String((e && e.stack) || e)); console.error(e); V.hold = true; if (msg) { msg.hidden = false; msg.textContent = 'Something went wrong. Reload the page. ' + (e && e.message || e); } }
   }
   requestAnimationFrame(loop);
   V.ready = true;

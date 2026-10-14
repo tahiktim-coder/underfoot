@@ -27,7 +27,7 @@ export function createSound() {
   const filt = (type, f, q = 0.7) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; };
 
   function init() {
-    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    if (ctx) { if (ctx.state !== 'running') ctx.resume().catch(() => {}); return; }
     try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ctx = null; return; }
     master = ctx.createGain(); master.gain.value = S.muted ? 0 : 0.85;
     const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
@@ -77,6 +77,9 @@ export function createSound() {
     get on() { return !!ctx && !S.muted; },
     get muted() { return S.muted; },
     init,
+    // the tab hidden or the picture off screen: quiet; back: on again (also after iOS 'interrupted')
+    suspend() { if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {}); },
+    resume() { if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {}); },
     setMuted(m) { S.muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : 0.85, now(), 0.05); },
     // a foot comes down `d` metres away
     footfall(d, pan) {

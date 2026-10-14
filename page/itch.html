@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Underfoot</title>
+<style>
+/* The itch page: the picture and nothing else. A 16:9 screen as big as the window allows, centred. */
+html, body { margin: 0; height: 100%; background: #06070b; overflow: hidden; }
+body { display: grid; place-items: center; font: 14px/1.4 system-ui, sans-serif; color: #a9b4c6; }
+.screen { position: relative; width: min(100vw, 177.78vh); aspect-ratio: 16 / 9; background: #000; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; image-rendering: pixelated; image-rendering: crisp-edges; }
+.msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; background: #06070b; color: #a9b4c6; }
+.msg small { display: block; margin-top: 8px; color: #6d7b94; font-size: 12px; }
+[hidden] { display: none !important; }
+.ov { position: absolute; top: 2%; right: 1.5%; display: flex; gap: 6px; opacity: .45; transition: opacity .2s; }
+.ov:hover, .ov:focus-within { opacity: 1; }
+button { font: 600 12px/1 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .04em; color: #a9b4c6; background: rgba(6, 7, 11, .78); border: 1px solid #334058; padding: 9px 11px; cursor: pointer; min-height: 36px; touch-action: none; -webkit-user-select: none; user-select: none; }
+button[aria-pressed="true"] { color: #06070b; background: #a9b4c6; border-color: #a9b4c6; }
+button:focus-visible { outline: 2px solid #f2bd62; outline-offset: 2px; }
+#lookBtn { display: none; position: absolute; right: 2%; bottom: 3%; color: #06070b; background: #f2bd62; border-color: #f2bd62; padding: 14px 16px; }
+#lookBtn.held { background: #a9b4c6; border-color: #a9b4c6; }
+@media (pointer: coarse) { #lookBtn { display: block; } .ov { opacity: .7; } }
+</style>
+</head>
+<body>
+<div class="screen" id="box">
+  <canvas id="fall" tabindex="0" aria-label="Underfoot. A walled hill town at night, seen from above. Something nearly three kilometres tall walks the valley with a lantern on a chain; when it stops beside the town, its light searches the streets for you."></canvas>
+  <div class="msg" id="fallMsg">Building the valley...</div>
+  <div class="ov"><button id="soundBtn" type="button" aria-pressed="false">Sound</button><button id="fsBtn" type="button">Fullscreen</button></div>
+  <button id="lookBtn" type="button">Hold to look up</button>
+</div>
+<script>
+__SCRIPT__
+</script>
+</body>
+</html>
