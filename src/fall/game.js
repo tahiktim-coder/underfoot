@@ -13,7 +13,7 @@ import { drawWisp, measureWisp } from '../lib/wisp.js';
 import { mulberry } from '../lib/noise.js';
 import { createSound } from './sound.js';
 import { LOOKS, LOOK_ORDER } from './looks.js';
-import { NIGHTS, LAST_NIGHT, night, RULE, nightCard, overCard, endCard, best } from './nights.js';
+import { NIGHTS, NIGHT_BONUS, night, RULE, nightCard, overCard, best } from './nights.js';
 import { brain, walk, spawnPerson } from './people.js';
 import { createHomes } from './homes.js';
 
@@ -76,7 +76,7 @@ export function createGame(canvas, opts = {}) {
   R.setPalette(LK.palette.greys, LK.palette.hues);
   const rnd = mulberry(4242);
   // the night: how long it searches, how far behind you it aims, how many windows stay lit (nights.js)
-  const firstNight = Math.max(1, Math.min(LAST_NIGHT, opts.night | 0 || 1));
+  const firstNight = Math.max(1, opts.night | 0 || 1), credit = opts.credit || '';
   let NT = night(firstNight);
   // where a sound is, left to right on screen (the play camera's right is +x -z)
   const panOf = (x, z) => { const dx = x - S.player.x, dz = z - S.player.z, d = Math.hypot(dx, dz) || 1; return (dx * 0.7071 - dz * 0.7071) / d; };
@@ -92,8 +92,8 @@ export function createGame(canvas, opts = {}) {
     fade: 0, flash: 0, eye: 1, input: { x: 0, y: 0, look: false }, idle: 99, auto: true, hint: 1,
     birds: [], stats: { caught: 0, passed: 0 },
     // the run: which night, whether anyone has begun (until then the town plays itself under the title),
-    // the card between nights, what this night and the whole run saved and lost
-    night: firstNight, played: false, card: null, retry: false, run: { saved: 0, taken: 0 }, nightStats: { saved: 0, taken: 0 },
+    // the card between nights, the score banked by the nights passed and the seconds of this night's search
+    night: firstNight, played: false, card: null, retry: false, score: 0, nightScore: 0,
     // how much chimney smoke is up, how many doors have slammed tonight, the light you are putting out,
     // when the lantern next goes to check a lit window
     smokeLevel: 1, slams: 0, nextCheck: 0,
@@ -101,7 +101,7 @@ export function createGame(canvas, opts = {}) {
     people: [], take: null, lostT: 0, spawned: 0, stains: [],
   };
   for (let i = 0; i < 26; i++) { const a = rnd() * 6.28, r = 20 + rnd() * 60; const x = TOWN.x + Math.cos(a) * r, z = TOWN.z + Math.sin(a) * r; S.birds.push({ x, z, y: standY(x, z) + 0.3, fly: 0, ph: rnd(), hx: 0, hz: 0, seed: rnd() }); }
-  // the houses: lit, dark, saved or taken (homes.js)
+  // the houses: lit, dark or taken (homes.js)
   const HM = createHomes(rnd);
 
   // ---------------------------------------------------------------------------------- the cycle
@@ -128,16 +128,16 @@ export function createGame(canvas, opts = {}) {
   }
   // a night begins: the walk in from the valley, you back at the start, the night's table in force
   function startNight(n) {
-    S.night = Math.max(1, Math.min(LAST_NIGHT, n)); NT = night(S.night);
-    S.nightStats = { saved: 0, taken: 0 }; S.card = null; S.retry = false;
+    S.night = Math.max(1, n); NT = night(S.night);
+    S.nightScore = 0; S.card = null; S.retry = false;
     HM.set('calm'); S.smokeLevel = 1; S.slams = 0;
     Object.assign(S.player, { x: -12, z: 8, yaw: 0.8, seen: 0, lit: false, run: 0 });
     S.trail = []; S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.autoLook = 0; S.lookHeld = false;
     startCycle();
     Object.assign(smoothCam, playCam());
   }
-  // it found you: the same night again, from the plant, no walk in
-  function retryNight() {
+  // straight to the plant of the current night, no walk in: the restart after it found you
+  function enterAtPlant() {
     S.card = null; S.retry = true; S.fade = 0; S.flash = 0;
     Object.assign(S.player, { seen: 0, lit: false });
     S.trail = []; S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.autoLook = 0; S.lookHeld = false;
@@ -148,13 +148,13 @@ export function createGame(canvas, opts = {}) {
     updateGiant(0); stepLantern(0.016);
     Object.assign(smoothCam, playCam());
   }
-  function newRun() { S.run = { saved: 0, taken: 0 }; HM.set('reset'); R.clearStains(); S.stains = []; startNight(firstNight); }
+  // a new run: the score and the town's stains cleared, night 1 from the plant (the walk in was the title's)
+  function newRun() { S.score = 0; S.nightScore = 0; HM.set('reset'); R.clearStains(); S.stains = []; startNight(firstNight); enterAtPlant(); S.retry = false; }
   const card = (kind, lines) => ({ kind, lines, t: 0 });
   function dismissCard() {
     const c = S.card; if (!c) return;
     S.card = null;
     if (c.kind === 'night') startNight(S.night + 1);
-    else if (c.kind === 'over') retryNight();
     else newRun();
   }
   // the first key or click: it starts the sound, takes the town off its own autopilot for good, and cuts
@@ -168,7 +168,7 @@ export function createGame(canvas, opts = {}) {
   function gesture(kind) {
     snd.init();
     if (!S.played) { begin(); return true; }
-    if (S.card && kind === 'go' && S.card.t > 0.6) { dismissCard(); return true; }
+    if (S.card && S.card.t > 0.6 && (kind === 'go' || S.card.kind === 'over')) { dismissCard(); return true; }
     return !!S.card;
   }
   function leavePlan() {
@@ -508,20 +508,19 @@ export function createGame(canvas, opts = {}) {
       S.windows = Math.max(0.16, S.windows - dt * 0.2);
       if (S.pt > 3.5) setPhase('search');
     } else if (S.phase === 'search') {
+      S.nightScore += dt;   // the score: every second you last in its search
       if (S.pt > NT.search) { setPhase('leave'); leavePlan(); S.stats.passed++; }
     } else if (S.phase === 'caught') {
+      // it found you: the run is over, and this night's seconds are lost with it
       if (S.pt > 9.5 && !S.card) {
         if (!S.played) startCycle();
-        else { S.card = card('over', overCard(S.night, best.get())); best.set(S.night - 1); }
+        else { S.nightScore = 0; S.card = card('over', overCard(S.night, S.score, best.get())); best.set(S.score); }
       }
     } else if (S.phase === 'leave') {
       if (S.pt > 5) HM.relight(dt);
       if (S.pt > 21 && !S.card) {
         if (!S.played) startCycle();
-        else {
-          const ns = S.nightStats; S.run.saved += ns.saved; S.run.taken += ns.taken; best.set(S.night);
-          S.card = S.night >= LAST_NIGHT ? card('end', endCard(S.run.saved, S.run.taken)) : card('night', nightCard(S.night, ns.saved, ns.taken));
-        }
+        else { S.score += Math.round(S.nightScore) + NIGHT_BONUS; S.nightScore = 0; best.set(S.score); S.card = card('night', nightCard(S.night, S.score)); }
       }
     }
     if (S.card) { S.card.t += dt; if (S.card.kind === 'night' && S.card.t > CARD_HOLD) dismissCard(); }
@@ -678,10 +677,12 @@ export function createGame(canvas, opts = {}) {
       const w = measureWisp(label) + 12;
       plate(8, 8, w, 15);
       drawWisp(label, 14, 12, plot(S.phase === 'search' || S.phase === 'caught' ? C.accent : C.text));
-      const nl = 'Night ' + S.night, nw = measureWisp(nl) + 12;
-      plate(VW - 8 - nw, 8, nw, 15);
-      drawWisp(nl, VW - 8 - nw + 6, 12, plot(C.dim));
-      if (S.phase === 'search' || (S.phase === 'caught' && S.pt < 3)) {
+      // the night and the running score, after the label and the eye
+      const eye = S.phase === 'search' || (S.phase === 'caught' && S.pt < 3);
+      const nl = 'Night ' + S.night + '   ' + (S.score + Math.floor(S.nightScore)), nw = measureWisp(nl) + 12, nx = 8 + w + 6 + (eye ? 36 : 0);
+      plate(nx, 8, nw, 15);
+      drawWisp(nl, nx + 6, 12, plot(C.dim));
+      if (eye) {
         const x0 = 8 + w + 6, o = S.player.seen;
         plate(x0, 8, 30, 15);
         for (let x = -9; x <= 9; x++) {
@@ -709,6 +710,7 @@ export function createGame(canvas, opts = {}) {
       const s2 = 'something is walking the valley';
       drawWisp(s2, cx - Math.round(measureWisp(s2) / 2), 86, plot(C.sub));
       drawWisp(RULE, cx - Math.round(measureWisp(RULE) / 2), 104, plot(C.sub));
+      if (credit) drawWisp(credit, cx - Math.round(measureWisp(credit) / 2), 126, plot(C.sub));
       if (!S.played) {
         const p = 'click or press any key';
         ctx.globalAlpha *= 0.55 + 0.45 * Math.sin(S.intro.t * 2.2);
@@ -725,8 +727,9 @@ export function createGame(canvas, opts = {}) {
       plate(x0, y0, w, h);
       let y = y0 + 8;
       L.forEach((l, i) => { const sc = i === 0 ? 2 : 1; drawWisp(l, Math.round((VW - ws[i]) / 2), y, plot(i === 0 ? (k === 'over' ? C.accent : C.text) : C.dim), sc); y += sc === 2 ? 16 : 10; });
-      const p = k === 'night' ? 'Space: next night' : k === 'over' ? 'Space: again' : 'Space: play again';
+      const p = k === 'night' ? 'Space: next night' : 'any key: again';
       if (S.card.t > 0.6) { ctx.globalAlpha *= 0.6 + 0.4 * Math.sin(S.card.t * 2.2); drawWisp(p, Math.round((VW - measureWisp(p)) / 2), y + 4, plot(C.dim)); }
+      if (k === 'over' && credit) drawWisp(credit, Math.round((VW - measureWisp(credit)) / 2), VH - 18, plot(C.dim));
       ctx.globalAlpha = 1;
     }
     if (S.phase === 'caught' && S.pt > 5.4 && S.pt < 7.5) {
@@ -855,10 +858,10 @@ export function createGame(canvas, opts = {}) {
   updateGiant(0);
 
   const api = {
-    R, G, S, snd, LOOKS, LOOK_ORDER, NIGHTS, isLit, inCover, blocked, standY, lanLight, segmentBlocked, OCCLUDERS, houses, brain, HM,
+    R, G, S, snd, LOOKS, LOOK_ORDER, NIGHTS, nightTable: night, isLit, inCover, blocked, standY, lanLight, segmentBlocked, OCCLUDERS, houses, brain, HM,
     get look() { return lookName; },
     get night() { return S.night; },
-    begin, startNight, retryNight, dismissCard,
+    begin, startNight, newRun, dismissCard,
     setLook(name) { if (!LOOKS[name]) return; LK = LOOKS[name]; lookName = name; R.setPalette(LK.palette.greys, LK.palette.hues); },
     frame(dt) { update(dt); render(); },
     update, render, lookFrom,
