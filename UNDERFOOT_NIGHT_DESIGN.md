@@ -128,3 +128,51 @@ So night 1 is survivable by hiding alone and the curious one shows what the ligh
 - No itch page template yet (page/itch.html, `build:itch`); page/game.html still has no doctype or charset, so served without a charset header it shows mojibake in the notes under the picture.
 - The sound (shutters, the pop, the tick, the sting, the blow) has been heard once in a browser, not tuned by ear.
 - Touch: holding a finger on a lit house walks you there and puts its light out (the same code as the mouse), and the put-out button sits beside the look-up button; the second-finger look-up from the review is not in. Neither has been tried on a phone.
+
+## 8. Scope change: a score game for itch.io (2026-10-15)
+
+The user's words: not canon, a simple score game about hiding where some things happen, ready for itch.io. Applied on top of section 7 in six commits (`git log`): the put-out action, its key, the mouse hold and the saved count are gone; the nights are endless; the score is the seconds you last in the searches plus 100 a night; the night 1 townsperson and the lantern taking lit houses stay as the things that happen; the itch page, build and zip are new.
+
+Frames (384 x 216, `plans/docnight.json`): `docs/night/01_title.png` (the title with the rule), `02_approach_lights_out.png`, `03_curious_taken.png`, `04_stain.png`, `05_shallow_ring.png`, `07_taken_house.png`, `08_card.png` (the night card with the score). The itch page itself: `plans` has no entry; `node tools/shot.mjs itch/index.html out/itch '<plan>'` with `QUERY='?hold'` renders it (the title shows the credit, the overlay buttons sit top right).
+
+### The numbers
+
+| | Night 1 | Night 2 | Night 3 | Night 4 | Night 5 | Night 8 and on |
+| --- | --- | --- | --- | --- | --- | --- |
+| Search length | 30 s | 35 s | 40 s | 44 s | 48 s | 60 s |
+| Eye fill in the light (1 catches in about 3 s) | 0.55 | 0.75 | 1.0 | 1.0 | 1.0 | 1.0 |
+| Shallow divisor k | 2 | 1.75 | 1.5 | 1.45 | 1.4 | 1.3 |
+| Lantern offset low end (high end 60 m) | 30 m | 25 m | 20 m | 19 m | 18 m | 15 m |
+| Lit houses at the plant | 3 | 4 | 6 | 7 | 7 | 8 |
+| Lantern visits a lit window after (and at least 6 s lost) | 10 s | 8 s | 5 s | 4.5 s | 4 s | 4 s |
+| Trail lag (0.25 s samples) | 25 | 20 | 10 | 10 | 10 | 10 |
+| Townspeople | 1, the curious one | 2 | 3 | 3 | 3 | 3 |
+| The light's mark walks / hunts at (you: 4.6 m/s) | 3.6 / 4.2 | 4.2 / 5.4 | 5.0 / 6.5 | 5.1 / 6.75 | 5.2 / 7.0 | 5.4 / 7.5 |
+
+Score: +1 a second in the search, +100 a night passed, banked at the end of the leave; being caught loses the night's seconds. Best score in `localStorage` (`underfoot.best`).
+
+The one tuning change against section 7: the lantern visits a lit window only when it has both lost you for the night's delay (6 s at least) and not visited one within that delay, and after a take it hunts your trail for the same time. Before that, once you hid well it went from window to window for the whole search and nights 4 to 6 were survived with the eye at zero.
+
+### Scripted playtests (`plans/playtest.json`, the hider brain, a perfect player)
+
+| Night | Runs | Survived | Max eye on the wins |
+| --- | --- | --- | --- |
+| 1 | 2 | 2 | 0.33 |
+| 3 | 2 | 1 | 0.95 |
+| 4 | 3 | 0 (caught at 17 to 22 s) | |
+| 5 | 3 | 0 (caught at 12 to 26 s) | |
+| 7 | 1 | 0 (caught at 19 s) | |
+| 5, standing still | 1 | 0 (caught at 9 s) | |
+
+So night 1 is survivable by hiding alone and nights 4 and 5 are hard even for the perfect hider. A human is worse than the hider brain; the first real playtests may want night 1's fill eased further.
+
+### Shipping
+
+`npm run zip:itch` makes `itch/underfoot-itch.zip` (about 67 KB) with `index.html` at its root; README section 13 has the itch project settings. The page: doctype, charset, viewport with `viewport-fit=cover`, a 16:9 screen at `min(100vw, 177.78vh)`, `touch-action: none`, no fonts, no picker; Sound and Fullscreen top right, a hold-to-look button on coarse pointers; the credit from `AUTHOR` in `src/itch.js`. Input: keys on the window by `e.code`, the right button from `e.buttons` and cleared on leave, a second finger for the look-up, the canvas focused at boot. Robustness: a 60 Hz cap with fixed 1/60 s steps (at most four a frame), the sound suspended while hidden or off screen, a message on a lost graphics context or a frame error, "Building the valley..." while the game is made. `tools/shot.mjs` no longer wraps a doctype round the page, so screenshots test what ships.
+
+### Skipped
+
+- The night 2 and 3 bad hiders were already built in section 7, so they stay; nothing else from the townsperson step was added.
+- The short burn-fail after the first death, the give-up tell in the last seconds of the search, and the switch to Ash and blood on a late night (review milestone 2) are not in.
+- Not tried on a phone or a real GPU; the touch stick, the second finger and the Fullscreen button on iOS are unverified. The sound has not been tuned by ear.
+- `AUTHOR` is "by ____": fill it in before the upload.

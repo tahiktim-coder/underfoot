@@ -52,18 +52,17 @@ CLAUDE.md           short notes for working on this with Claude Code
 
 | Action | Keyboard and mouse | Touch | Page button |
 | --- | --- | --- | --- |
-| Begin, skip a card, play again | Space, Enter, or a click on the picture | A tap | |
+| Begin, skip a card, play again | Space, Enter, or a click on the picture (any key after it found you) | A tap | |
 | Walk | W A S D or the arrow keys, or hold the left mouse button where you want to go | Drag anywhere on the picture (a virtual stick: the further you drag, up to 40 px, the faster) | |
-| Put out a light | Hold the mouse button on a lit house (you walk to its door), or hold E or Space at the door, for a second | Hold a finger on the house | Hold "Hold to put out" |
-| Look up at it | Hold L or the right mouse button | | Hold "Hold to look up" |
+| Look up at it | Hold L or the right mouse button | A second finger | Hold "Hold to look up" |
 | Sound on or off | M | | "Sound" |
 | Jump to a moment (`?debug` only) | | | "It comes", "It searches", "It finds you", "It passes" |
 | Change the look | | | The look bar: Ashwake grey, Night, Ash and blood, Fog, Winter, Sunlit, One bit |
 
 - The title waits for your first key or click. That gesture starts the sound (browsers need a gesture before audio), focuses the picture and begins night 1.
 - Until then the town plays itself under the title: an autopilot hides well on odd cycles and walks out into the light on even ones. Once you have begun, nothing plays for you.
-- **Three nights.** Each night the lantern searches longer, aims closer behind you, fills the eye faster and checks the lit windows sooner (`src/fall/nights.js`). A card after each night says what you saved and what was taken; a game-over card shows nights survived and your best (kept in the browser); after night 3 the ending plays on the relit town. A failed night retries from the plant ("It is still here"). `game.html?night=3` starts there.
-- **Put out the lights.** At the plant a few windows stay lit: the people who did not hide. The lantern is drawn to light. When it has lost you, and after a few seconds anyway, it goes to the nearest lit window; if it reaches one, the house is taken (a flash, a scorch, a stain on the step). Stand at a lit door and hold E for a second to put the light out: the house is saved.
+- **A score game of nights.** Each night the lantern searches longer, aims closer behind you, fills the eye faster and checks the lit windows sooner (`src/fall/nights.js`; past night 3 the table keeps tightening to a floor). The score is the seconds you last in its searches plus 100 for each night passed. A card after each night shows the score; when it finds you, a card shows nights survived, the score and your best (kept in the browser), and that night's seconds are lost. Any key starts a new run at the plant of night 1. `game.html?night=5` starts there.
+- **The light goes where the light is.** At the plant a few windows stay lit: the people who did not hide. When the lantern has lost you for a while it goes to the nearest lit window; if it reaches one, the house is taken (the beam narrows, a flash, the window dies, a scorch up the wall, a stain on the step, dark for the run). It is a tell for where the light goes next; there is nothing to do about it. On night 1 one townsperson walks out with a candle to see the light, and is taken; later nights have two or three bad hiders. Every taken house and townsperson leaves a stain, so the town records the run.
 - **Deep and shallow shadow.** Inside a shadow the eye drains; at its edge (where only part of the lantern's glass is hidden) it fills slowly; in the light it fills fast. The ring under your feet is blue, dim amber or bright amber for the three, and the eye meter matches. The market hall, the church porch, the gate arches and the banks under the bridge are always deep.
 - The picture only runs while it is on screen and the tab is visible.
 - The look can also be picked in the address: `game.html?look=night`. The last look chosen is remembered in the browser (`localStorage`, key `underfoot.look`).
@@ -78,7 +77,7 @@ HUD, top left:
 
 ## 2. The loop, phase by phase
 
-One night lasts about 85 to 100 seconds; three nights make a run. Times are approximate.
+One night lasts about 85 to 120 seconds; a run is as many nights as you last. Times are approximate.
 
 | Phase | Length | What happens |
 | --- | --- | --- |
@@ -86,8 +85,8 @@ One night lasts about 85 to 100 seconds; three nights make a run. Times are appr
 | **Calm** ("Quiet") | 2 to 11 s | Daylight. Windows lit. Birds on the roofs. The giant is about 4.7 km away. |
 | **Approach** ("It is coming") | ~26 s | It walks in: one footfall every 8.5 s, each a long boom that arrives seconds late, a camera shake, dust, birds taking off, roof dust shaking down. Each boom puts out the windows nearest the boot and thins the chimney smoke; close booms bang the shutters and slam a door. Cloud slowly covers the sun (the world dims over 18 s). From the second night on, the camera cuts up to look at it coming for 6.5 s. In the last 4 s the play camera pulls out to show the boot coming down outside the west wall. |
 | **Plant** ("It is here") | 3.5 s | The boot lands outside the west wall, its toe about 60 m from it. Dust ring, shake, the view holds wide, then closes back in on you. |
-| **Search** ("Hide") | 30 to 40 s | It lowers the lantern on the full length of the chain until it rides 70 m over the ground, and hunts you with it (section 3). The lit windows draw it; townspeople come out and are taken; you put lights out at their doors. |
-| **Caught** ("It sees you") | 9.5 s | If the eye fills: the light narrows and brightens on you (1.1 s), a flash and a cut to a low camera behind the town, a slow tilt from the roofs up the chain and the legs to its face, the eyes catch fire, a push in on the face, "it sees you", a flash, a fade. Then the game-over card, and the same night again from the plant. |
+| **Search** ("Hide") | 30 to 60 s | It lowers the lantern on the full length of the chain until it rides 70 m over the ground, and hunts you with it (section 3). Every second counts toward the score. The lit windows draw it when it has lost you; townspeople come out and are taken. |
+| **Caught** ("It sees you") | 9.5 s | If the eye fills: the light narrows and brightens on you (1.1 s), a flash and a cut to a low camera behind the town, a slow tilt from the roofs up the chain and the legs to its face, the eyes catch fire, a push in on the face, "it sees you", a flash, a fade. Then the game-over card; any key starts a new run at the plant of night 1. |
 | **Leave** ("It is passing") | 21 s | If you lasted the search: the camera cuts to the street and looks up as its boot swings over the south side of the town and lands beyond the east wall. It walks away across the picture to the south-east. The cloud lifts, the windows come back one by one (the taken stay dark), the smoke returns. Then the night card, and the next night. |
 
 ---
@@ -495,7 +494,18 @@ npm run shots -- night blood       # ...or only some looks
 npm run shots:cycle                # eight frames across one cycle -> out/cycle/
 ```
 
-Open `dist/game.html` or `dist/index.html` directly in a browser (from the disk is fine). `dist/index.html` needs `dist/stills/` next to it. Address options: `?look=<id>`, `?nointro` (skip the title), `?hold` (start paused, for scripts).
+Open `dist/game.html` or `dist/index.html` directly in a browser (from the disk is fine). `dist/index.html` needs `dist/stills/` next to it. Address options: `?look=<id>`, `?night=<n>` (start on that night), `?debug` (the jump buttons), `?nointro` (skip the title), `?hold` (start paused, for scripts).
+
+### The itch.io build
+
+```bash
+npm run build:itch                 # itch/index.html: the game alone, Night look, no picker (page/itch.html + src/itch.js)
+npm run zip:itch                   # builds, then itch/underfoot-itch.zip with index.html at the zip root
+```
+
+Before building, put your name in `AUTHOR` at the top of `src/itch.js` (it is "by ____" until then); it shows on the title and small on the game-over card. The page has its own doctype, charset and viewport, a full-bleed 16:9 screen, Sound and Fullscreen buttons, and a hold-to-look button on touch screens. The loop is capped at 60 Hz; the sound stops while the tab is hidden; a lost graphics context or a frame error shows a message instead of a frozen picture.
+
+On itch.io: create the project with Kind of project **HTML**, upload `itch/underfoot-itch.zip` and tick **This file will be played in the browser**. Embed options: **Embed in page**, viewport **1152 x 648** (three times the game's 384 x 216), **Fullscreen button** on, **Automatically start on page load** off (the title waits for a click, which is also what starts the sound), **Mobile friendly** only after a phone test. Tags that fit: stealth, horror, pixel-art, short, browser.
 
 Headless screenshots run in Chromium with SwiftShader, so they are slow: simulate many updates and render once. A plan is a list of steps (`eval`, `wait` in ms, `shot` of an element, `full` page), given as a file or inline:
 

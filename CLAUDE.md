@@ -1,6 +1,6 @@
 # Underfoot: notes for Claude Code
 
-A small WebGL2 game with no engine: over three nights you hide in a walled hill town from a giant about 2.9 km tall whose lantern searches the streets a few steps behind you, and put out the lights of the houses that did not hide before its light finds them. The picture is drawn at 384 x 216 and snapped to a small palette with dithering. Seven "looks" (palette, light, fog, sky, post) can be switched at run time; the game itself is the same under all of them. README.md is the full description; read its sections 3 to 6 before changing gameplay or rendering.
+A small WebGL2 game with no engine: a score game of nights in which you hide in a walled hill town from a giant about 2.9 km tall whose lantern searches the streets a few steps behind you; each night it asks more, until it finds you. The picture is drawn at 384 x 216 and snapped to a small palette with dithering. Seven "looks" (palette, light, fog, sky, post) can be switched at run time; the game itself is the same under all of them. README.md is the full description; read its sections 3 to 6 before changing gameplay or rendering.
 
 ## Commands
 
@@ -9,6 +9,8 @@ npm install                        # esbuild (build) and playwright (headless sh
 npx playwright install chromium    # once, for the shot tools
 npm run build                      # dist/index.html (looks page) + dist/game.html (game alone)
 npm run build:test                 # out/test.html: unminified bare canvas page for headless runs
+npm run build:itch                 # itch/index.html: the shipped page (page/itch.html + src/itch.js, Night look, no picker)
+npm run zip:itch                   # itch/underfoot-itch.zip for upload (index.html at the root)
 npm run shots -- night             # four comparison frames for a look -> out/shots/night/*.png
 npm run shots:cycle                # eight frames across one cycle -> out/cycle/*.png
 ```
@@ -33,6 +35,7 @@ Pages open straight from disk. Address options: `?look=<id>`, `?night=<1-3>`, `?
 | Lantern, chain, the player's figure | `src/fall/props.js` |
 | Sound | `src/fall/sound.js` (all synthesized) |
 | Page wiring: look bar, contact sheet, large view, buttons | `src/main.js`, `page/*.html` |
+| The itch page: overlay buttons, the 60 Hz loop, sound on hide, the error messages, the credit (`AUTHOR`) | `src/itch.js`, `page/itch.html` |
 
 ## Things that must stay true
 
@@ -53,5 +56,6 @@ Plain, short sentences. No em dashes. Name things the way a player would. Design
 ## Status
 
 - Volume 16 (the game) and Volume 17 (the seven looks) are published pages; links are at the top of README.md.
-- The game is three nights with the "put out the lights" objective (UNDERFOOT_NIGHT_DESIGN.md, section 7 has the numbers and the playtests). Night lantern is the intended look; the page still defaults to Ashwake grey and offers the look bar.
+- The game is a score game of endless nights (UNDERFOOT_NIGHT_DESIGN.md section 8 has the numbers, the playtests and what was skipped). The itch page ships the Night look alone; page/game.html stays the dev page with the look bar.
+- Nothing here is canon: the user wants a small thing to put on itch.io and see whether people like it.
 - Known weak spots are in README section 16.
