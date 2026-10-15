@@ -13,7 +13,7 @@ const V = (window.__v16 = { ready: false, hold: /[?&]hold/.test(location.search)
 window.addEventListener('error', (e) => V.errors.push(String(e.message)));
 
 function boot() {
-  const canvas = $('fall'), msg = $('fallMsg'), box = $('box');
+  const canvas = $('fall'), msg = $('fallMsg');
   const show = (text, small) => { msg.hidden = false; msg.textContent = text; if (small) { const s = document.createElement('small'); s.textContent = small; msg.appendChild(s); } };
   let game = null, dead = false;
   const nq = /[?&]night=(\d+)/.exec(location.search);
@@ -38,13 +38,15 @@ function boot() {
   sb.addEventListener('click', () => { if (!game.snd.on) { game.snd.init(); game.snd.setMuted(false); } else game.snd.setMuted(true); syncSound(); canvas.focus({ preventScroll: true }); });
   canvas.addEventListener('pointerdown', () => setTimeout(syncSound, 0));
   window.addEventListener('keydown', () => setTimeout(syncSound, 0));
-  const fs = $('fsBtn');
+  // fullscreen on the document, not the screen: the screen keeps its 16:9 rule inside it and is letterboxed
+  const fs = $('fsBtn'), doc = document.documentElement;
   fs.addEventListener('click', () => {
-    const el = box.requestFullscreen ? box : canvas;
-    if (document.fullscreenElement) document.exitFullscreen();
-    else if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+    if (document.fullscreenElement) { if (document.exitFullscreen) document.exitFullscreen().catch(() => {}); }
+    else if (doc.requestFullscreen) doc.requestFullscreen().catch(() => {});
     canvas.focus({ preventScroll: true });
   });
+  if (!doc.requestFullscreen) fs.hidden = true;
+  document.addEventListener('fullscreenchange', () => fs.setAttribute('aria-pressed', document.fullscreenElement ? 'true' : 'false'));
   const lb = $('lookBtn');
   const on = (e) => { e.preventDefault(); game.snd.init(); syncSound(); game.S.lookButton = true; lb.classList.add('held'); };
   const off = () => { game.S.lookButton = false; lb.classList.remove('held'); };

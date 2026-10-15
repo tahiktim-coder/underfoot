@@ -1,0 +1,7 @@
+[
+  {"eval": "const r=document.getElementById('box').getBoundingClientRect(); return ['viewport', innerWidth, innerHeight, 'screen', r.width|0, r.height|0, (r.width/r.height).toFixed(3), 'fs', !!document.fullscreenElement]"},
+  {"click": "#fsBtn"},
+  {"wait": 600},
+  {"eval": "const r=document.getElementById('box').getBoundingClientRect(); return ['after click: fs element', document.fullscreenElement && document.fullscreenElement.tagName, 'viewport', innerWidth, innerHeight, 'screen', r.width|0, r.height|0, (r.width/r.height).toFixed(3), 'left', r.left|0, 'top', r.top|0, 'pressed', document.getElementById('fsBtn').getAttribute('aria-pressed'), __v16.errors]"},
+  {"full": "fullscreen"}
+]

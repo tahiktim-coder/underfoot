@@ -1,7 +1,7 @@
 // Headless runs of a built page.  node tools/shot.mjs PAGE OUTDIR <plan.json | '<plan json>'>
 // The page is served with ?hold so nothing moves until the plan says so (QUERY overrides, e.g. QUERY='?look=night&hold').
 // Files next to PAGE (stills) are served too. Needs Playwright's Chromium: npx playwright install chromium
-// Steps: {eval}, {wait: ms}, {shot: name, sel: css}, {full: name}, {frames: n, dt, piece}
+// Steps: {eval}, {wait: ms}, {shot: name, sel: css}, {full: name}, {frames: n, dt, piece}, {click: css} (a real click)
 // env VW, VH (viewport), MOBILE=1, DPR
 import { chromium } from 'playwright';
 import http from 'http';
@@ -38,6 +38,7 @@ for (const s of plan) {
   if (s.eval) { const r = await page.evaluate((src) => (0, eval)(`(() => { ${src} })()`), s.eval); if (r !== undefined) console.log('eval:', JSON.stringify(r).slice(0, 3000)); }
   if (s.frames) await page.evaluate(({ n, dt, piece }) => { const v = window.__v16; v.hold = true; for (let i = 0; i < n; i++) v.step(piece, dt); }, { n: s.frames, dt: s.dt || 1 / 30, piece: s.piece || null });
   if (s.wait) { await page.evaluate(() => { window.__v16.hold = false; }); await page.waitForTimeout(s.wait); }
+  if (s.click) await page.locator(s.click).first().click();
   if (s.shot) await page.locator(s.sel || 'canvas').first().screenshot({ path: path.join(OUT, s.shot + '.png') });
   if (s.full) await page.screenshot({ path: path.join(OUT, s.full + '.png'), fullPage: !!s.fullPage });
 }
