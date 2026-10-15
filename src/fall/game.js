@@ -41,6 +41,7 @@ const LAN = 40, LAN_Y = 56;   // the lantern's size, and how high its ring rides
 const LAN_BODY = 37;          // the lantern's body hangs this far below the ring (the drip is at its end)
 const RING_CLEAR = LAN_BODY + 7, RING_CLEAR_TOWER = LAN_BODY + 13;   // the ring never hangs nearer a roof ridge (a tower top) than this: the drip clears it by 7 m (13 m)
 const RING_REACH = 8, RING_SLOPE = 1.5;   // how far past a building's footprint the floor reaches, and how fast it falls off beyond (metres per metre)
+const RAY_SPREAD = 30;        // the hiding test's rays reach points this far apart across the glass (metres); the drawn penumbra uses the same
 const SHADOW_DRAIN = 0.3;     // how fast the eye empties per second in deep shadow
 const OFF_PERIOD = 36;        // seconds for the lantern to drift from low to nearly overhead and back
 const TAKE_LIT = 1.2;         // seconds the light must hold a townsperson before it narrows on them
@@ -94,7 +95,7 @@ export function createGame(canvas, opts = {}) {
     cam: { x: -12, y: 10, z: 8, yaw: Math.PI / 4, pitch: 0.84, hh: 26, D: 1500, snap: 1 },
     look: 0, view: null, intro: opts.noIntro ? null : { t: 0, cutAt: null },
     lan: { pos: [-4000, 300, -800], vel: [0, 0, 0], len: 1100, I: 1.5, on: 1 }, dim: 0,
-    attn: [TOWN.x, TOWN.z], aim: [TOWN.x, TOWN.z], aimS: [TOWN.x, TOWN.z], aimT: 0, autoLook: 0, trail: [], trailT: 0, lanOff: 48, aimPh: 0, giveUp: 0,
+    attn: [TOWN.x, TOWN.z], aim: [TOWN.x, TOWN.z], aimS: [TOWN.x, TOWN.z], aimT: 0, autoLook: 0, trail: [], trailT: 0, lanOff: 48, aimPh: 0, giveUp: 0, raySpread: RAY_SPREAD,
     camMode: 'play', dipT: -1, dipTo: null, lookT: 0,
     plan: [], lastPlant: -1, planEnd: 0, shake: 0, windows: 0.65, prints: new Float32Array(24), nPrint: 0,
     fade: 0, flash: 0, eye: 1, input: { x: 0, y: 0, look: false }, idle: 99, auto: true, hint: 1,
@@ -307,9 +308,10 @@ export function createGame(canvas, opts = {}) {
     const L = cone * lp.I / (1 + (dist / 260) ** 2);
     if (L < 0.12) return DEEP;
     if (inCover(p[0], p[2])) return DEEP;
-    const side = nrm(crs(lp.dir, [0, 1, 0])), up = crs(side, lp.dir);
+    // the three points across the glass: its centre and two S.raySpread apart on a line tilted a little
+    const side = nrm(crs(lp.dir, [0, 1, 0])), up = crs(side, lp.dir), h = S.raySpread * 0.5, v = S.raySpread * 0.21;
     let rays = 0;
-    for (const o of [[0, 0], [12, 5], [-12, -5]]) if (segmentBlocked(p, add(lp.pos, add(scl(side, o[0]), scl(up, o[1]))))) rays++;
+    for (const o of [[0, 0], [h, v], [-h, -v]]) if (segmentBlocked(p, add(lp.pos, add(scl(side, o[0]), scl(up, o[1]))))) rays++;
     return { L, rays, tier: rays === 3 ? 'deep' : rays > 0 ? 'shallow' : 'lit' };
   }
   // the lowest the ring may hang over a point: LAN_Y over the ground, or clear of any roof ridge or tower
@@ -929,6 +931,9 @@ export function createGame(canvas, opts = {}) {
       cut: S.cam.hh < 60 ? [P.x, standY(P.x, P.z) + 1.2, P.z] : null,
       gCentre: [lerp(G.x, TOWN.x, 0.5), 0, lerp(G.z, TOWN.z, 0.5)],
       tilt: clamp(1 - (S.cam.hh - 40) / 60) * LK.tilt, focus: 0.5, grain: LK.grain, vignette: LK.vignette, edge,
+      // the beam in the air is faint from the play camera, which looks down through it, and full from the
+      // wide and cinematic cameras, which see it from the side
+      beamK: S.cam.snap === 0 ? 1 : clamp((S.cam.hh - 40) / 40), raySpread: S.raySpread,
       shake: [Math.sin(S.t * 63) * sh, Math.cos(S.t * 71) * sh * 0.7],
       fade: Math.max(S.fade, S.dipT < 0 ? 0 : S.dipT < DIP_OUT ? S.dipT / DIP_OUT : 1 - (S.dipT - DIP_OUT) / DIP_IN), flash: S.flash * 0.85, eye: S.eye, seen: S.player.seen,
       birds: S.birds.map((b) => [b.x, b.y + 0.4, b.z, b.fly ? b.ph : 0.25]),

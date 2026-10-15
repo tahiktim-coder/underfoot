@@ -164,3 +164,20 @@ The user's words: "I still don't understand if I am in good or mid shadow and if
 ### The beam in the air, and the lantern lower (2026-10-15)
 
 The user's words: "I just had a moment when seemingly the lantern was above my head but the actual light was somewhere else completely." Parallax: the lamp rode 70 m up and 20 to 60 m to the side of its mark, and the play camera pitches 48 degrees, so on screen the lamp sat over ground about 60 m from the pool. Now a cone of light hangs from the glass to the pool (`props.js` `beam()`, material `G_BEAM`): sixteen sides from the lantern's ring to the pool's edge on the ground, drawn after everything solid with no depth write, Bayer-dithered denser near the glass and along its silhouette and thinning to its foot, which sits on the lit ground; it gets the chain's wide see-through hole so it never hides the knight, and casts no shadow (the dynamic array has a beam range between the opaque things and the hull). The ring hangs at 56 m instead of 70: the lantern body is 37 m long, so the 50 m asked for would drag the drip through the roofs; 56 keeps it 5 m over the tallest. The lantern already draws into the town's moon shadow map, so its shadow lands on the ground (far from the pool: the moon is 21 degrees up). The hiding test is untouched and its three rays still give deep, shallow and lit round the mark (`plans/beam.json`; `docs/pass/tells/beam_play.png`, `beam_wide.png`).
+
+### The beam from the play camera, the shallow band, the pool (2026-10-15)
+
+Three tuning changes after the lantern came down to 56 m.
+
+- **The beam in the air** was a solid cone from the play camera, which looks down through it, so it washed over the picture. Its density now follows the camera (`uBeamK`, from `game.js` render: 0 for the play camera, rising to 1 as the view widens past 40 m half-height, 1 for every cinematic camera): from the play camera it is a trace, its silhouette a tenth or so and its body a few percent, and either way it thins toward the ground so the pool stays the main read. The wide and cinematic cameras keep the full cone.
+- **The shallow band.** The hiding test's three rays reach points 30 m apart across the glass instead of 24 (`RAY_SPREAD` in `game.js`, live as `S.raySpread`), and the drawn penumbra reads the same value through `uRaySpread`, so picture and rule still agree. Measured with `plans/tiershare.json` (open cells of a 60 m square at 2 m steps, head height, four moments of a night 1 search, once with the mark following the hider's trail through the lanes and once pinned on the square):
+
+| Spread | Lanes: deep / shallow / lit | Square: deep / shallow / lit |
+| --- | --- | --- |
+| 24 (before) | 72 / 17 / 12 | 70 / 12 / 18 |
+| 30 (now) | 71 / 19 / 11 | 69 / 14 / 17 |
+
+  The review's 2% could not be reproduced with this sampling; the band was there at 12 to 17% and is now 14 to 19%, and it is drawn wider.
+- **The pool.** The lantern 14 m lower was brighter on the ground, and the pool had gone to a flat top-of-ramp amber. Night's drawn lantern intensity is 1.7 instead of 2.1 (`lanI` in `looks.js`; the hiding test never reads it). In a circle round the mark on the square, the top amber entry fell from 61% to 43% of the pixels; the deep side is unchanged.
+
+Frames at 384 x 216, the previous commit's build against this one: `docs/pass/tune-before/` and `docs/pass/tune-after/` (`search.png` the play view 6 s into a search with the HUD, `search_clean.png` without, `pool_view.png` the view centred on the square with the mark pinned there).

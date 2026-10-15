@@ -125,6 +125,8 @@ uniform highp sampler2DShadow uShadow, uGShadow, uLtShadow;
 uniform mat4 uLVP, uGVP, uLtVP;
 uniform vec2 uShTexel, uGShTexel, uLtTexel;
 uniform float uLtK;            // the lantern map's 1/(2 tan(fov/2)): metres to map width at a distance
+uniform float uRaySpread;      // how far apart the hiding test's rays reach across the glass (metres): the penumbra's width
+uniform float uBeamK;          // the beam in the air: 0 faint (the play camera looks down through it), 1 full (seen from the side)
 uniform vec4 uRing;            // the ring under your feet: its colour, and how much of the circle is drawn
 uniform vec4 uCandles[4];      // candles in the street: x, y, z, strength (0 = none)
 uniform sampler2D uStainMap;   // where the light took someone: 1 in the stain, ~0.43 in the scorch round it
@@ -192,8 +194,8 @@ float cloudShadow(vec3 P){
   float c = cloudCov(q.xz);
   return 1.0 - uCloudShadow*0.72*smoothstep(0.47, 0.58, c);
 }
-// The hiding test (game.js isLit) fires three rays to points 24 m apart across the lantern's glass, so its
-// shadows have a penumbra that wide: eight taps over a disc the size of that spread as seen from the
+// The hiding test (game.js isLit) fires three rays to points uRaySpread apart across the lantern's glass, so
+// its shadows have a penumbra that wide: eight taps over a disc the size of that spread as seen from the
 // receiver (assuming the blocker is a house, about eight metres nearer the lantern), rotated per cell so the
 // band dithers. Where only part of the glass shows, the ground gets at least three tenths of the light:
 // under the overexposed pool that is a clear amber, so the shallow shadow is an amber band, the deep shadow
@@ -208,7 +210,7 @@ float lanternLight(vec3 P, vec3 n, out float sh){
   float ndl = max(dot(n, -ld), 0.0)*0.85 + 0.15;
   vec4 l = uLtVP*vec4(P - ld*0.6, 1.0); vec3 lc = l.xyz/l.w*0.5 + 0.5;
   if (lc.x > 0.0 && lc.y > 0.0 && lc.x < 1.0 && lc.y < 1.0 && lc.z < 1.0){
-    float pen = clamp(24.0*8.0/max(dist - 8.0, 20.0), 0.8, 4.0);      // the penumbra's width in metres
+    float pen = clamp(uRaySpread*8.0/max(dist - 8.0, 20.0), 0.8, 8.0);   // the penumbra's width in metres
     float r = pen*uLtK/dist;                                           // in map units
     float rot = hash2(floor(P.xz*2.0))*6.28; mat2 R = mat2(cos(rot), -sin(rot), sin(rot), cos(rot));
     float acc = 0.0;
@@ -590,7 +592,12 @@ void main(){
     // silhouette, thinning toward the pool so its foot sits on the lit ground; never a surface
     vec3 vd = normalize(P - uCam);
     float u = vUV.y, edge = pow(1.0 - abs(dot(n, vd)), 2.0);
-    float dens = (0.06 + 0.5*(1.0 - u)*(1.0 - u))*(0.35 + 0.65*edge)*clamp(uLan.w/1.5, 0.0, 1.5);
+    // from the side (uBeamK 1) a solid-looking cone, denser near the glass and along its silhouette; from
+    // the play camera (0) only a trace, its edges a tenth or so and its body a few percent; thinner toward
+    // the ground either way, so the pool stays the main read
+    float cine = (0.06 + 0.5*(1.0 - u)*(1.0 - u))*(0.35 + 0.65*edge);
+    float play = (0.012 + 0.03*(1.0 - u))*(1.0 + 2.5*edge);
+    float dens = mix(play, cine, uBeamK)*(1.0 - 0.5*u)*clamp(uLan.w/1.5, 0.0, 1.5);
     if (bayerF(gl_FragCoord.xy + vec2(2.0, 1.0)) > dens) discard;
     o = toneOut(fogged(uLanCol*(1.1/uExposure)*(0.55 + 0.45*(1.0 - u)), P)); return;
   } else if (m == 56){
