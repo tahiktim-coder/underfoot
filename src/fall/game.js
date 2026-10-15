@@ -206,11 +206,14 @@ export function createGame(canvas, opts = {}) {
   const keys = new Set();
   const KEYMAP = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', KeyL: 'look', Space: 'go', Enter: 'go' };
   const typing = (e) => e.target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName);
+  // a key that counts as 'any key': letters, digits, the arrows, Space and Enter; never Escape (it leaves
+  // fullscreen), Tab, the modifiers, the function keys or the media keys
+  const REAL_KEY = /^(Key|Digit|Numpad\d|Arrow|Space$|Enter$)/;
   const onKey = (e, down) => {
     if (typing(e)) return;
-    if (down && e.code === 'KeyM' && !e.repeat) { snd.init(); snd.setMuted(!snd.muted); }
+    if (e.code === 'KeyM') { if (down && !e.repeat) { snd.init(); snd.setMuted(!snd.muted); } return; }
     const k = KEYMAP[e.code];
-    if (!k) { if (down && !e.repeat) gesture('key'); return; }
+    if (!k) { if (down && !e.repeat && REAL_KEY.test(e.code)) gesture('key'); return; }
     e.preventDefault();
     if (down) { if (!e.repeat && gesture(k === 'go' ? 'go' : 'key')) return; keys.add(k); } else keys.delete(k);
     S.idle = 0; if (S.played) S.auto = false;

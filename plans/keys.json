@@ -1,0 +1,5 @@
+[
+  {"eval": "__v16.hold=true; const g=__v16.game; window.key=(code)=>{ window.dispatchEvent(new KeyboardEvent('keydown',{code, key:code, bubbles:true})); window.dispatchEvent(new KeyboardEvent('keyup',{code, key:code, bubbles:true})); }; for(let i=0;i<30;i++) g.update(0.05); key('Escape'); key('Tab'); key('F11'); key('ShiftLeft'); key('AltLeft'); key('MediaPlayPause'); key('KeyM'); g.update(0.05); return ['title after Escape, Tab, F11, Shift, Alt, media, M: played', g.S.played, 'muted', g.snd.muted]"},
+  {"eval": "const g=__v16.game; key('KeyX'); g.update(0.05); return ['after X: played', g.S.played]"},
+  {"eval": "const g=__v16.game; for(let i=0;i<60;i++) g.update(0.05); __v16.force('caught'); g.S.score=50; for(let i=0;i<200;i++) g.update(0.05); const k0=g.S.card && g.S.card.kind; key('Escape'); g.update(0.05); const k1=g.S.card && g.S.card.kind; key('Digit3'); g.update(0.05); return ['over card', k0, 'after Escape', k1, 'after Digit3', g.S.card && g.S.card.kind, g.S.phase, __v16.errors]"}
+]
