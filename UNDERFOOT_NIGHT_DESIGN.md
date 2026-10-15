@@ -178,3 +178,35 @@ So night 1 is survivable by hiding alone and nights 4 and 5 are hard even for th
 - The short burn-fail after the first death, the give-up tell in the last seconds of the search, and the switch to Ash and blood on a late night (review milestone 2) are not in.
 - Not tried on a phone or a real GPU; the touch stick, the second finger and the Fullscreen button on iOS are unverified. The sound has not been tuned by ear.
 - `AUTHOR` is "by ____": fill it in before the upload.
+
+## 9. Pre-upload fixes (2026-10-15, from the review of 45fb786..cad169c)
+
+Eight commits (`git log`), each checked with a plan under `plans/` and the chain re-run: `plans/pass.json` (the fixed cameras, the leave at 14, 17 and 20 s, the plant: no console errors, no discs) and `plans/playtest.json` (below). `dist`, `itch/index.html` and `itch/underfoot-itch.zip` rebuilt.
+
+| Fix | What changed | Checked |
+| --- | --- | --- |
+| 1. The first night took 32 to 41 s to reach "Hide" | The full walk in is the title's. The first night starts at the last footfall (two booms' worth of windows out, the sky dim, the smoke mostly gone); later nights start two plants out with the look up at it coming, and their leave is 12 s instead of 21 | `plans/first.json`: click to "Hide" 13.2 s; night card to "Hide" 20.6 s; night 2 leave 12 s; restart card to "Hide" 3.9 s |
+| 2. Fullscreen stretched the picture | Fullscreen on the document, so the screen keeps `min(100vw, 177.78vh)` and letterboxes; a `:fullscreen` rule keeps the dark background; the button toggles off and is hidden without the API | `plans/fullscreen.json` (a real click through the shot tool's new `{click}` step): 1152x648 stays 1152x648; 1280x1024 gives 1280x720 at top 152, 1.778 both |
+| 3. Any key, Escape included, restarted a run | Only letters, digits, arrows, Space and Enter count; M only mutes | `plans/keys.json`: Escape, Tab, F11, Shift, Alt, a media key and M leave the title and the game-over card alone; X and 3 begin and restart |
+| 4. The attract loop leaked into the run | The run is reset at the title cut (score, taken houses, stains); a night banks and touches the best only once begun and cut away | `plans/attract.json`: a night under the title leaves 0 stains and 0 taken; a click in the leave's last half second banks nothing and writes no best |
+| 5. iOS audio stayed suspended after the first tap | `snd.init()` also on the canvas's pointerup and click and the document's touchend; the Sound button calls it too | Builds; the iOS behaviour itself needs a phone |
+| 6. A 60 Hz display juddered zero-then-two steps | 2 ms of slack before a step, the remainder clamped at zero; a redraw after 100 ms without one | The arithmetic in Node: 16.6 and 16.7 ms frames step once each, 8.33 ms every other frame, 33 ms twice |
+| Small | `plans/afraid.json` reads `HM`; `page/game.html` has a doctype, charset and viewport; section 7 marked superseded | `plans/afraid.json` runs |
+
+### Playtests after the fixes (`plans/playtest.json`, the hider brain)
+
+| Night | Runs | Survived |
+| --- | --- | --- |
+| 1 | 2 | 2 (max eye 0.21, 0.06) |
+| 3 | 2 | 0 |
+| 4 | 3 | 0 |
+| 5 | 3 | 1 (max eye 0.55) |
+| 7 | 1 | 0 |
+| 5, standing still | 1 | 0 (caught at 9 s) |
+
+Night 3 went from one survival in two to none; the runs are seeded by the moment of the search and the brain's own random numbers, so single runs vary by a night either way. The shape holds: night 1 is survivable by hiding, nights 4 and 5 are hard.
+
+### Noted for later (after a phone test)
+
+- Three full-size depth passes a frame: the 2048 x 2048 giant and land sun map redraws about 230k static terrain triangles every frame, and the lantern depth pass runs in calm, approach and leave for nothing.
+- The dynamic mesh (chain, lantern, people, the mill sails) is rebuilt every frame, about 12.7k vertices and 1.4 ms of CPU, and its buffer reallocates on each new-maximum frame.

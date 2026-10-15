@@ -4,8 +4,30 @@
     {
       "name": "underfoot-dist",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8765", "--bind", "127.0.0.1", "--directory", "dist"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8765",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "dist"
+      ],
       "port": 8765
+    },
+    {
+      "name": "underfoot-root",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8767",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "."
+      ],
+      "port": 8767
     }
   ]
 }
