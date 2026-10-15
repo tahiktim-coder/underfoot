@@ -162,8 +162,13 @@ export function createGame(canvas, opts = {}) {
     updateGiant(0); stepLantern(0.016);
     Object.assign(smoothCam, playCam());
   }
-  // a new run: the score and the town's stains cleared, night 1 from the plant (the walk in was the title's)
-  function newRun() { S.score = 0; S.nightScore = 0; HM.set('reset'); R.clearStains(); S.stains = []; startNight(firstNight); enterAtPlant(); S.retry = false; }
+  // the run's slate: the score, the taken houses and the stains. Cleared for a new run, and at the title cut,
+  // so nothing the town did to itself under the title carries into your first night
+  function resetRun() { S.score = 0; S.nightScore = 0; HM.set('reset'); R.clearStains(); S.stains = []; }
+  // a new run: night 1 from the plant (the walk in was the title's)
+  function newRun() { resetRun(); startNight(firstNight); enterAtPlant(); S.retry = false; }
+  // a night only counts, for the score and the best, once you have begun and the title has cut away
+  const inRun = () => S.played && !S.intro;
   const card = (kind, lines) => ({ kind, lines, t: 0 });
   function dismissCard() {
     const c = S.card; if (!c) return;
@@ -540,13 +545,13 @@ export function createGame(canvas, opts = {}) {
     } else if (S.phase === 'caught') {
       // it found you: the run is over, and this night's seconds are lost with it
       if (S.pt > 9.5 && !S.card) {
-        if (!S.played) startCycle();
+        if (!inRun()) startCycle();
         else { S.nightScore = 0; S.card = card('over', overCard(S.night, S.score, best.get())); best.set(S.score); }
       }
     } else if (S.phase === 'leave') {
       if (S.pt > 5) HM.relight(dt);
       if (S.pt > (S.night > 1 ? LEAVE_LATER : 21) && !S.card) {
-        if (!S.played) startCycle();
+        if (!inRun()) startCycle();
         else { S.score += Math.round(S.nightScore) + NIGHT_BONUS; S.nightScore = 0; best.set(S.score); S.card = card('night', nightCard(S.night, S.score)); }
       }
     }
@@ -803,7 +808,7 @@ export function createGame(canvas, opts = {}) {
     if (S.intro) {
       S.intro.t += dt;
       const c = S.intro.cutAt;
-      if (c !== null && S.intro.t >= c && !S.intro.cut) { S.intro.cut = true; startNight(firstNight, 'last'); }
+      if (c !== null && S.intro.t >= c && !S.intro.cut) { S.intro.cut = true; resetRun(); startNight(firstNight, 'last'); }
       if (c !== null && S.intro.t > c + 0.5) S.intro = null;
     }
     if (!S.intro && S.played) S.hint = Math.max(0, S.hint - dt * (S.t > 25 ? 0.15 : 0));
