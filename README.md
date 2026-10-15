@@ -275,12 +275,12 @@ Shaders use a 256 x 256 tiling noise texture with three channels at different ce
 
 - **Units**: metres, y up. The play camera looks toward -x -z, so -x is the top left of the screen and +x +z comes toward you. The giant arrives from -x, with the low sun behind it.
 - **Terrain**: a height function: slow valley swells, a hill under the town, a rise for the windmill, a ring of ridged-noise mountains starting about 3 km out, and a river channel round the south of the town with flat banks. Drawn as three rings of grid: 2 m spacing out to 256 m, 16 m to 2.3 km, 96 m to 9.2 km, with a skirt under the near ring.
-- **The town**: a wall ellipse 148 x 132 m round a hill. Streets radiate from a square. About 47 half-timbered and stone houses placed along the streets and in between, with gable or hip roofs in dark shingle, slate or (about 30%) dull rust tile, chimneys, jetties. A church with a 50 m tower, a market hall on posts, a well, gatehouses, 9 towers and 60 wall segments. Farmsteads outside, a windmill whose sails turn, a stone bridge where the east road crosses the river, about 2,600 trees.
+- **The town**: drawn by hand as a text map (`src/fall/townmap.js`, one character per 2 m cell, read by `src/fall/town.js`) on a hill inside a wall ellipse 148 x 132 m: a square with the market hall, two covered stalls, the well and an arcade along its south side; a west yard with a big tree inside the west gate; an east green with a chapel and a ruin; a church whose tower and porch face the square; a tower house in a walled courtyard; 73 houses of one to three storeys along doglegged lanes, with gable or hip roofs in dark shingle, slate or dull rust tile, chimneys, jetties; stairs and terrace walls on the south slope; gatehouses, 8 towers and 44 wall segments. Farmsteads outside, a windmill whose sails turn, a stone bridge where the east road crosses the river, about 2,600 trees. UNDERFOOT_NIGHT_DESIGN.md section 10 has the map and the legend.
 - **Ground maps** baked once at start: a near map (1 m texels over the square 512 m round the town: streets, ambient occlusion round walls, roads, water) and a far map (36 m texels over 18 km: roads, forest, farmland, water).
 - **Terrain shading**: pale dust near the town, dry grey grass, cobbles with gaps up close, roads, rock on steep ground and in the mountains, snow on the peaks, a river with a sky reflection, and the giant's **footprints** (crushed dark ground with a raised rim, the last six kept).
 - **Fields**: furlongs, blocks about 320 m across with a hedge round them, each ploughed in long strips (8 to 17 m wide) in one direction. A furlong keeps to one or two crops (stubble, pasture, ploughed, fallow, green), with ridge-and-furrow lines and grass balks between strips. They read as farmland from far away and do not look like paving next to the town.
-- **Collision**: a 0.5 m grid of blocked cells (houses, walls, towers, well, water). You slide along walls.
-- **Occluders** for the hiding test: every house as an oriented box plus a roof prism, plus walls, towers and the church.
+- **Collision**: a 0.5 m grid of blocked cells (houses, walls, low walls, towers, posts, trees, well, water). You slide along walls.
+- **Occluders** for the hiding test: every house as an oriented box plus a roof prism, plus walls, low walls, towers, the church, the chapel, the ruin's walls, the tree crowns inside the walls, and the roofs on posts (hall, stalls, arcade, porch) above their eaves only.
 
 ---
 
@@ -416,8 +416,11 @@ All GLSL: mesh and skinned vertex shaders, depth shaders, the shared noise and f
 ### `src/fall/giant.js`
 The giant's rest joints, the mesh builder, the face function, the pose solver (two-bone IK, head look limits), and `footAt` for step plans.
 
+### `src/fall/townmap.js` and `src/fall/town.js`
+The town as a text map (one character per 2 m cell, a legend at the top of the file), and the reader that turns it into rectangles: houses with their fronts, lanes, plazas, the hall, stalls, arcades, the church with its tower and porch, chapels, ruins, trees, bushes, low walls, stairs, the wall traced into segments with its towers and gates, and the street field for the ground map.
+
 ### `src/fall/world.js`
-The valley, the river, the town layout (streets, square, houses, church, hall, well, walls, towers, gates, bridge, mill, farms, trees), collision, occluders and `segmentBlocked` for the hiding test.
+The valley, the river, the roads, the farms, the woods, the bridge and the mill; the town from town.js with the ground put under it; collision, occluders, the covers and `segmentBlocked` for the hiding test.
 
 ### `src/fall/mesh.js`
 Material ids (`M`), geometry helpers (triangles, quads, boxes, cylinders in a local frame), and builders for every kind of building and prop. `buildWorld()` packs the town into 32 m chunks with bounding boxes; `buildTerrain()` builds the three rings; `millSails()` adds the turning sails to the per-frame mesh.

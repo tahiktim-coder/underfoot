@@ -222,3 +222,145 @@ Night 3 went from one survival in two to none; the runs are seeded by the moment
 
 - Three full-size depth passes a frame: the 2048 x 2048 giant and land sun map redraws about 230k static terrain triangles every frame, and the lantern depth pass runs in calm, approach and leave for nothing.
 - The dynamic mesh (chain, lantern, people, the mill sails) is rebuilt every frame, about 12.7k vertices and 1.4 ms of CPU, and its buffer reallocates on each new-maximum frame.
+
+## 10. The town drawn by hand (2026-10-15)
+
+The last big weakness named was the town: houses scattered at random along six straight streets, so no place was anywhere and cover was luck. It is now a map drawn by hand, `src/fall/townmap.js`: one character per 2 m cell, 76 across and 67 down over the walled ellipse, read by `src/fall/town.js` into everything the game used to make up at random: the houses (with the fields game.js, homes.js and people.js read), `STREETS`, `SQUARE` and the smaller `PLAZAS`, `HALL`, `WELL`, `CHURCH` (with its tower and porch), the towers, the wall segments, the trees inside the walls, the props, the collision grid, the `OCCLUDERS`, the always-deep `COVERS`, and the paving in the near ground map. world.js still owns the ground, the river, the roads, the farms, the woods and the bridge. Nothing in game.js changed: the spawn is still (-12, 8), which the map keeps on the square; the hiding test still reads `S.lan.I`, the fixed cone and the night table.
+
+The map (a copy; edit the one in townmap.js, rows padded to 76 as they are read):
+
+```
+    0         1         2         3         4         5         6         7     
+    0123456789012345678901234567890123456789012345678901234567890123456789012345
+ 0                              ####################
+ 1                           ####                  ##T#
+ 2                        ##T#          ..            ####
+ 3                      ###    t        .. 3333          ###t
+ 4                    ###        2222   .. 3333     2222   ###
+ 5                  ###     111  2222111.. 3333 111 2222 111 ###
+ 6                 ##    t  111  2222111.. 3333 111 2222 111  t##
+ 7               ###        111  2222111.. 3333 111 2222 111    ###
+ 8              ##            ......................              ##
+ 9             ##             ......................             ggg#
+10            ##              ..      ....      .... 111 2222    ggg##
+11           ##               ..2222  .. 3333111.... 111 2222    gggt##
+12          ##                ..2222  .. 3333111.... 111 2222         ##
+13         ##                 ..2222  .. 3333111..  ...........        ##
+14        #T     --------..   ..2222  .. 3333   ..  ...........         T#
+15        #      |::::::|..   ..      .. 3333   ..      3333 .. 111      #
+16       T#      |:SSSS:|....... bbbb ..        .. 2222 3333 .. 111      ##
+17       #     t |:SSSS::....... bbbb .. 2222111.. 2222 3333 .. 111       #
+18      ##       |:SSSS::..      bbbb .. 2222111.. 2222 3333 ..           ##
+19     ##    ggg |:SSSS:|..     tbbbb .. 2222111.. 2222 3333t.. 2222       ##
+20     #     ggg |::::::|..           .. 2222   ..           .. 2222        #
+21     #     ggg --------..      ...............      ......... 2222        #
+22    ##                 ..      ...............      ......... 2222        ##
+23    #                  ..........           ..CCCCCC..                     #
+24    #                  ..........           ..CCCCCC.. 2222         t      #
+25   ##         2222111    111 2222 111 2222  ..CCCCCC.. 2222  111           ##
+26   #          2222111    111 2222 111 222211..CCCCCC.. 2222  111            #
+27   #          2222111    111 2222 111 2222  ..CCCCCC.. 2222  111            #
+28   #      111 2222     2222           2222 t..CCCCCC..                      #
+29   #      111 QQQQQQQQQ2222111              ..CCCCCC..                      #
+30   #  2222111 QQQQQQQQQ2222111   2222    333..CCCCCC..2222                  #
+31   #  2222    QQQQQQQQQ2222111   2222 111333..CCCCCC..2222 111 2222     t   #
+32   #  2222  ..QQQQYQQQQ.......   2222 111333..CCCCCC..2222 111 2222         #
+33   #  2222  ..QQQQQQQQQ.......   2222 111333..CCCCCC..2222 111 2222         ##
+34   G..........QQQQQQQQQ     ..           333...KKKK............2222         #
+35   G..........QQQQQQQQQ2222 ..              ...KKKK............             #
+36   #  111     QQQQQQQQQ2222 ..              ...KKKK...     ..kkkk           #
+37   #  111 2222  .. 22222222 ...QmmQQQQHHHHHHQQ.KKKK...     ..kkkk 2222      #
+38   #  111 2222  .. 22222222 ...QmmQQQQHHHHHHQQQQPP....     ..kkkk 2222      #
+39   #      2222  .. 2222 111    QQQQQQQHHHHHHQQQQPP..bb3333 ..kkkk 2222111   #
+40   ##     2222  .. 2222 1113333QQQQQQQQQQQQQQQQQQQbbbb3333 ..kkkk 2222111  ##
+41    #  111      ..      1113333QQQQQQQQQQQQQQQQQQQbbbb3333 QQQQQQQQQ  111  #
+42    #  111 2222 .. bbbb aaa3333QQQQQQQWQQQQQQQQQQQbbbb3333 QQQQQQQQQ       #
+43    ## 111 2222 .. bbbb aaa3333QQQQQQQQQQQQQQQQQQQ.....===.QQQQQQQQQ......G#
+44     #     2222 .. bbbb aaa    QQQQQQQQQQQQQQQQQQQ.....===.QQQQQQQQQ......G
+45     #     2222 ...............QQQQQQQQQQQQQQQmmQQ..111    QQQQQQQQQ111   #
+46      #   t     ...............QQQQQQQQQQQQQQQmmQQ..111    QQQQQQQQQ111  ##
+47      ##               3333  ..  AAAAAAAAAA       ..111    QQQQQQQQQ111 ##
+48       #      2222 111 3333  ..  2222bbb3333      ..       111          #
+49       ##     2222 111 3333  ==  2222bbb3333     t.. 2222  111  rrrrr  ##
+50        #     2222 111 3333  ==  2222bbb33332222  .. 2222 t111  rrrrr  #
+51         #    2222ggg -------..--2222   33332222  .. 2222       rrrrr ##
+52         ##       ggg        ..........     2222  .. 2222       rrrrr##
+53          ##            111  ..........     2222  ..                ##
+54           ##       111 111  == 111   ..............  111          ##
+55            #T      111 111  == 111   ..............  111     t   ##
+56             ##     111      .. 111                   111        ##
+57              ##       ------..--------           111           T#
+58               ###               2222   111 2222  111  t      ###
+59                 ##              2222ggg111 2222  111        ##
+60                  ###            2222ggg111 2222t          ###
+61                    ###          2222ggg    2222         ###
+62                      ###                              ###
+63                        ####                        ####
+64                           ####                  ####
+65                              ########T###########
+```
+
+The legend:
+
+| Glyph | Means | What the game gets |
+| --- | --- | --- |
+| `#` `T` `G` | the wall, a tower on it, a gate (two cells) | the ring is walked round in order, smoothed and cut into chords of up to 10 m (44 segments); a round tower per `T` (8); a gatehouse per gate run, its arch an always-deep cover (2) |
+| `.` `=` | a lane; a lane cell with steps | paving in the ground map; runs of four cells or more become `STREETS` for the strollers; five stone steps across each `=` cell, set into the slope |
+| `Q` | a plaza | paving; each region is a plaza, the biggest is `SQUARE` |
+| `:` | yard paving (a courtyard) | paving at 0.6 |
+| space | ground: a yard, a garden bed, nothing | nothing |
+| `1` `2` `3` | a house of one, two, three storeys (a rectangle of one glyph) | walls 4.3 to 5.0 m, 6.4 to 7.4, 9.0 to 10.0; the front is the side with the most paving beside it (ties go to +z, then +x, the sides the play camera sees); walls 0.25 m inside the cell edges so a terrace never shares a face; roof type, jetty, chimney, stone and tile from a seed of the cell |
+| `a` `b` `c` | the same three | to put two houses of one height side by side without them merging |
+| `S` | a tall stone house | 12.5 to 13.5 m, stone, a flat top behind a parapet with merlons, a stair turret, a stack: the tower house, a landmark |
+| `A` | an arcade along a house front | a lean-to roof at 3.3 to 4.5 m on stone posts along the open side; an always-deep cover |
+| `H` | the market hall | as before (12 x 6 m here); always deep |
+| `m` | a covered stall | a canvas hip on four posts over a counter; a roof-only occluder, so under it is deep by the rays alone |
+| `C` `K` `P` | the church nave, its tower (touching the nave), its porch | the nave 12 x 20 m, wall 12 m, ridge 22 m; the tower 7.2 m square and 24 m with a 7.2 m spire and the cross; the porch a gabled slate roof on four posts, 4 x 4 m, always deep. The church turns to put the tower where the map has it |
+| `k` | a chapel | a stone box 9.4 x 7.4 m, wall 5.6 m, a steep slate roof, a bellcote on the front gable |
+| `r` | a ruin | four walls and no roof, the front wall split by a doorway, each wall in 1.2 m pieces of uneven height (2.8 to 5 m); each wall an occluder, so inside it is lit in the middle and dark against the walls |
+| `W` | the well | as before |
+| `Y` `t` | the big tree (16 to 18 m, crown 6 m); a tree (9.5 to 12.5 m) | broadleaf; the crown is a box occluder, so under a tree is cover |
+| `g` | a garden | a bush on about half the cells; no cover |
+| `-` `\|` | a low wall (a courtyard, a terrace, a garden) | 0.5 m thick and 2.1 m high, in runs; collision and an occluder (it blocks a ray only within half a metre of it) |
+
+### The plan
+
+- **Three plazas you must cross.** The square (38 x 20 m, the hall on its north edge, two stalls at opposite corners, the well, the arcade row on its south side, the church porch at its north-east corner). The west yard (18 x 16 m) inside the west gate with the big tree in the middle. The east green (18 x 14 m) with the chapel on its north side and the ruin at its south-east, two stair cells on the street down to it.
+- **Cover every 8 to 10 m, never in a line.** Houses along every lane stand flush or one cell back, with a yard or a tree between runs, so the deep band behind one house does not join the next: you cross a shallow or lit gap each time. One- and two-storey houses mix along the same lane; the three-storey houses stand where a long shadow helps (the arcade row's east end, the lane west of the church, the tanner lane block, the east of the square, two in the north).
+- **Deep covers with open sides.** The hall, the arcade (20 m along the square's south side), the church porch, the two gate arches, under the bridge. The arcade and the porch are new and sit on the square's edges, so a dash across the square has somewhere to end.
+- **Chokepoints and courtyards.** The tower house stands in a walled courtyard in the north-west with one gap in its east wall onto a lane; the lanes from the west yard to the square jog twice; the stair street from the square to the east green narrows to two cells; the steps lane from the square's south-west corner drops through two terrace walls with stairs in the gaps.
+- **Landmarks from the play camera.** The church tower (31 m over its ground, with the cross) north-east of the square; the tower house in the north-west; the big tree in the west yard; the well in the square; the chapel's bellcote on the east green; the round towers on the wall at the edge of every frame.
+- **No dead ends without cover.** Every lane ends at a plaza, another lane or a house that is itself cover; the three short spurs (the courtyard gap, the alley east of the square, the lane behind the arcade row) end against walls with a house beside them.
+- **The gates lead out to open ground.** No tree, haystack or building stands within 40 m of either gate outside the wall; the fields there have nothing to hide behind, so a run out of the gate puts you in the light with nothing to do but come back.
+- **Rhythm in the roofscape.** 32 one-storey, 32 two-storey, 8 three-storey houses and the tower house inside the walls (plus the 12 farm buildings outside); walls 4.3 to 12.9 m; gable or hip from the seed; stone houses at 15 to 25 % by kind; tile on about a third.
+
+### Measurements
+
+Read in node (`world.js` and `town.js` import without a browser): 73 houses inside the walls, 177 occluders, 7 covers, 44 wall segments, 8 towers, 2 gates, 18 trees inside the walls (1 big), 17 bushes, 14 stair cells, 9 low walls, 2 stalls, 1 arcade, 1 chapel, 1 ruin.
+
+The hider brain (`plans/townplay.json`, which also samples the ground round the lantern's mark every 2.5 s: a 24 m disc, free points, by tier):
+
+| Night | Result | Max eye | Lit / shallow (s) | Deep / shallow / lit round the mark (%), moments through the search |
+| --- | --- | --- | --- | --- |
+| 1 | survived | 0.09 | 0.0 / 2.7 | 66/33/2, 54/32/13, 60/20/20, 68/7/25, 49/23/28, 38/33/29 |
+| 1 | survived | 0.12 | 0.2 / 4.8 | 76/24/0, 71/10/19, 38/32/30, 53/15/32, 45/33/22, 38/37/25 |
+| 1 | survived | 0.19 | 0.8 / 3.8 | 61/26/13, 61/28/11, 45/27/28, 48/20/31, 56/33/11, 55/32/13 |
+| 3 | caught | 1.00 | 0.8 / 5.3 | 77/18/4, 59/37/4, 45/25/30 |
+| 3 | caught | 1.00 | 3.8 / 0.0 | 66/18/16, 65/28/7, 47/24/29 |
+| 3 | survived | 0.90 | 0.8 / 5.9 | 40/31/29, 53/19/28, 57/11/32, 60/23/17, 49/27/24, 49/42/9, 45/47/9, 27/34/38 |
+| 5 | caught | 1.00 | 4.6 / 5.5 | 68/27/6, 59/33/8, 54/14/31, 62/33/5, 62/19/19 |
+
+So night 1 is survived by hiding alone, night 3 is pressed (one in three, and that one at 0.90), as before the map (section 9: night 1 two of two, night 3 none of two). Round the mark about half the free ground is deep, a quarter shallow and a quarter lit, and the shares swing with the lantern's offset and swing: the shallow band is a third to a half of the ground at moments.
+
+Checks:
+
+- Every point inside a house footprint is blocked (0 free of 2,125 sampled); every walkable cell inside the walls is reachable from the spawn on the 0.5 m collision grid itself, except 8 lane cells a cart fills edge to edge (the other half of each of those two-cell lanes is open); both gates lead out to the fields; the spawn (-12, 8) is on the square.
+- `plans/pass.json` and `plans/town.json` (the town camera, an overhead, and the play camera on the square, the west yard, the east green, the church, the south steps and the north quarter, in Night and in Ashwake) run with no console errors. `npm run build` and `npm run build:itch` are green.
+- The lantern now rides 56 m over the ground under it (f669d31), with the drip 37 m and the glass bottom 31 m below the ring: 19 m and 25 m over the ground. Over their own ground the tallest things are the church cross at 33.3 m, the nave ridge at 21.9 m, the tower house's turret cap at 17.8 m and a three-storey gable at up to 15.4 m. So the church tower goes through the glass and the nave ridge touches the drip when the lantern is straight over them; every house clears it. The tower was 50 m before this map; at 24 m with a 7.2 m spire it is still twice the height of anything else in town. If the clip matters, the clean fix is in game.js's `stepLantern`: never lower than the tallest `OCCLUDERS` ridge within about 8 m of the point under the lantern plus 38 m.
+
+### Notes for whoever tunes next
+
+- The arcade and the porch are always-deep covers like the hall, so they are "indefinite" hides; section 4's reason to move still applies. If they turn out too generous, drop them from `COVERS` in world.js and they fall back to the rays (the roof blocks the rays from most angles anyway).
+- The map is the source: to move a house, draw it; to add a cover type, add a glyph to `LEGEND` in town.js, a reader there, and a builder in mesh.js. The seed only decides roof type, jetty, chimney, stone, tile and the sub-metre inset, keyed by the house's cell so edits elsewhere do not reshuffle it.
+- Stairs are drawn, not walked: the ground is still the height function, which is a smooth hill (about 10 % at the steepest), so the steps are a picture of a slope you walk up anyway.
+- `plans/town.json` renders the town from the fixed cameras into `out/town/`; `plans/townplay.json` runs the hider and the ground sampler. Three frames are in `docs/town/`.

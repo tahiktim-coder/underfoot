@@ -1,0 +1,11 @@
+[
+  {"eval": "__v16.hold=true; const g=__v16.game; g.S.played=true; g.S.auto=false; const P=g.S.player; window.share=()=>{ const a=g.S.aimS, c={deep:0,shallow:0,lit:0}; for(let x=a[0]-24;x<=a[0]+24;x+=2) for(let z=a[1]-24;z<=a[1]+24;z+=2){ if(Math.hypot(x-a[0],z-a[1])>24 || g.blocked(x,z)) continue; c[g.isLit([x,g.standY(x,z)+1.6,z]).tier]++; } const n=c.deep+c.shallow+c.lit||1; return [Math.round(100*c.deep/n), Math.round(100*c.shallow/n), Math.round(100*c.lit/n)]; }; window.runNight=(n)=>{ g.startNight(n); __v16.force('search'); g.S.night=n; const AP={goal:null,t:0}; const env={get aimS(){return g.S.aimS;}, get pt(){return g.S.pt;}, isLit:g.isLit, rnd:Math.random}; let maxSeen=0, litT=0, shallowT=0, shares=[], covers=0, steps=0; for(let i=0;i<1400;i++){ const [ix,iy]=g.brain(P, AP, 'hider', env, 0.05); g.S.drive={x:ix,y:iy}; g.update(0.05); g.S.drive=null; steps++; maxSeen=Math.max(maxSeen,P.seen); if(P.tier==='lit') litT+=0.05; if(P.tier==='shallow') shallowT+=0.05; if(g.inCover(P.x,P.z)) covers+=0.05; if(i%100===50) shares.push(share().join('/')); if(g.S.phase!=='search') break; } return [n, g.S.phase, 'pt', g.S.pt.toFixed(1), 'maxSeen', maxSeen.toFixed(2), 'lit', litT.toFixed(1), 'shallow', shallowT.toFixed(1), 'inCover', covers.toFixed(1), 'deep/shallow/lit % round the mark at 2.5 s steps:', shares.join(' ')]; }; return 'ok'"},
+  {"eval": "return runNight(1)"},
+  {"eval": "return runNight(1)"},
+  {"eval": "return runNight(1)"},
+  {"eval": "return runNight(3)"},
+  {"eval": "return runNight(3)"},
+  {"eval": "return runNight(3)"},
+  {"eval": "return runNight(5)"},
+  {"eval": "return [__v16.errors]"}
+]

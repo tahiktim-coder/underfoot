@@ -13,6 +13,7 @@ npm run build:itch                 # itch/index.html: the shipped page (page/itc
 npm run zip:itch                   # itch/underfoot-itch.zip for upload (index.html at the root)
 npm run shots -- night             # four comparison frames for a look -> out/shots/night/*.png
 npm run shots:cycle                # eight frames across one cycle -> out/cycle/*.png
+VW=1152 VH=648 node tools/shot.mjs out/test.html out/town plans/town.json   # the town from the fixed cameras (after build:test)
 ```
 
 There are no unit tests. Check changes by rendering frames and looking at them: run `npm run shots` or `npm run shots:cycle`, then read the PNGs. Headless rendering is SwiftShader, so a run takes 10 to 60 s. To try anything else, write a plan (see `plans/*.json`) and run `node tools/shot.mjs out/test.html out/<dir> <plan.json>`.
@@ -31,7 +32,8 @@ Pages open straight from disk. Address options: `?look=<id>`, `?night=<1-3>`, `?
 | Render passes, shadow maps, what reaches the shaders | `src/fall/renderer.js` |
 | Any GLSL: materials and lighting (`FS_MESH`), sky, clouds, palette snap (`FS_QUANT`), post (`FS_POST`) | `src/fall/shaders.js` |
 | The giant's mesh, rig, face, walking | `src/fall/giant.js` |
-| Terrain, town layout, collision, hiding occluders | `src/fall/world.js` (layout), `src/fall/mesh.js` (geometry, material ids `M`) |
+| The town: which house stands where, the lanes, plazas, covers, landmarks | `src/fall/townmap.js` (the map, one character per 2 m cell; the legend is at the top), read by `src/fall/town.js` |
+| Terrain, roads, what stands outside the walls, collision, hiding occluders, the covers | `src/fall/world.js`, `src/fall/mesh.js` (geometry, material ids `M`) |
 | Lantern, chain, the player's figure | `src/fall/props.js` |
 | Sound | `src/fall/sound.js` (all synthesized) |
 | Page wiring: look bar, contact sheet, large view, buttons | `src/main.js`, `page/*.html` |
@@ -45,6 +47,7 @@ Pages open straight from disk. Address options: `?look=<id>`, `?night=<1-3>`, `?
 - Palette uniforms are fixed-size: 8 greys and 4 ramps of 5. `buildPalette()` pads; `uNGrey` and `uNHue` say how many are real.
 - Material ids in `mesh.js` `M` must match the `m ==` branches in `FS_MESH`.
 - `maskZ` / `maskRelief` exist in both `giant.js` and `shaders.js`. Change them together.
+- The town is the map in `townmap.js`; nothing inside the walls is placed at random. The spawn (-12, 8) in game.js must stay on an open cell (it is on the square). The seed decides only roof type, jetty, chimney, stone, tile and sub-metre jitter, keyed by the house's cell.
 - Runs are deterministic: the game's random numbers come from `mulberry(4242)`. Shots boot with `?hold` so the frame loop does not advance time before the plan, and each look gets a fresh page. Do not add `Math.random()` to game logic. (Dust in `renderer.js` uses it, so frames with fresh dust can differ slightly between runs.)
 - No runtime dependencies. esbuild bundles `src/main.js` into one IIFE at `__SCRIPT__` in a template.
 - `window.__v16` is the test hook (the name is from Volume 16): `{ ready, hold, errors, game, step, force, view, setLook, begin }`. The headless tools steer the player through `game.S.drive = { x, y }` and the buttons through `S.actButton` / `S.lookButton`; `plans/playtest.json` shows how.
