@@ -607,7 +607,9 @@ void main(){
   vec3 amb = mix(uGndCol, uSkyCol, 0.5 + 0.5*n.y) + uSkyCol*0.4*max(dot(n, sunH), 0.0);
   vec3 col = alb*(uSunCol*max(ndl, 0.0)*sh + amb*ao);
   // you are never darker than the look's fill light, so the figure reads on a dark street
-  if ((m >= 50 && m <= 55) || m == 58 || m == 59) col = max(col, alb*uPlayer[3].x);
+  // you are never darker than the look's fill light; the cape keeps three quarters of its red whatever the
+  // light, so it reads as red (it still halves when you crouch in deep shadow)
+  if (m == 59) col = max(col, alb*max(uPlayer[3].x, 0.75)); else if ((m >= 50 && m <= 55) || m == 58) col = max(col, alb*uPlayer[3].x);
   float lsh; float L = lanternLight(P, n, lsh);
   col += alb*uLanCol*L;
   // candles carried through the streets: a small warm pool on the ground and the walls near them

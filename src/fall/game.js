@@ -740,7 +740,7 @@ export function createGame(canvas, opts = {}) {
     // over your head in the search: the word for your shadow and the eye filling in its colour, so what the
     // light sees is never a guess
     if (TELL_WORDS && S.phase === 'search' && !S.card && S.player.tier !== 'none') {
-      const P = S.player, tier = P.tier, hp = R.project([P.x, standY(P.x, P.z) + 2.5, P.z]);
+      const P = S.player, tier = P.tier, hp = R.project([P.x, standY(P.x, P.z) + 3.4, P.z]);   // over the helm (3 m)
       if (hp[2]) {
         const word = tier === 'lit' ? 'Seen' : tier === 'shallow' ? 'Half seen' : 'Hidden', col = tierCol(tier);
         const ww = measureWisp(word), x = Math.round(hp[0] - ww / 2), y = Math.round(hp[1]) - 16;
