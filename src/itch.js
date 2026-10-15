@@ -6,7 +6,7 @@ import { createGame } from './fall/game.js';
 
 export const AUTHOR = 'by ____';   // the credit on the title and the game-over card; fill it in before upload
 const LOOK = 'night';
-const STEP = 1 / 60, MAX_STEPS = 4;
+const STEP = 1 / 60, MAX_STEPS = 4, SLACK = 0.002, STALE_MS = 100;
 
 const $ = (id) => document.getElementById(id);
 const V = (window.__v16 = { ready: false, hold: /[?&]hold/.test(location.search), errors: [], game: null });
@@ -59,8 +59,10 @@ function boot() {
   document.addEventListener('visibilitychange', audio);
   new IntersectionObserver((es) => { visible = es[0].isIntersecting; audio(); }, { rootMargin: '60px' }).observe(canvas);
 
-  // the loop: fixed steps, at most 60 a second, a few at once after a hitch, never a catch-up of seconds
-  let acc = 0, last = performance.now();
+  // the loop: fixed steps, at most 60 a second, a few at once after a hitch, never a catch-up of seconds.
+  // A frame a hair short of a step still steps (the slack), so a 60 Hz display steps exactly once a frame
+  // and a 120 Hz one every other frame, without a judder of zero-then-two.
+  let acc = 0, last = performance.now(), drawn = 0;
   function loop(now) {
     if (dead) return;
     requestAnimationFrame(loop);
@@ -68,8 +70,8 @@ function boot() {
     if (V.hold || document.hidden || !visible) { acc = 0; return; }
     try {
       let n = 0;
-      while (acc >= STEP && n < MAX_STEPS) { game.update(STEP); acc -= STEP; n++; }
-      if (n) game.render();
+      while (acc >= STEP - SLACK && n < MAX_STEPS) { game.update(STEP); acc = Math.max(0, acc - STEP); n++; }
+      if (n || now - drawn > STALE_MS) { game.render(); drawn = now; }
     } catch (e) { V.errors.push(String((e && e.stack) || e)); console.error(e); fail('Something went wrong. Reload the page.', String(e && e.message || e)); }
   }
   requestAnimationFrame(loop);
