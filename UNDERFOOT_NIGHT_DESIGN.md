@@ -176,6 +176,10 @@ So night 1 is survivable by hiding alone and nights 4 and 5 are hard even for th
 
 The flash and the pop that marked a take were removed (the user saw them as a glitch, since the take usually happens off screen). What remains of a take: the beam narrows on the target for a second, then the candle or the window simply dies, the townsperson is gone and a stain stays, a house goes dark with its scorch and the stain on its step. The catch cinematic keeps its own flashes.
 
+### The search cannot end while it has you, and the give-up tell
+
+A search used to end on its timer alone, so a player lit with the eye half full heard "It is passing" and watched it leave. Now the search ends only when its time is up and it has lost you (not lit, eye under 0.2); while it still has you it keeps hunting, the eye keeps filling and the score keeps counting, until it catches you or you break its line of sight, with a cap of 20 s past the time so a night never stalls. In the last 5 s before it can end, once it has lost you, it gives up: the chain is drawn up so the lantern rides about 40 m higher (through the chain's length, not the spring, so the hiding test reads the real, weaker light), the aim wanders wider and slower, the side offset grows a third, the drone softens, and the label reads "It is giving up"; finding you again brings it straight back down and the label back to "Hide". `plans/giveup.json`: lit from 26 s, the search runs past 30 s until the eye fills and the catch follows; hidden from 20 s, the lift begins at 25 s (72 to 111 m over the ground by 30 s), the label changes at 27 s and the leave comes at 30 s; held half seen forever, the cap ends it at 50 s.
+
 ### Skipped
 
 - The night 2 and 3 bad hiders were already built in section 7, so they stay; nothing else from the townsperson step was added.

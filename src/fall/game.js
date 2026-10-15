@@ -45,6 +45,9 @@ const TAKE_LIT = 1.2;         // seconds the light must hold a townsperson befor
 const TITLE_LOOP = 14;        // the title's slow push repeats every this many seconds until you begin
 const CARD_HOLD = 7;          // a night card moves on by itself after this long
 const LEAVE_LATER = 12;       // seconds of the leave from night 2 on (night 1 and the title loop keep the full 21)
+const GIVE_UP = 5;            // the last seconds of a search, once it has lost you: the lantern lifts and the light widens and dims
+const OVERTIME = 20;          // seconds past the search length it keeps hunting while it still has you, at most
+const LIFT = 40;              // how much higher the lantern rides when it is giving up (metres)
 const PUFF_KEEP_OUT = 150;    // no footfall dust ring spawns closer to you than this (metres)
 
 function walkPlan(from, to, t0, stepLen, end) {
@@ -87,7 +90,7 @@ export function createGame(canvas, opts = {}) {
     cam: { x: -12, y: 10, z: 8, yaw: Math.PI / 4, pitch: 0.84, hh: 26, D: 1500, snap: 1 },
     look: 0, view: null, intro: opts.noIntro ? null : { t: 0, cutAt: null },
     lan: { pos: [-4000, 300, -800], vel: [0, 0, 0], len: 1100, I: 1.5, on: 1 }, dim: 0,
-    attn: [TOWN.x, TOWN.z], aim: [TOWN.x, TOWN.z], aimS: [TOWN.x, TOWN.z], aimT: 0, autoLook: 0, trail: [], trailT: 0, lanOff: 48,
+    attn: [TOWN.x, TOWN.z], aim: [TOWN.x, TOWN.z], aimS: [TOWN.x, TOWN.z], aimT: 0, autoLook: 0, trail: [], trailT: 0, lanOff: 48, aimPh: 0, giveUp: 0,
     camMode: 'play', dipT: -1, dipTo: null, lookT: 0,
     plan: [], lastPlant: -1, planEnd: 0, shake: 0, windows: 0.65, prints: new Float32Array(24), nPrint: 0,
     fade: 0, flash: 0, eye: 1, input: { x: 0, y: 0, look: false }, idle: 99, auto: true, hint: 1,
@@ -107,7 +110,7 @@ export function createGame(canvas, opts = {}) {
 
   // ---------------------------------------------------------------------------------- the cycle
   function setPhase(p) {
-    S.phase = p; S.pt = 0;
+    S.phase = p; S.pt = 0; S.giveUp = 0;
     if (p === 'approach') HM.pick(NT.lit);
     if (p === 'search') {
       // it starts looking a little way off from you, so you have a moment
@@ -430,9 +433,12 @@ export function createGame(canvas, opts = {}) {
       const want = S.take ? S.take.pos : onYou ? [P.x, P.z] : lu ? lu.pos : back;
       const dx = want[0] - S.attn[0], dz = want[1] - S.attn[1], dd = Math.hypot(dx, dz), stepM = Math.min(dd, (S.take ? 6.5 : P.seen > 0.3 ? NT.hunt : NT.walk) * dt);
       if (dd > 1e-3) { S.attn[0] += (dx / dd) * stepM; S.attn[1] += (dz / dd) * stepM; }
-      // the light hunts a little round that point, as if looking; on a take it holds still
-      const w = S.take ? Math.max(0, 1 - S.take.t * 2) : 1;
-      S.aim = [S.attn[0] + (7 * Math.sin(t * 0.9) + 3 * Math.sin(t * 2.1)) * w, S.attn[1] + (6 * Math.cos(t * 0.73) + 3 * Math.sin(t * 1.7 + 1)) * w];
+      // the light hunts a little round that point, as if looking; on a take it holds still; giving up, it
+      // wanders wider and slower
+      const g = ease(S.giveUp), w = (S.take ? Math.max(0, 1 - S.take.t * 2) : 1) * (1 + 1.5 * g);
+      S.aimPh += dt * (1 - 0.5 * g);
+      const ph = S.aimPh;
+      S.aim = [S.attn[0] + (7 * Math.sin(ph * 0.9) + 3 * Math.sin(ph * 2.1)) * w, S.attn[1] + (6 * Math.cos(ph * 0.73) + 3 * Math.sin(ph * 1.7 + 1)) * w];
     }
     S.aimS[0] += (S.aim[0] - S.aimS[0]) * Math.min(1, dt * 2.2); S.aimS[1] += (S.aim[1] - S.aimS[1]) * Math.min(1, dt * 2.2);
     // the lantern is held to one side of the mark, swinging slowly round it, so the beam comes in low and
@@ -441,7 +447,7 @@ export function createGame(canvas, opts = {}) {
     const toG = Math.atan2(G.z - S.aimS[1], G.x - S.aimS[0]);
     const swing = toG + 1.0 * Math.sin(t * 0.16) + 0.35 * Math.sin(t * 0.37 + 1.3);
     const offT = S.phase === 'search' ? S.pt : S.phase === 'caught' ? NT.search : 0;
-    S.lanOff = lerp(NT.offLo, NT.offHi, 0.5 + 0.5 * Math.cos((offT / OFF_PERIOD) * Math.PI * 2));
+    S.lanOff = lerp(NT.offLo, NT.offHi, 0.5 + 0.5 * Math.cos((offT / OFF_PERIOD) * Math.PI * 2)) * (1 + 0.3 * ease(S.giveUp));
     const lanAt = [S.aimS[0] + Math.cos(swing) * S.lanOff, S.aimS[1] + Math.sin(swing) * S.lanOff];
     const sweep = [lanAt[0], 2000 + 40 * Math.sin(t * 0.13), lanAt[1]];
     let target = lerp3(hang, sweep, k);
@@ -459,8 +465,9 @@ export function createGame(canvas, opts = {}) {
     if (S.phase === 'caught') { const P = S.player; look = lerp3(look, [P.x, standY(P.x, P.z), P.z], ease(S.pt / 1.5)); }
     G.headLook = look;
     G.pose();
-    // the chain is paid out until the lantern rides about 110 m over the ground under it
-    const want = G.W.gripR[1] - height(S.lan.pos[0], S.lan.pos[2]) - LAN_Y - 2;
+    // the chain is paid out until the lantern rides about LAN_Y over the ground under it; giving up, it
+    // draws the lantern up by LIFT, so the pool widens and dims (the hiding test reads the real position)
+    const want = G.W.gripR[1] - height(S.lan.pos[0], S.lan.pos[2]) - LAN_Y - 2 - LIFT * ease(S.giveUp);
     S.lan.len = lerp(1100, want, k);
   }
 
@@ -547,8 +554,15 @@ export function createGame(canvas, opts = {}) {
       S.windows = Math.max(0.16, S.windows - dt * 0.2);
       if (S.pt > 3.5) setPhase('search');
     } else if (S.phase === 'search') {
-      S.nightScore += dt;   // the score: every second you last in its search
-      if (S.pt > NT.search) { setPhase('leave'); leavePlan(); S.stats.passed++; }
+      S.nightScore += dt;   // the score: every second you last in its search, the overtime too
+      // it takes what its light finds: the search cannot end while it has you. Past its time it keeps
+      // hunting until you break its line of sight (or the eye fills), with a cap so a night never stalls.
+      // In the last seconds before it can end, once it has lost you, it gives up: the lantern lifts, the
+      // light widens and dims, and the label says so; finding you again brings it straight back down.
+      const P = S.player, hasYou = P.lit || P.seen >= 0.2;
+      const give = hasYou ? 0 : clamp((S.pt - (NT.search - GIVE_UP)) / GIVE_UP);
+      S.giveUp += (give - S.giveUp) * Math.min(1, dt * 2.5);
+      if ((S.pt > NT.search && !hasYou) || S.pt > NT.search + OVERTIME) { setPhase('leave'); leavePlan(); S.stats.passed++; }
     } else if (S.phase === 'caught') {
       // it found you: the run is over, and this night's seconds are lost with it
       if (S.pt > 9.5 && !S.card) {
@@ -713,7 +727,7 @@ export function createGame(canvas, opts = {}) {
     const plate = (x, y, w, h) => { ctx.fillStyle = C.plate; ctx.fillRect(x, y, w, h); ctx.fillStyle = C.edge; ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + h - 1, w, 1); ctx.fillRect(x, y, 1, h); ctx.fillRect(x + w - 1, y, 1, h); };
     // the three tiers of shadow in the HUD: deep is the look's cold ramp, shallow a dim amber, lit the accent
     const H = LK.palette.hues, tierCol = (t) => (t === 'lit' ? C.accent : t === 'shallow' ? (H[0] ? H[0][2] : C.dim) : (H[2] ? H[2][2] : C.edge));
-    const label = S.retry && (S.phase === 'approach' || S.phase === 'plant') ? 'It is still here' : { calm: 'Quiet', approach: 'It is coming', plant: 'It is here', search: 'Hide', caught: 'It sees you', leave: 'It is passing' }[S.phase];
+    const label = S.retry && (S.phase === 'approach' || S.phase === 'plant') ? 'It is still here' : { calm: 'Quiet', approach: 'It is coming', plant: 'It is here', search: S.giveUp > 0.3 ? 'It is giving up' : 'Hide', caught: 'It sees you', leave: 'It is passing' }[S.phase];
     if (!S.intro && !(S.card && S.card.kind !== 'night')) {
       const w = measureWisp(label) + 12;
       plate(8, 8, w, 15);
@@ -835,7 +849,7 @@ export function createGame(canvas, opts = {}) {
     // sound
     if (S.phase === 'caught' && S.pt > 7.55 && !S.hitDone) { S.hitDone = true; snd.hit(); }
     const Pp = S.player, lp = S.lan.pos, dl = Math.hypot(lp[0] - Pp.x, lp[1] - standY(Pp.x, Pp.z), lp[2] - Pp.z);
-    const tension = { search: 1, caught: S.pt < 6.5 ? 1 : 0, plant: 0.7, approach: 0.25, leave: 1 - clamp(S.pt / 8), calm: 0 }[S.phase];
+    const tension = { search: 1 - 0.5 * S.giveUp, caught: S.pt < 6.5 ? 1 : 0, plant: 0.7, approach: 0.25, leave: 1 - clamp(S.pt / 8), calm: 0 }[S.phase];
     snd.update(dt, { wind: 0.25 + 0.7 * S.dim, roar: clamp(1 - (dl - 50) / 380), tension, chain: clamp(1 - dl / 700), move: clamp(Math.hypot(S.lan.vel[0], S.lan.vel[2]) / 10), lanPan: panOf(lp[0], lp[2]), tick: Pp.tier === 'shallow' ? clamp(Pp.seen) : 0 });
   }
   function dimmed(k) {
@@ -899,7 +913,7 @@ export function createGame(canvas, opts = {}) {
   updateGiant(0);
 
   const api = {
-    R, G, S, snd, LOOKS, LOOK_ORDER, NIGHTS, nightTable: night, isLit, inCover, blocked, standY, lanLight, segmentBlocked, OCCLUDERS, houses, brain, HM,
+    R, G, S, snd, LOOKS, LOOK_ORDER, NIGHTS, nightTable: night, isLit, inCover, blocked, standY, height, lanLight, segmentBlocked, OCCLUDERS, houses, brain, HM,
     get look() { return lookName; },
     get night() { return S.night; },
     begin, startNight, newRun, dismissCard,
