@@ -1,0 +1,64 @@
+[
+  {
+    "eval": "const w=document.getElementById('wrap'); w.style.width='384px'; w.style.height='216px'; __v16.hold=true; const g=__v16.game; g.S.played=true; g.S.auto=false; g.S.noUI=true; __v16.force('approach'); window.P=g.S.plan.find(q=>q.t-7.2>g.S.t+0.5); window.toF=(f)=>{ const target=P.t-7.2+f*7.2; while(g.S.t<target) g.update(0.05); }; return ['swing of plant at', P.t.toFixed(1), 'foot', P.foot, 'now', g.S.t.toFixed(1)]"
+  },
+  {
+    "eval": "toF(0.15); const g=__v16.game; __v16.view('w1'); g.S.cam=g.S.view; g.render(); return ['f', 0.15, 't', g.S.t.toFixed(1)]"
+  },
+  {
+    "shot": "w1_15",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game; __v16.view('hero'); g.S.cam=g.S.view; g.render();"
+  },
+  {
+    "shot": "hero_15",
+    "sel": "canvas"
+  },
+  {
+    "eval": "toF(0.4); const g=__v16.game; __v16.view('w1'); g.S.cam=g.S.view; g.render(); return ['f', 0.4, 't', g.S.t.toFixed(1)]"
+  },
+  {
+    "shot": "w1_40",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game; __v16.view('hero'); g.S.cam=g.S.view; g.render();"
+  },
+  {
+    "shot": "hero_40",
+    "sel": "canvas"
+  },
+  {
+    "eval": "toF(0.65); const g=__v16.game; __v16.view('w1'); g.S.cam=g.S.view; g.render(); return ['f', 0.65, 't', g.S.t.toFixed(1)]"
+  },
+  {
+    "shot": "w1_65",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game; __v16.view('hero'); g.S.cam=g.S.view; g.render();"
+  },
+  {
+    "shot": "hero_65",
+    "sel": "canvas"
+  },
+  {
+    "eval": "toF(0.9); const g=__v16.game; __v16.view('w1'); g.S.cam=g.S.view; g.render(); return ['f', 0.9, 't', g.S.t.toFixed(1)]"
+  },
+  {
+    "shot": "w1_90",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game; __v16.view('hero'); g.S.cam=g.S.view; g.render();"
+  },
+  {
+    "shot": "hero_90",
+    "sel": "canvas"
+  },
+  {
+    "eval": "return __v16.errors"
+  }
+]

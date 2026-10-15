@@ -393,7 +393,9 @@ export function createGame(canvas, opts = {}) {
     const t = S.t;
     for (const f of [0, 1]) {
       const fa = footAt(S.plan, f, t, SWING);
-      const gy = height(fa.p[0], fa.p[2]);
+      // the boot stands on the highest ground under its sole, heel to toe, so it never sinks into a slope
+      const sy = Math.sin(fa.yaw), cy = Math.cos(fa.yaw);
+      const gy = Math.max(height(fa.p[0], fa.p[2]), height(fa.p[0] + sy * 300, fa.p[2] + cy * 300), height(fa.p[0] - sy * 110, fa.p[2] - cy * 110));
       G.feet[f].p = [fa.p[0], gy + fa.p[1], fa.p[2]];
       G.feet[f].yaw = fa.yaw; G.feet[f].pitch = fa.pitch;
       if (fa.swing > 0 && fa.from && !fa.from.lifted) { fa.from.lifted = true; lifted(fa.from); }
@@ -408,9 +410,9 @@ export function createGame(canvas, opts = {}) {
     // it stands tall; searching, it holds the lantern out over the town on the whole length of the chain
     G.lean = lerp(0.12, 0.2, k) + Math.sin(t * 0.21) * 0.015;
     G.headPitch = 0.3;
-    G.pelvisDrop = lerp(40, 70, k);
-    G.twist = Math.sin(t * (Math.PI / STEP_T)) * 0.05 * (1 - k) - 0.12 * k;
-    G.roll = Math.sin(t * (Math.PI / STEP_T)) * 0.025 * (1 - k);
+    G.pelvisDrop = lerp(15, 70, k);
+    G.twist = Math.sin(t * (Math.PI / STEP_T)) * 0.033 * (1 - k) - 0.12 * k;
+    G.roll = Math.sin(t * (Math.PI / STEP_T)) * 0.017 * (1 - k);
     G.handR = null; G.headLook = null; G.t = t;
     G.pose();
     const sh = G.W.shoulderR;

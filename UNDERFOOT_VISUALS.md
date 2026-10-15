@@ -129,3 +129,22 @@ Not done, for later:
 - House variety (section 5's last bullet: widths, heights, pitches, L-shapes, darker roofs on stone houses) was not started.
 - The stills on the looks page (`dist/stills/*.webp`) are still the 1.2 frames; `npm run shots` makes the new PNGs, but WebP conversion needs a tool the repo does not have.
 - Dust at the giant's feet is still a camera-facing billboard, filtered rather than redesigned as a ground decal.
+
+### The walk: a long low glide (2026-10-15)
+
+The user's words: "when he walks sometimes his leg is bending too much i feel. he is giant. he has to have more smooth and straight steps." The swinging foot used to lift 180 m plus 16% of its step (about 500 m on a 2 km stride) on a sine, with the toe pitched to -0.35 and +0.25 rad, and the pelvis sat at what the planted leg allowed, so the lifted knee folded to about 70 degrees mid-swing. Now (`giant.js` `footAt`, `ik`, `pose`; `game.js` `updateGiant`):
+
+- The foot rises 12 m plus 1.15% of its step (about 35 m on a 2 km stride), quickly in the first fifth of the swing, glides flat, and settles in the last fifth; the toe pitches only -0.08 rad lifting and +0.05 landing.
+- The planted leg stands at 99.5% of its reach (was 98.5%) and the pelvis rides 15 m below its rest height while walking (was 40); the twist and roll of the stride are two thirds of what they were.
+- The leg solver caps the knee's bend at 35 degrees: nearer than that allows, the knee is placed as if the reach were longer and the shin gives a little, so the limb reads as nearly straight.
+- Each boot stands on the highest ground under its sole, heel to toe, instead of the ground under the ankle alone, so a sole no longer sinks into a rising slope (before, by up to 33 m).
+
+Measured over the walk in (`plans/walkmeasure.json`: the interior knee angle of each leg from the hip, knee and ankle every 50 ms, and the lowest toe or heel over the ground):
+
+| | Before | After |
+| --- | --- | --- |
+| Smallest knee angle, left / right | 67 / 71 degrees | 144 / 144 degrees |
+| Lowest toe or heel over the ground, any time | -32.8 m | -0.1 m |
+| Lowest while a foot swings | -30.4 m | -0.1 m |
+
+Frames (`plans/walkframes.json`, four phases of one swing at 15, 40, 65 and 90% on the `w1` and `hero` cameras, Night, 384 x 216): `docs/pass/walk-before/` and `docs/pass/walk-after/`. In the before frames the swing leg folds high with the boot in the air; after, the legs stay long, the boot glides low and lands flat, and the stride reads slow and heavy.

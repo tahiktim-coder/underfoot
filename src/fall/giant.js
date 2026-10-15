@@ -16,6 +16,8 @@ export const REST = [
 ];
 export const NB = 15;
 const THIGH = 632, SHIN = 603, UPPER = 521, FORE = 481;
+const LIFT0 = 12, LIFT_K = 0.0115;  // how high a swinging foot glides: a floor plus a share of its step (about 35 m on a 2 km stride)
+const PITCH_UP = 0.08, PITCH_DOWN = 0.05;   // the toe pitched down as the foot lifts, up as it lands (radians)
 
 // ------------------------------------------------------------------------------------------------ the face
 // The helm's visor is a sculpted iron mask, calm and expressionless, about 310 m from chin to brow. maskZ gives
@@ -332,16 +334,20 @@ function limbFrame(dir, pole) {
   const X = crs(Y, Z);
   return [X, Y, Z];
 }
-// two-bone IK: from root toward target, segment lengths a, b, bending toward pole
-function ik(root, target, a, b, pole) {
+// two-bone IK: from root toward target, segment lengths a, b, bending toward pole. `cap` (radians) is the
+// most the joint may bend: nearer than that allows, the joint is placed as if the reach were longer, so the
+// limb reads as nearly straight and the far segment gives a little (a colossus does not fold its knee)
+function ik(root, target, a, b, pole, cap = 0) {
   let d = sub(target, root); let L = Math.hypot(...d);
   const maxL = (a + b) * 0.999; if (L > maxL) { d = scl(d, maxL / L); L = maxL; }
   const u = nrm(d);
   let v = sub(pole, scl(u, dot(pole, u))); v = Math.hypot(...v) < 1e-5 ? [0, 0, 1] : nrm(v);
-  const ca = Math.max(-1, Math.min(1, (a * a + L * L - b * b) / (2 * a * L))), sa = Math.sqrt(1 - ca * ca);
+  const Lc = cap > 0 ? Math.max(L, Math.sqrt(a * a + b * b - 2 * a * b * Math.cos(Math.PI - cap))) : L;
+  const ca = Math.max(-1, Math.min(1, (a * a + Lc * Lc - b * b) / (2 * a * Lc))), sa = Math.sqrt(1 - ca * ca);
   const mid = add(root, add(scl(u, a * ca), scl(v, a * sa)));
   return { mid, end: add(root, d) };
 }
+const KNEE_CAP = 35 * Math.PI / 180;
 
 export function createGiant() {
   const bones = new Float32Array(16 * 16);
@@ -370,7 +376,7 @@ export function createGiant() {
     let px = mid[0] + fwd[0] * 40, pz = mid[2] + fwd[2] * 40;
     if (G.pelvisAt) { px = G.pelvisAt[0]; pz = G.pelvisAt[2]; }
     let py = 1350 - G.pelvisDrop;
-    const reach = (THIGH + SHIN) * 0.985;
+    const reach = (THIGH + SHIN) * 0.995;   // the planted leg stands nearly straight
     for (const [k, f] of [[3, fL], [6, fR]]) {
       const hip = add([px, 0, pz], apply(pelR, sub(REST[k], [0, 0, 0])));
       const dh = Math.hypot(hip[0] - f[0], hip[2] - f[2]);
@@ -407,7 +413,7 @@ export function createGiant() {
       const ankle = add(f.p, [0, 98, 0]);
       const footFwd = [Math.sin(f.yaw), 0, Math.cos(f.yaw)];
       const pole = add(footFwd, [0, 0.15, 0]);
-      const sol = ik(hip, ankle, THIGH, SHIN, pole);
+      const sol = ik(hip, ankle, THIGH, SHIN, pole, KNEE_CAP);
       setBone(hb, limbFrame(sub(sol.mid, hip), pole), hip);
       setBone(hb + 1, limbFrame(sub(sol.end, sol.mid), pole), sol.mid);
       const footR = mulR(rotY(f.yaw), rotX(-f.pitch));
@@ -415,7 +421,7 @@ export function createGiant() {
       W[s ? 'ankleR' : 'ankleL'] = sol.end;
       W[s ? 'toeR' : 'toeL'] = add(sol.end, apply(footR, [0, -98, 300]));
       W[s ? 'heelR' : 'heelL'] = add(sol.end, apply(footR, [0, -98, -110]));
-      W[s ? 'kneeR' : 'kneeL'] = sol.mid;
+      W[s ? 'kneeR' : 'kneeL'] = sol.mid; W[s ? 'hipR' : 'hipL'] = hip;
     }
     // arms
     for (const [s, sb] of [[0, 9], [1, 12]]) {
@@ -456,8 +462,10 @@ export function footAt(plan, foot, t, swing) {
     if (t <= t0) return { p: [prev.x, 0, prev.z], yaw: prev.yaw, pitch: 0, swing: 0, from: prev, to: p };
     const s = (t - t0) / swing;
     const e = s * s * (3 - 2 * s);
-    const lift = Math.sin(Math.PI * Math.pow(s, 0.85)) * (180 + Math.hypot(p.x - prev.x, p.z - prev.z) * 0.16);
-    const pitch = s < 0.3 ? -0.35 * Math.sin((s / 0.3) * Math.PI * 0.5) : s < 0.8 ? -0.35 + 0.6 * ((s - 0.3) / 0.5) : 0.25 * (1 - (s - 0.8) / 0.2);
+    // a colossus does not step: the foot rises a little in the first fifth of the swing, glides flat and low,
+    // and settles in the last fifth, so the knee barely bends
+    const lift = (LIFT0 + Math.hypot(p.x - prev.x, p.z - prev.z) * LIFT_K) * sm0(0, 0.2, s) * (1 - sm0(0.8, 1, s));
+    const pitch = s < 0.3 ? -PITCH_UP * Math.sin((s / 0.3) * Math.PI * 0.5) : s < 0.8 ? -PITCH_UP + (PITCH_UP + PITCH_DOWN) * ((s - 0.3) / 0.5) : PITCH_DOWN * (1 - (s - 0.8) / 0.2);
     const yaw = prev.yaw + Math.atan2(Math.sin(p.yaw - prev.yaw), Math.cos(p.yaw - prev.yaw)) * e;
     return { p: [prev.x + (p.x - prev.x) * e, lift, prev.z + (p.z - prev.z) * e], yaw, pitch, swing: s, from: prev, to: p };
   }
