@@ -1,5 +1,5 @@
 [
-  {"eval": "__v16.hold=true; const g=__v16.game; g.S.played=true; g.S.auto=false; __v16.force('approach'); g.S.noUI=true; const lit=()=>g.HM.bytes.filter(v=>v===255).length; window.town=()=>{ __v16.view('town'); g.S.cam=g.S.view; g.render(); __v16.view(null); }; const run=(n)=>{ for(let i=0;i<n;i++) g.update(0.05); }; run(20); town(); return [g.S.phase, (g.S.planEnd-g.S.t).toFixed(1), 'lit', lit(), 'smoke', g.S.smokeLevel.toFixed(2), 'stragglers', [...g.HM.stragglers].length]"},
+  {"eval": "__v16.hold=true; const g=__v16.game; g.S.played=true; g.S.auto=false; __v16.force('approach'); g.S.noUI=true; const lit=()=>g.HM.bytes.filter(v=>v===255).length; window.town=()=>{ __v16.view('town'); g.S.cam=g.S.view; g.render(); __v16.view(null); }; const run=(n)=>{ for(let i=0;i<n;i++) g.update(0.05); }; run(20); town(); return [g.S.phase, (g.S.planEnd-g.S.t).toFixed(1), 'lit', lit(), 'smoke', g.S.smokeLevel.toFixed(2)]"},
   {"shot": "a0_calm", "sel": "canvas"},
   {"eval": "const g=__v16.game; const lit=()=>g.HM.bytes.filter(v=>v===255).length; for(let i=0;i<160;i++) g.update(0.05); town(); return [g.S.phase, (g.S.planEnd-g.S.t).toFixed(1), 'lit', lit(), 'smoke', g.S.smokeLevel.toFixed(2), 'slams', g.S.slams]"},
   {"shot": "a1_boom1", "sel": "canvas"},
@@ -7,7 +7,7 @@
   {"shot": "a2_boom2", "sel": "canvas"},
   {"eval": "const g=__v16.game; const lit=()=>g.HM.bytes.filter(v=>v===255).length; for(let i=0;i<200;i++) g.update(0.05); town(); return [g.S.phase, g.S.pt.toFixed(1), 'lit', lit(), 'smoke', g.S.smokeLevel.toFixed(2), 'slams', g.S.slams]"},
   {"shot": "a3_plant", "sel": "canvas"},
-  {"eval": "const g=__v16.game; const lit=()=>g.HM.bytes.filter(v=>v===255).length; for(let i=0;i<200;i++){ g.update(0.05); g.S.player.seen=0; } g.render(); return [g.S.phase, g.S.pt.toFixed(1), 'lit', lit(), 'stragglers', [...g.HM.stragglers]]"},
+  {"eval": "const g=__v16.game; const lit=()=>g.HM.bytes.filter(v=>v===255).length; for(let i=0;i<200;i++){ g.update(0.05); g.S.player.seen=0; } g.render(); return [g.S.phase, g.S.pt.toFixed(1), 'lit', lit()]"},
   {"shot": "a4_search_play", "sel": "canvas"},
   {"eval": "town();"},
   {"shot": "a4_search_town", "sel": "canvas"},

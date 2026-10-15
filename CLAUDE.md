@@ -24,8 +24,8 @@ Pages open straight from disk. Address options: `?look=<id>`, `?night=<1-3>`, `?
 | To change | Edit |
 | --- | --- |
 | Phases, the hunt, the hiding test and its tiers, the eye meter, cameras, HUD text, the cards | `src/fall/game.js` |
-| The night table (search length, fill, k, lit houses, lag), the card words, the best run | `src/fall/nights.js` |
-| The houses: lit, dark, saved, taken; the stragglers; lights out on the footfalls | `src/fall/homes.js` |
+| The night table (search length, fill, k, offset, lag, people, speeds), the card words, the best run | `src/fall/nights.js` |
+| The houses: lit or dark; lights out on the footfalls, back one by one after | `src/fall/homes.js` |
 | The townspeople and the brains (stroller, hider, curious) | `src/fall/people.js` |
 | A look's palette, light, fog, sky, particles or post; add a look | `src/fall/looks.js` (`LOOKS`, `LOOK_ORDER`), plus a `data-look` button in `page/looks.html` and `page/game.html` |
 | Render passes, shadow maps, what reaches the shaders | `src/fall/renderer.js` |

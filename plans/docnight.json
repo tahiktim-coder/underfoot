@@ -35,13 +35,6 @@
     "sel": "canvas"
   },
   {
-    "eval": "const g=__v16.game; const P=g.S.player; g.startNight(3); __v16.force('search'); g.S.night=3; hide(); for(let i=0;i<820;i++){ g.update(0.05); if(P.tier!=='deep') hide(); if(g.S.phase!=='search') break; } for(let i=0;i<40;i++) g.update(0.05); const H=g.houses.find(h=>h.state==='taken'); g.S.view={x:H.x,y:g.standY(H.x,H.z)+1,z:H.z,yaw:Math.PI/4,pitch:0.84,hh:12,D:1500}; g.S.cam=g.S.view; g.S.noUI=true; g.render(); g.S.view=null; g.S.noUI=false; return [g.S.nightStats, H.state]"
-  },
-  {
-    "shot": "07_taken_house",
-    "sel": "canvas"
-  },
-  {
     "eval": "const g=__v16.game; for(let i=0;i<440;i++){ g.update(0.05); if(g.S.card) break; } for(let i=0;i<20;i++) g.update(0.05); g.render(); return [g.S.card && g.S.card.lines, g.S.score, __v16.errors]"
   },
   {

@@ -135,7 +135,7 @@ So night 1 is survivable by hiding alone and the curious one shows what the ligh
 
 The user's words: not canon, a simple score game about hiding where some things happen, ready for itch.io. Applied on top of section 7 in six commits (`git log`): the put-out action, its key, the mouse hold and the saved count are gone; the nights are endless; the score is the seconds you last in the searches plus 100 a night; the night 1 townsperson and the lantern taking lit houses stay as the things that happen; the itch page, build and zip are new.
 
-Frames (384 x 216, `plans/docnight.json`): `docs/night/01_title.png` (the title with the rule), `02_approach_lights_out.png`, `03_curious_taken.png`, `04_stain.png`, `05_shallow_ring.png`, `07_taken_house.png`, `08_card.png` (the night card with the score). The itch page itself: `plans` has no entry; `node tools/shot.mjs itch/index.html out/itch '<plan>'` with `QUERY='?hold'` renders it (the title shows the credit, the overlay buttons sit top right).
+Frames (384 x 216, `plans/docnight.json`): `docs/night/01_title.png` (the title with the rule), `02_approach_lights_out.png`, `03_curious_taken.png`, `04_stain.png`, `05_shallow_ring.png`, `08_card.png` (the night card with the score). The itch page itself: `plans` has no entry; `node tools/shot.mjs itch/index.html out/itch '<plan>'` with `QUERY='?hold'` renders it (the title shows the credit, the overlay buttons sit top right).
 
 ### The numbers
 
@@ -145,11 +145,11 @@ Frames (384 x 216, `plans/docnight.json`): `docs/night/01_title.png` (the title 
 | Eye fill in the light (1 catches in about 3 s) | 0.55 | 0.75 | 1.0 | 1.0 | 1.0 | 1.0 |
 | Shallow divisor k | 2 | 1.75 | 1.5 | 1.45 | 1.4 | 1.3 |
 | Lantern offset low end (high end 60 m) | 30 m | 25 m | 20 m | 19 m | 18 m | 15 m |
-| Lit houses at the plant | 3 | 4 | 6 | 7 | 7 | 8 |
-| Lantern visits a lit window after (and at least 6 s lost) | 10 s | 8 s | 5 s | 4.5 s | 4 s | 4 s |
 | Trail lag (0.25 s samples) | 25 | 20 | 10 | 10 | 10 | 10 |
 | Townspeople | 1, the curious one | 2 | 3 | 3 | 3 | 3 |
 | The light's mark walks / hunts at (you: 4.6 m/s) | 3.6 / 4.2 | 4.2 / 5.4 | 5.0 / 6.5 | 5.1 / 6.75 | 5.2 / 7.0 | 5.4 / 7.5 |
+
+The lantern follows your trail and nothing else (a later user decision, below); the rows for lit houses and the lantern's visits to them are gone.
 
 Score: +1 a second in the search, +100 a night passed, banked at the end of the leave; being caught loses the night's seconds. Best score in `localStorage` (`underfoot.best`).
 
@@ -179,6 +179,10 @@ The flash and the pop that marked a take were removed (the user saw them as a gl
 ### The search cannot end while it has you, and the give-up tell
 
 A search used to end on its timer alone, so a player lit with the eye half full heard "It is passing" and watched it leave. Now the search ends only when its time is up and it has lost you (not lit, eye under 0.2); while it still has you it keeps hunting, the eye keeps filling and the score keeps counting, until it catches you or you break its line of sight, with a cap of 20 s past the time so a night never stalls. In the last 5 s before it can end, once it has lost you, it gives up: the chain is drawn up so the lantern rides about 40 m higher (through the chain's length, not the spring, so the hiding test reads the real, weaker light), the aim wanders wider and slower, the side offset grows a third, the drone softens, and the label reads "It is giving up"; finding you again brings it straight back down and the label back to "Hide". `plans/giveup.json`: lit from 26 s, the search runs past 30 s until the eye fills and the catch follows; hidden from 20 s, the lift begins at 25 s (72 to 111 m over the ground by 30 s), the label changes at 27 s and the leave comes at 30 s; held half seen forever, the cap ends it at 50 s.
+
+### The town dark, the lantern on your trail only
+
+The user's words: "Make the whole town dark at the plant and drop the lures; the lantern only follows my trail." So: no stragglers, every window is dark by the plant (the approach still puts them out in batches on the footfalls, the leave still brings them back one by one), and the lantern has nothing to visit: it walks your trail, comes straight at you once it has half seen you, and holds on a townsperson while it takes him. The house takes (the scorch, the door stain) are gone with the lures; the townspeople takes and their stains stay. The night table lost its lit-houses and check columns. `plans/dark.json` checks it.
 
 ### Skipped
 
