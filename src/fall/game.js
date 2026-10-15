@@ -565,7 +565,9 @@ export function createGame(canvas, opts = {}) {
     S.dim += (dimT - S.dim) * Math.min(1, dt * 0.6);
     const pulse = (c, w) => clamp(1 - Math.abs(S.pt - c) / w);
     S.flash = S.phase === 'caught' ? Math.max(pulse(7.6, 0.25), pulse(CUT1 + 0.04, 0.12) * 0.6) : Math.max(0, S.flash - dt * 3);
-    S.fade = S.phase === 'caught' ? ease((S.pt - 7.7) / 0.9) * (1 - ease((S.pt - 9.0) / 0.5)) : Math.max(0, S.fade - dt * 1.5);
+    // the catch fades to black at 7.7 s; the title's attract loop fades back up to the street, a real run
+    // stays black straight into the game-over card
+    S.fade = S.phase === 'caught' ? ease((S.pt - 7.7) / 0.9) * (inRun() ? 1 : 1 - ease((S.pt - 9.0) / 0.5)) : Math.max(0, S.fade - dt * 1.5);
     if (S.card && S.card.kind === 'over') S.fade = 1;
     if (S.intro) {
       // the title loops through a dip to dark; when you begin, one more dip and the cut to the first night
