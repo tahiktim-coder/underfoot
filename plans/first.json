@@ -1,5 +1,5 @@
 [
-  {"eval": "__v16.hold=true; const g=__v16.game; for(let i=0;i<60;i++) g.update(0.05); window.until=(cond, max)=>{ let n=0; while(!cond() && n<max){ g.update(0.05); n++; } return +(n*0.05).toFixed(1); }; return ['title', g.S.phase, g.S.played]"},
+  {"eval": "__v16.hold=true; const g=__v16.game; for(let i=0;i<60;i++) g.update(0.05); window.until=(cond, max)=>{ let n=0; while(!cond() && n<max){ g.update(0.05); g.S.player.seen=0; n++; } return +(n*0.05).toFixed(1); }; return ['title', g.S.phase, g.S.played]"},
   {"eval": "const g=__v16.game; __v16.begin(); const toHide=until(()=>g.S.phase==='search', 2000); g.render(); return ['click to Hide', toHide, 's', g.S.phase, g.S.night, 'lit', g.HM.bytes.filter(v=>v===255).length, 'dim', g.S.dim.toFixed(2), 'smoke', g.S.smokeLevel.toFixed(2)]"},
   {"shot": "first_search", "sel": "canvas"},
   {"eval": "const g=__v16.game; const toLeave=until(()=>g.S.phase==='leave', 2000); const toCard=until(()=>!!g.S.card, 2000); return ['night 1 search', toLeave, 'leave', toCard, 'card', g.S.card && g.S.card.lines]"},
