@@ -86,10 +86,12 @@ export function lantern(A, top, up, size = 64, t = 0) {
   }
 }
 
-// A small person: legs, a long coat, a hood or bare head, a scarf. `run` 0..1, `ph` the stride phase,
-// `crouch` 0..1. Built at 1.6x life size so they read at 5 px/m. look.inflate (metres) grows every part
-// outward and look.mat draws it all in one material: together they build the outline hull. look.ring (0..1)
-// adds a dithered disc on the ground under the feet.
+// A small person: legs, a long coat, a hood or bare head, a scarf; or, with look.knight, a knight in pale
+// plate with a rounded helm, a dark visor slit and a red cape that swings with the stride and flares when
+// running. `run` 0..1, `ph` the stride phase, `crouch` 0..1. Built at 1.6x life size so they read at 5 px/m.
+// look.inflate (metres) grows every part outward and look.mat draws it all in one material: together they
+// build the outline hull (the cape, a flat sheet, is left out of it). look.ring (0..1) adds a dithered disc
+// on the ground under the feet.
 export function person(A, x, y, z, yaw, ph, run, look = {}) {
   const k = 1.6, P0 = frame(x, y, z, yaw);
   const crouch = look.crouch || 0;
@@ -97,7 +99,7 @@ export function person(A, x, y, z, yaw, ph, run, look = {}) {
   const sw = Math.sin(ph) * (0.25 + 0.35 * run), lift = Math.max(0, Math.cos(ph)) * 0.15 * run;
   const only = look.mat, mat = (m) => only ?? m;
   const o = look.inflate || 0, ol = o / k;
-  const cloak = mat(look.cloak ?? M.P_CLOAK), hood = mat(M.P_HOOD), skin = mat(M.P_SKIN), dark = mat(M.P_DARK), scarf = mat(M.P_SCARF);
+  const cloak = mat(look.cloak ?? M.P_CLOAK), hood = mat(M.P_HOOD), skin = mat(M.P_SKIN), dark = mat(M.P_DARK), scarf = mat(M.P_SCARF), armour = mat(M.P_ARMOUR), cape = mat(M.P_CAPE);
   const lean = run * 0.18 + crouch * 0.3;
   const Q = (lx, ly, lz) => P(lx, ly, lz + ly * lean * 0.5);
   // the two primitives, grown by the inflation
@@ -111,10 +113,29 @@ export function person(A, x, y, z, yaw, ph, run, look = {}) {
       tri(A, c, P0(Math.cos(a0) * r, 0.12, Math.sin(a0) * r), P0(Math.cos(a1) * r, 0.12, Math.sin(a1) * r), M.P_RING, [0, 0], [Math.cos(a0), Math.sin(a0)], [Math.cos(a1), Math.sin(a1)], look.ring, hint);
     }
   }
-  // legs
+  // legs (greaves of plate on the knight)
   for (const s of [-1, 1]) {
     const a = s * sw, hip = [s * 0.11, 0.86, 0], foot = [s * 0.12, 0.05 + (s > 0 ? lift : Math.max(0, -Math.cos(ph)) * 0.15 * run), Math.sin(a) * 0.62];
-    barI(Q(...hip), P(...foot), 0.075 * k, 0.075 * k, [1, 0, 0], dark);
+    barI(Q(...hip), P(...foot), (look.knight ? 0.085 : 0.075) * k, 0.075 * k, [1, 0, 0], look.knight ? armour : dark);
+  }
+  if (look.knight) {
+    // the cuirass, wider at the chest; a short skirt of faulds; a pauldron on each shoulder; the arms in plate
+    boxI((lx, ly, lz) => Q(lx * (1 + (ly - 0.85) * 0.3), ly, lz), -0.2, 0.85, -0.13, 0.2, 1.42, 0.15, armour, 0.3);
+    boxI((lx, ly, lz) => Q(lx * (1 + (0.9 - ly) * 0.4), ly, lz), -0.2, 0.62, -0.14, 0.2, 0.9, 0.15, dark, 0.3);
+    for (const s of [-1, 1]) boxI(Q, Math.min(s * 0.16, s * 0.33), 1.3, -0.15, Math.max(s * 0.16, s * 0.33), 1.48, 0.15, armour, 0.2);
+    for (const s of [-1, 1]) barI(Q(s * 0.24, 1.36, 0), Q(s * 0.27, 0.9, -Math.sin(s * sw) * 0.4 * (0.4 + run)), 0.065 * k, 0.065 * k, [0, 0, 1], armour);
+    // the helm: rounded (a box with a smaller crown), a dark slit for the eyes on the front
+    boxI(Q, -0.12, 1.5, -0.12, 0.12, 1.78, 0.12, armour, 0.1);
+    boxI(Q, -0.09, 1.78, -0.09, 0.09, 1.87, 0.09, armour, 0.1);
+    if (!only) box(A, Q, -0.09, 1.64, 0.11, 0.09, 1.69, 0.145, dark, 0);
+    // the cape: two halves from the shoulders to the calves, swinging behind with the stride, flaring when running
+    if (!only) {
+      const hemBack = -0.17 - 0.3 * run - 0.06 * Math.max(0, Math.sin(ph * 2)), flare = 0.08 + 0.3 * run, hem = 0.3 + 0.12 * run, top = 1.42;
+      const side = Math.sin(ph) * 0.05 * run, hint = Q(0, 1, 1);
+      quad(A, Q(-0.2, top, -0.15), Q(0, top, -0.16), Q(side, hem, hemBack), Q(-0.24 - flare + side, hem, hemBack + 0.02), cape, [0, 1], [0.5, 1], [0.5, 0], [0, 0], 0.3, hint);
+      quad(A, Q(0, top, -0.16), Q(0.2, top, -0.15), Q(0.24 + flare + side, hem, hemBack + 0.02), Q(side, hem, hemBack), cape, [0.5, 1], [1, 1], [1, 0], [0.5, 0], 0.3, hint);
+    }
+    return;
   }
   // coat: a tapered box from the shoulders to the knees
   const sway = Math.sin(ph * 2) * 0.03;

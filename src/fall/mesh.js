@@ -11,7 +11,7 @@ export const M = {
   // the giant
   G_ROBE: 30, G_ROBE_IN: 31, G_WRAP: 32, G_SKIN: 33, G_NAIL: 34, G_HOOD_IN: 35, G_EYE: 36, G_CHAIN: 37, G_GLASS: 38, G_CAGE: 39, G_FLAME: 40, G_TREE: 41, G_MANTLE: 42, G_IRON: 43, G_HELM: 44, G_FACE: 45, G_MAIL: 46,
   // people
-  P_CLOAK: 50, P_SCARF: 51, P_SKIN: 52, P_DARK: 53, P_LIGHT: 54, P_HOOD: 55, P_OUTLINE: 56, P_RING: 57,
+  P_CLOAK: 50, P_SCARF: 51, P_SKIN: 52, P_DARK: 53, P_LIGHT: 54, P_HOOD: 55, P_OUTLINE: 56, P_RING: 57, P_ARMOUR: 58, P_CAPE: 59,
 };
 
 export function makeArr(cap = 4096) {

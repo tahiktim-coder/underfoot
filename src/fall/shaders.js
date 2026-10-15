@@ -139,7 +139,7 @@ uniform float uIsGiant;
 uniform float uEye;            // 1, rising to 3.5 as it sees you; uSeen is the eye meter 0..1
 uniform float uSeen;
 uniform float uSnow;
-uniform vec3 uPlayer[4];       // your coat, hood and scarf albedo, then (fill light, 0, 0), from the look
+uniform vec3 uPlayer[4];       // your armour and cape albedo, a spare, then (fill light, cape darkening, 0), from the look
 const float LAME[7] = float[7](0.0, 60.0, 110.0, 155.0, 200.0, 245.0, 290.0);   // where the foot's lames start
 // the face mask's relief over its rounded base, in rest-pose metres (the same shape as maskZ in giant.js)
 float g2(float a, float s){ return exp(-(a/s)*(a/s)); }
@@ -579,6 +579,12 @@ void main(){
   } else if (m == 53){ alb = vec3(0.07);
   } else if (m == 54){ alb = vec3(0.6, 0.57, 0.52);
   } else if (m == 55){ alb = uPlayer[1];
+  } else if (m == 58){
+    // the knight's plate: pale steel that catches the lantern
+    alb = uPlayer[0]; spec = 0.9;
+  } else if (m == 59){
+    // the cape: red, darkened while you crouch in deep shadow so hiding reads on the body too
+    alb = uPlayer[1]*(1.0 - 0.5*uPlayer[3].y);
   } else if (m == 56){
     // the outline hull round you: the darkest grey, unlit, unfogged
     o = vec4(0.0, 0.0, 0.0, 1.0); return;
@@ -601,7 +607,7 @@ void main(){
   vec3 amb = mix(uGndCol, uSkyCol, 0.5 + 0.5*n.y) + uSkyCol*0.4*max(dot(n, sunH), 0.0);
   vec3 col = alb*(uSunCol*max(ndl, 0.0)*sh + amb*ao);
   // you are never darker than the look's fill light, so the figure reads on a dark street
-  if (m >= 50 && m <= 55) col = max(col, alb*uPlayer[3].x);
+  if ((m >= 50 && m <= 55) || m == 58 || m == 59) col = max(col, alb*uPlayer[3].x);
   float lsh; float L = lanternLight(P, n, lsh);
   col += alb*uLanCol*L;
   // candles carried through the streets: a small warm pool on the ground and the walls near them

@@ -854,7 +854,7 @@ export function createGame(canvas, opts = {}) {
     // you: the figure, a pale ring on the ground under your feet (stronger when you crouch in the dark), and
     // an inverted hull just over a pixel wide in the darkest grey, so the figure reads on any ground
     const ring = (P.tier === 'none' ? 0.45 : 0.7) + 0.3 * P.crouch;
-    person(A, P.x, py, P.z, P.yaw, P.ph, P.run, { crouch: P.crouch, ring });
+    person(A, P.x, py, P.z, P.yaw, P.ph, P.run, { crouch: P.crouch, ring, knight: true });
     // the ring's colour and arc: blue in deep shadow; dim amber, pulsing, closing as the eye fills, in shallow;
     // bright amber when the light has you; the plain pale ring outside the search
     const lc = LK.light.lanCol, tier = P.tier, pulse = 0.75 + 0.25 * Math.sin(S.t * (6 + 10 * P.seen));
@@ -870,7 +870,7 @@ export function createGame(canvas, opts = {}) {
     });
     const inflate = clamp((2 * S.cam.hh / VH) * 1.1, 0.06, 0.5);
     A.hull();
-    person(A, P.x, py, P.z, P.yaw, P.ph, P.run, { crouch: P.crouch, inflate, mat: M.P_OUTLINE });
+    person(A, P.x, py, P.z, P.yaw, P.ph, P.run, { crouch: P.crouch, inflate, mat: M.P_OUTLINE, knight: true });
     for (const p of out) person(A, p.x, standY(p.x, p.z), p.z, p.yaw, p.ph, p.run, { hood: false, scarf: false, inflate, mat: M.P_OUTLINE });
     const sh = S.phase === 'caught' ? 0 : S.shake;
     const ll = lanLight(), ls = lanScreen();
@@ -881,7 +881,7 @@ export function createGame(canvas, opts = {}) {
       lantern: { ...ll, I: ll.I * LK.lanI / 1.5 }, lanGlow: LK.light.lanCol,
       lanShaft: ls && S.lan.on > 0 ? { ...ls, strength: (LK.lanShaft ?? 1) * LK.lanI / 1.5 } : null,
       glows,
-      windows: Math.max(LK.winMin, S.windows), houses: HM.bytes, ring: ringU, candles, prints: S.prints, streetAlb: LK.streetAlb, winPool: LK.winPool, player: LK.player ? [...LK.player.coat, ...LK.player.hood, ...LK.player.scarf, LK.player.fill || 0, 0, 0] : null,
+      windows: Math.max(LK.winMin, S.windows), houses: HM.bytes, ring: ringU, candles, prints: S.prints, streetAlb: LK.streetAlb, winPool: LK.winPool, player: LK.player ? [...LK.player.armour, ...LK.player.cape, 0, 0, 0, LK.player.fill || 0, P.tier === 'deep' ? P.crouch : 0, 0] : null,
       cloudK: S.cam.hh > 120 ? Math.min(1, (S.cam.hh - 120) / 400) : 0, holeC: [-300, 0], cloudCov: LK.cloudCov,
       cut: S.cam.hh < 60 ? [P.x, standY(P.x, P.z) + 1.2, P.z] : null,
       gCentre: [lerp(G.x, TOWN.x, 0.5), 0, lerp(G.z, TOWN.z, 0.5)],

@@ -21,8 +21,8 @@ const HUES = [
 ];
 const hex3 = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
 const CANDLES_NONE = new Float32Array(16);
-// the player's coat, hood and scarf albedo when the look gives none (looks.js `player`)
-const PLAYER_DEFAULT = [0.16, 0.16, 0.18, 0.16, 0.16, 0.18, 0.55, 0.2, 0.13, 0, 0, 0];
+// the player's armour and cape albedo when the look gives none (looks.js `player`)
+const PLAYER_DEFAULT = [0.5, 0.49, 0.47, 0.5, 0.1, 0.07, 0, 0, 0, 0, 0, 0];
 const luma = (c) => c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114;
 // A palette for the snap: up to 8 neutral steps and up to 4 hue ramps of 5, padded to the shader's fixed sizes.
 export function buildPalette(greys, hues) {
