@@ -324,7 +324,7 @@ void main(){
   // see-through round the player when the town would hide them (never the player's own figure)
   if (uCut.w > 0.0 && m != 0 && uIsGiant < 0.5 && (m < 50 || m > 59)){
     // the lantern and its chain get a much wider hole: they must never hide you
-    bool lan = m >= 37 && m <= 40;
+    bool lan = (m >= 37 && m <= 40) || m == 60;
     vec2 dd = (gl_FragCoord.xy - uCut.xy)/(vec2(1.0, 1.25)*uCut.w*(lan ? 7.0 : 1.0));
     float e = length(dd);
     if (e < 1.0 && gl_FragCoord.z < uCut.z - 0.00002 && bayerF(gl_FragCoord.xy) < (lan ? 1.2 - e*e*0.9 : 0.9 - e*e*0.6)) discard;
@@ -585,6 +585,14 @@ void main(){
   } else if (m == 59){
     // the cape: red, darkened while you crouch in deep shadow so hiding reads on the body too
     alb = uPlayer[1]*(1.0 - 0.5*uPlayer[3].y);
+  } else if (m == 60){
+    // the beam in the air: dithered light in the lantern's colour, denser near the glass and along the cone's
+    // silhouette, thinning toward the pool so its foot sits on the lit ground; never a surface
+    vec3 vd = normalize(P - uCam);
+    float u = vUV.y, edge = pow(1.0 - abs(dot(n, vd)), 2.0);
+    float dens = (0.06 + 0.5*(1.0 - u)*(1.0 - u))*(0.35 + 0.65*edge)*clamp(uLan.w/1.5, 0.0, 1.5);
+    if (bayerF(gl_FragCoord.xy + vec2(2.0, 1.0)) > dens) discard;
+    o = toneOut(fogged(uLanCol*(1.1/uExposure)*(0.55 + 0.45*(1.0 - u)), P)); return;
   } else if (m == 56){
     // the outline hull round you: the darkest grey, unlit, unfogged
     o = vec4(0.0, 0.0, 0.0, 1.0); return;

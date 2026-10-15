@@ -1,0 +1,30 @@
+[
+  {
+    "eval": "__v16.hold=true; const g=__v16.game; g.S.played=true; g.S.auto=false; __v16.force('search'); const P=g.S.player; window.hide=()=>{ const aim=g.S.aimS; for(let r=25;r<60;r+=1) for(let a=0;a<24;a++){ const x=aim[0]+Math.cos(a/24*6.283+r)*r, z=aim[1]+Math.sin(a/24*6.283+r)*r; if(g.blocked(x,z)||Math.hypot(x,z)>70) continue; if(g.isLit([x,g.standY(x,z)+1.6,z]).tier==='deep'){ P.x=x; P.z=z; return; } } }; window.find=(tier)=>{ const aim=g.S.aimS; for(let r=1;r<45;r+=1) for(let a=0;a<24;a++){ const x=aim[0]+Math.cos(a/24*6.283+r)*r, z=aim[1]+Math.sin(a/24*6.283+r)*r; if(g.blocked(x,z)) continue; if(g.isLit([x,g.standY(x,z)+1.6,z]).tier===tier) return [x|0,z|0,r]; } return null; }; for(let i=0;i<200;i++){ g.update(0.05); P.seen=0; if(P.tier!=='deep') hide(); } g.render(); const L=g.S.lan.pos; return ['lantern ring over ground', (L[1]-g.height(L[0],L[2])).toFixed(0), 'tiers near the mark: deep', find('deep'), 'shallow', find('shallow'), 'lit', find('lit'), 'beam tris', (g.R.dyn.hull0-g.R.dyn.beam0)/30]"
+  },
+  {
+    "shot": "beam_play",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game; const L=g.S.lan.pos, m=g.S.aimS; const c=[(L[0]+m[0])/2, g.height(m[0],m[1]), (L[2]+m[1])/2]; g.S.view={x:c[0],y:c[1],z:c[2],yaw:Math.PI/4,pitch:0.84,hh:60,D:1500}; g.S.cam=g.S.view; g.S.noUI=true; g.render(); g.S.view=null; g.S.noUI=false; return 'wide'"
+  },
+  {
+    "shot": "beam_wide",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game; const P=g.S.player; const q=find('lit'); if(q){ P.x=q[0]; P.z=q[1]; } P.seen=0.3; g.update(0.016); g.render(); return ['knight in the pool under the cone', P.tier, __v16.errors]"
+  },
+  {
+    "shot": "beam_knight_lit",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game; __v16.view('look'); g.S.cam=g.S.view; g.S.noUI=true; g.render(); g.S.view=null; g.S.noUI=false; return __v16.errors"
+  },
+  {
+    "shot": "beam_look",
+    "sel": "canvas"
+  }
+]

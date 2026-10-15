@@ -6,7 +6,7 @@
 // the walls) -> search (the lantern sweeps) -> caught (the look up) or leave (it steps over the town).
 import { createRenderer, VW, VH } from './renderer.js';
 import { createGiant, buildGiantMesh, footAt } from './giant.js';
-import { chain, lantern, person } from './props.js';
+import { chain, lantern, person, beam } from './props.js';
 import { millSails, M } from './mesh.js';
 import { standY, height, blocked, segmentBlocked, inCover, houses, OCCLUDERS, TOWN, SQUARE, STREETS, townR } from './world.js';
 import { drawWisp, measureWisp } from '../lib/wisp.js';
@@ -37,7 +37,7 @@ const STANCE = { front: { foot: 1, x: -470, z: 26, yaw: Math.PI / 2 }, back: { f
 const STEP_T = 8.5, SWING = 7.2;
 const CUT1 = 1.1, INTRO_CUT = 5.6;
 const DIP_OUT = 0.12, DIP_IN = 0.2;   // the quick dip to dark on a camera cut
-const LAN = 40, LAN_Y = 70;   // the lantern's size, and how high its ring rides over the ground while it searches
+const LAN = 40, LAN_Y = 56;   // the lantern's size, and how high its ring rides over the ground while it searches (the body hangs 37 m below the ring: 56 keeps the drip over the roofs)
 const SHADOW_DRAIN = 0.3;     // how fast the eye empties per second in deep shadow
 const OFF_PERIOD = 36;        // seconds for the lantern to drift from low to nearly overhead and back
 const TAKE_LIT = 1.2;         // seconds the light must hold a townsperson before it narrows on them
@@ -886,6 +886,9 @@ export function createGame(canvas, opts = {}) {
       if (i < 4) candles.set([p.x + Math.sin(p.yaw) * 0.4, yy + 1.0, p.z + Math.cos(p.yaw) * 0.4, 0.5], i * 4);
     });
     const inflate = clamp((2 * S.cam.hh / VH) * 1.1, 0.06, 0.5);
+    // the beam in the air, from the glass to the pool (drawn after the solid things, never into a shadow map)
+    A.beam();
+    if (S.lan.on > 0) beam(A, lanLight(), LAN, height);
     A.hull();
     person(A, P.x, py, P.z, P.yaw, P.ph, P.run, { crouch: P.crouch, inflate, mat: M.P_OUTLINE, knight: true });
     for (const p of out) person(A, p.x, standY(p.x, p.z), p.z, p.yaw, p.ph, p.run, { hood: false, scarf: false, inflate, mat: M.P_OUTLINE });

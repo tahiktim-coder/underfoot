@@ -167,9 +167,15 @@ export function createRenderer(canvas, giantMesh) {
   function drawDyn(withHull = false) {
     if (!dyn.n) return;
     gl.bindVertexArray(dynVAO);
-    const h0 = dyn.hull0;
-    if (h0) gl.drawArrays(gl.TRIANGLES, 0, h0 / STRIDE);
+    const b0 = dyn.beam0, h0 = dyn.hull0;
+    if (b0) gl.drawArrays(gl.TRIANGLES, 0, b0 / STRIDE);
     if (withHull && h0 < dyn.n) { gl.enable(gl.CULL_FACE); gl.cullFace(gl.FRONT); gl.drawArrays(gl.TRIANGLES, h0 / STRIDE, (dyn.n - h0) / STRIDE); gl.disable(gl.CULL_FACE); }
+  }
+  // the light in the air (the beam): after everything solid, tested against depth but not written to it
+  function drawBeam() {
+    const b0 = dyn.beam0, h0 = dyn.hull0;
+    if (b0 >= h0) return;
+    gl.depthMask(false); gl.bindVertexArray(dynVAO); gl.drawArrays(gl.TRIANGLES, b0 / STRIDE, (h0 - b0) / STRIDE); gl.depthMask(true);
   }
 
   // a sun-aligned orthographic shadow camera round a centre, texel-snapped
@@ -283,6 +289,7 @@ export function createRenderer(canvas, giantMesh) {
       meshU(P.giant).set('uIsGiant', 1).set('uBones', scene.giant.bones).set('uSway', scene.giant.sway);
       gl.bindVertexArray(giantVAO); gl.drawArrays(gl.TRIANGLES, 0, giantN);
     }
+    meshU(P.mesh).set('uIsGiant', 0); drawBeam();
     // dust and clods
     common(P.puff.use()).set('uVP', VP).set('uHH', cam.hh).set('uRight', right[0], right[1], right[2]).set('uUp', up[0], up[1], up[2]).set('uLanOn', lan && lan.on > 0 ? 1 : 0).set('uLanPos', lan ? [lan.pos[0], lan.pos[1], lan.pos[2], lan.I * lan.on] : [0, 0, 0, 0]).set('uLanDir', lan ? [lan.dir[0], lan.dir[1], lan.dir[2], lan.cosOuter] : [0, -1, 0, 0.9]);
     gl.bindVertexArray(puffVAO); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, PUFFS);

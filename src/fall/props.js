@@ -128,12 +128,16 @@ export function person(A, x, y, z, yaw, ph, run, look = {}) {
     boxI(Q, -0.12, 1.5, -0.12, 0.12, 1.78, 0.12, armour, 0.1);
     boxI(Q, -0.09, 1.78, -0.09, 0.09, 1.87, 0.09, armour, 0.1);
     if (!only) box(A, Q, -0.09, 1.64, 0.11, 0.09, 1.69, 0.145, dark, 0);
-    // the cape: two halves from the shoulders to the calves, swinging behind with the stride, flaring when running
+    // the cape: two halves from the shoulders to the calves, a little thick so it shows from any side,
+    // swinging behind with the stride and flaring when running
     if (!only) {
-      const hemBack = -0.17 - 0.3 * run - 0.06 * Math.max(0, Math.sin(ph * 2)), flare = 0.08 + 0.3 * run, hem = 0.3 + 0.12 * run, top = 1.42;
+      const hemBack = -0.19 - 0.3 * run - 0.06 * Math.max(0, Math.sin(ph * 2)), flare = 0.1 + 0.3 * run, hem = 0.28 + 0.12 * run, top = 1.44, th = 0.035;
       const side = Math.sin(ph) * 0.05 * run, hint = Q(0, 1, 1);
-      quad(A, Q(-0.2, top, -0.15), Q(0, top, -0.16), Q(side, hem, hemBack), Q(-0.24 - flare + side, hem, hemBack + 0.02), cape, [0, 1], [0.5, 1], [0.5, 0], [0, 0], 0.3, hint);
-      quad(A, Q(0, top, -0.16), Q(0.2, top, -0.15), Q(0.24 + flare + side, hem, hemBack + 0.02), Q(side, hem, hemBack), cape, [0.5, 1], [1, 1], [1, 0], [0.5, 0], 0.3, hint);
+      for (const s of [-1, 1]) {
+        const F = (lx, ly, lz) => { const u = lx * s, t = (top - ly) / (top - hem); return Q(u * (0.22 + flare * t) + side * t, ly, -0.16 + (hemBack + 0.16) * t + lz); };
+        box(A, F, 0, hem, -th, 1, top, 0, cape, 0.3, false);
+      }
+      void hint;
     }
     return;
   }
@@ -158,3 +162,18 @@ export function person(A, x, y, z, yaw, ph, run, look = {}) {
   if (look.scarf !== false) { boxI(Q, -0.15, 1.38, -0.13, 0.15, 1.5, 0.15, scarf, 0.1); barI(Q(0.08, 1.42, -0.13), Q(0.12 + Math.sin(ph) * 0.05, 1.05, -0.2 - run * 0.25), 0.05 * k, 0.02 * k, [0, 0, 1], scarf); }
 }
 void cyl;
+
+// The beam: the cone of the lantern's light in the air, from the glass to the pool, sixteen sides, its foot
+// on the ground where the light lands (groundY gives the terrain). Drawn as dithered light (material G_BEAM).
+export function beam(A, light, size, groundY) {
+  const { pos, dir, cosOuter } = light;
+  if (dir[1] > -0.2) return;
+  let t = 100;
+  for (let i = 0; i < 3; i++) { const p = add(pos, scl(dir, t)); t = Math.max(10, (pos[1] - groundY(p[0], p[2])) / -dir[1]); }
+  if (t > 400) return;   // only once it hangs low over the town
+  const n = 16, r0 = size * 0.22, r1 = t * Math.tan(Math.acos(cosOuter));
+  let X = nrm(crs(dir, [0, 1, 0])); if (Math.hypot(...crs(dir, [0, 1, 0])) < 1e-3) X = [1, 0, 0];
+  const Z = crs(X, dir), mid = add(pos, scl(dir, t * 0.5));
+  const ring = (r, tt, k) => { const a = (k / n) * Math.PI * 2; return add(add(pos, scl(dir, tt)), add(scl(X, Math.cos(a) * r), scl(Z, Math.sin(a) * r))); };
+  for (let k = 0; k < n; k++) quad(A, ring(r0, 0, k), ring(r0, 0, k + 1), ring(r1, t, k + 1), ring(r1, t, k), M.G_BEAM, [0, 0], [1, 0], [1, 1], [0, 1], 0, mid);
+}
