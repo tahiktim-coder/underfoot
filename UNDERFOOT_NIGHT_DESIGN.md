@@ -69,6 +69,8 @@ Recommendation: A, with the night 1 townsperson from section 3 as the wordless t
 
 ## 7. What was built (2026-10-15)
 
+*Superseded by section 8.* The put-out action, the door key, the mouse hold on a house, the saved count, the three-night ending and the plans `lights.json` and `mouse.json` described here were removed in the scope change; the shell, the town afraid, the shadow tiers and the townspeople stay as described.
+
 Option A, in six commits on top of the visual pass (`git log`): the shell, the town afraid, the shadow tiers, the townspeople, put out the lights, and this tune. Each was checked with a plan under `plans/` (`shell`, `afraid`, `tiers`, `people`, `lights`, `playtest`, `docnight`) run through `tools/shot.mjs`, and night 1 was played in a real browser (Space on the title begins, sound starts, the autopilot stays off, the jump buttons are hidden without `?debug`).
 
 The frames below are the game's own 384 x 216 pixels, from `plans/docnight.json`:
