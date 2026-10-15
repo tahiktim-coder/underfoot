@@ -1,6 +1,6 @@
 // UNDERFOOT — static geometry. Flat-shaded triangles in world space, sorted into chunks with bounding boxes
 // so each pass draws only what its camera can see. Vertex: position 3, normal 3, material 1, uv 2, seed 1.
-import { NEAR, height, houses, towers, wallSegs, trees, props, CHURCH, HALL, WELL, MILL, BRIDGE, TOWN, houseKey } from './world.js';
+import { NEAR, height, houses, towers, wallSegs, trees, props, CHURCH, HALL, WELL, MILL, BRIDGE, TOWN, houseKey, stalls, arcades, chapels, ruinWallList, lowWalls, stairs, bushes, arcadePosts, stallPosts } from './world.js';
 import { mulberry } from '../lib/noise.js';
 
 export const STRIDE = 10;
@@ -94,6 +94,21 @@ function house(A, H) {
   if (H.barn) wallBox(plinth, top, hd, -hd, frontM);
   else { wallBox(plinth, floor, hd, -hd, frontM); wallBox(floor, top, hd + jet, -hd, wallM); }
   if (jet) box(A, P, -hw, floor - 0.22, hd, hw, floor, hd + jet, M.TIMBER, H.seed);
+  if (H.tower) {
+    // a tower house: a flat top behind a parapet with merlons, a stair turret at one corner, a stack
+    const pr = 0.5, ph = 1.3;
+    quad(A, P(-hw, top, hd), P(hw, top, hd), P(hw, top, -hd), P(-hw, top, -hd), M.SLATE, [0, 0], [w, 0], [w, d], [0, d], H.seed, P(0, top - 5, 0));
+    for (const [x0, z0, x1, z1] of [[-hw - 0.2, hd - pr, hw + 0.2, hd + 0.2], [-hw - 0.2, -hd - 0.2, hw + 0.2, -hd + pr], [-hw - 0.2, -hd, -hw + pr, hd], [hw - pr, -hd, hw + 0.2, hd]]) {
+      box(A, P, x0, top - 0.2, z0, x1, top + ph, z1, M.STONE, H.seed);
+      const L = Math.max(x1 - x0, z1 - z0), n = Math.max(2, Math.round(L / 1.6)), alongX = x1 - x0 > z1 - z0;
+      for (let k = 0; k < n; k++) { const t = (k + 0.5) / n; if (alongX) box(A, P, x0 + (x1 - x0) * t - 0.35, top + ph, z0, x0 + (x1 - x0) * t + 0.35, top + ph + 0.7, z1, M.STONE, H.seed); else box(A, P, x0, top + ph, z0 + (z1 - z0) * t - 0.35, x1, top + ph + 0.7, z0 + (z1 - z0) * t + 0.35, M.STONE, H.seed); }
+    }
+    cyl(A, P, -hw + 0.9, top - 3, hd - 0.9, 1.1, top + ph + 2.2, 1.0, 8, M.STONE, H.seed, false);
+    cyl(A, P, -hw + 0.9, top + ph + 2.2, hd - 0.9, 1.4, top + ph + 3.6, 0.01, 8, M.SLATE, 3, false);
+    box(A, P, hw - 1.6, top - 1, -hd + 0.7, hw - 0.8, top + ph + 1.4, -hd + 1.5, M.STONE, H.seed); H.chimneyTop = P(hw - 1.2, top + ph + 1.5, -hd + 1.1);
+    H.ridgeY = top + ph;
+    return;
+  }
   const roofM = H.tile ? M.TILE : M.SHINGLE;
   const pitch = H.barn ? 0.9 : 1.2 + R() * 0.3, ov = 0.5, ovG = 0.35;
   const zf = hd + jet, interior = P(0, top * 0.5, 0);
@@ -127,8 +142,9 @@ function house(A, H) {
 }
 
 function church(A) {
-  const C = CHURCH, gy = height(C.x, C.z) - 0.3;
-  const P = frame(C.x, gy, C.z, 0), hw = C.w / 2, hd = C.d / 2, wallH = 12;
+  const C = CHURCH; if (!C) return;
+  const gy = height(C.x, C.z) - 0.3;
+  const P = frame(C.x, gy, C.z, C.rot), hw = C.w / 2, hd = C.d / 2, wallH = 12;
   box(A, P, -hw, -1, -hd, hw, wallH, hd, { side: M.CHURCH, top: M.STONE }, 3000.5);
   // buttresses
   for (let z = -hd + 3; z < hd - 1; z += 5.2) for (const sx of [-1, 1]) box(A, P, sx > 0 ? hw : -hw - 1.1, -1, z - 0.6, sx > 0 ? hw + 1.1 : -hw, wallH - 2.5, z + 0.6, M.STONE, 7);
@@ -137,18 +153,32 @@ function church(A) {
   tri(A, P(-hw, wallH, hd), P(hw, wallH, hd), P(0, yr, hd), M.STONE, [0, wallH], [C.w, wallH], [hw, yr], 1, ctr);
   quad(A, P(-hw - 0.6, wallH - 0.8, hd + 0.4), P(0, yr, hd + 0.4), P(0, yr, -hd - 0.4), P(-hw - 0.6, wallH - 0.8, -hd - 0.4), M.SLATE, [0, 12], [0, 0], [C.d, 0], [C.d, 12], 3, ctr);
   quad(A, P(0, yr, hd + 0.4), P(hw + 0.6, wallH - 0.8, hd + 0.4), P(hw + 0.6, wallH - 0.8, -hd - 0.4), P(0, yr, -hd - 0.4), M.SLATE, [0, 0], [0, 12], [C.d, 12], [C.d, 0], 3, ctr);
-  // apse at the north end
-  cyl(A, frame(C.x, gy, C.z - hd, 0), 0, -1, 0, hw - 0.3, wallH - 1, hw - 0.3, 10, M.CHURCH, 3000.5, false);
-  cyl(A, frame(C.x, gy, C.z - hd, 0), 0, wallH - 1, 0, hw + 0.2, wallH + 4.5, 0.01, 10, M.SLATE, 3, false);
-  // the tower at the south end, toward the square
-  const tz = hd + 3.4, tw = 3.4, top = C.towerH;
+  // the apse at the far end from the tower
+  const AP = (lx, ly, lz) => P(lx, ly, lz - hd);
+  cyl(A, AP, 0, -1, 0, hw - 0.3, wallH - 1, hw - 0.3, 10, M.CHURCH, 3000.5, false);
+  cyl(A, AP, 0, wallH - 1, 0, hw + 0.2, wallH + 4.5, 0.01, 10, M.SLATE, 3, false);
+  // the tower at the near end, its door toward the porch
+  const tz = C.tz, tw = C.tw, top = C.towerH;
   box(A, P, -tw, -1, tz - tw, tw, top, tz + tw, { side: M.STONE, front: M.STONE_FRONT, top: M.STONE }, 5.5);
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(A, P, sx * tw - 0.7, top - 0.2, tz + sz * tw - 0.7, sx * tw + 0.7, top + 2.2, tz + sz * tw + 0.7, M.STONE, 2);
-  const sh = 15, ap = P(0, top + sh, tz), tc = P(0, top + sh * 0.3, tz);
+  const sh = tw * 2, ap = P(0, top + sh, tz), tc = P(0, top + sh * 0.3, tz);
   const co = [P(-tw + 0.3, top, tz - tw + 0.3), P(tw - 0.3, top, tz - tw + 0.3), P(tw - 0.3, top, tz + tw - 0.3), P(-tw + 0.3, top, tz + tw - 0.3)];
   for (let k = 0; k < 4; k++) tri(A, co[k], co[(k + 1) % 4], ap, M.SLATE, [0, 0], [1, 0], [0.5, 1], 3, tc);
   box(A, P, -0.1, top + sh, tz - 0.1, 0.1, top + sh + 2.4, tz + 0.1, M.IRON, 0);
   box(A, P, -0.75, top + sh + 1.5, tz - 0.08, 0.75, top + sh + 1.7, tz + 0.08, M.IRON, 0);
+  // the porch: a gabled slate roof on four stone posts over the step up to the tower door
+  if (C.porch) {
+    const pw = C.porch.w / 2, pd = C.porch.d / 2, pz = C.porch.pz, ey = 3.4, ry = 5.0, pc = P(0, ey, pz);
+    box(A, P, -pw + 0.1, -0.4, pz - pd + 0.1, pw - 0.1, 0.5, pz + pd - 0.1, M.STONE, 7);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(A, P, sx * (pw - 0.4) - 0.25, 0.4, pz + sz * (pd - 0.4) - 0.25, sx * (pw - 0.4) + 0.25, ey, pz + sz * (pd - 0.4) + 0.25, M.STONE, 7);
+    box(A, P, -pw - 0.3, ey - 0.35, pz - pd - 0.3, pw + 0.3, ey, pz + pd + 0.3, M.TIMBER, 2);
+    const c0 = P(-pw - 0.5, ey - 0.1, pz - pd - 0.5), c1 = P(pw + 0.5, ey - 0.1, pz - pd - 0.5), c2 = P(pw + 0.5, ey - 0.1, pz + pd + 0.5), c3 = P(-pw - 0.5, ey - 0.1, pz + pd + 0.5);
+    const r0 = P(0, ry, pz - pd - 0.5), r1 = P(0, ry, pz + pd + 0.5);
+    tri(A, c0, c1, r0, M.SLATE, [0, 0], [1, 0], [0.5, 1], 3, pc);
+    quad(A, c3, c0, r0, r1, M.SLATE, [0, 0], [pw * 2, 0], [pw * 2, 3], [0, 3], 3, pc);
+    quad(A, c1, c2, r1, r0, M.SLATE, [0, 0], [pw * 2, 0], [pw * 2, 3], [0, 3], 3, pc);
+    tri(A, c2, c3, r1, M.SLATE, [0, 0], [1, 0], [0.5, 1], 3, pc);
+  }
 }
 
 function wall(A, W) {
@@ -179,8 +209,72 @@ function tower(A, T) {
   cyl(A, P, 0, -1, 0, T.r, T.h, T.r * 0.96, 14, M.STONE, 11.3, false);
   cyl(A, P, 0, T.h, 0, T.r + 0.6, T.h + T.r * 1.5, 0.01, 14, M.SLATE, 4, false);
 }
+// an arcade: a lean-to roof over a walk along a house front, on stone posts along the open side
+function arcade(A, Ar, ps) {
+  const gy = height(Ar.x, Ar.z) - 0.2, P = frame(Ar.x, gy, Ar.z, Ar.rot), hw = Ar.w / 2, hd = Ar.d / 2, ey = 3.3, by = 4.5;
+  const c = Math.cos(Ar.rot), s = Math.sin(Ar.rot);
+  for (const [px, pz] of ps) { const lx = (px - Ar.x) * c - (pz - Ar.z) * s, lz = (px - Ar.x) * s + (pz - Ar.z) * c; box(A, P, lx - 0.25, -0.3, lz - 0.25, lx + 0.25, ey, lz + 0.25, M.STONE, 7); }
+  box(A, P, -hw - 0.2, ey - 0.3, hd - 0.6, hw + 0.2, ey, hd + 0.2, M.TIMBER, 2);
+  const roofM = Ar.seed < 0.5 ? M.TILE : M.SHINGLE, ctr = P(0, ey - 2, 0);
+  quad(A, P(-hw - 0.4, ey, hd + 0.5), P(hw + 0.4, ey, hd + 0.5), P(hw + 0.4, by, -hd), P(-hw - 0.4, by, -hd), roofM, [0, 0], [Ar.w, 0], [Ar.w, 3], [0, 3], Ar.seed, ctr);
+  for (const sx of [-1, 1]) tri(A, P(sx * (hw + 0.4), ey, hd + 0.5), P(sx * (hw + 0.4), by, -hd), P(sx * (hw + 0.4), ey, -hd), M.TIMBER, [0, 0], [1, 1], [1, 0], 0, ctr);
+}
+// a covered stall: a canvas hip on four timber posts, a counter along the front
+function stall(A, St, ps) {
+  const gy = height(St.x, St.z), P = frame(St.x, gy, St.z, St.rot), hw = St.w / 2, hd = St.d / 2, ey = 2.3, ry = 3.2;
+  for (const [px, pz] of ps) box(A, P, px - St.x - 0.12, -0.2, pz - St.z - 0.12, px - St.x + 0.12, ey, pz - St.z + 0.12, M.TIMBER, 1);
+  box(A, P, -hw + 0.5, 0.2, hd - 1.1, hw - 0.5, 0.95, hd - 0.4, M.PLANK, St.seed);
+  const ctr = P(0, ey, 0), ov = 0.4;
+  const c = [P(-hw - ov, ey, -hd - ov), P(hw + ov, ey, -hd - ov), P(hw + ov, ey, hd + ov), P(-hw - ov, ey, hd + ov)], r0 = P(-0.8, ry, 0), r1 = P(0.8, ry, 0);
+  quad(A, c[0], c[1], r1, r0, M.SAIL, [0, 0], [St.w, 0], [St.w - 1, 2], [1, 2], St.seed, ctr);
+  quad(A, c[2], c[3], r0, r1, M.SAIL, [0, 0], [St.w, 0], [St.w - 1, 2], [1, 2], St.seed, ctr);
+  tri(A, c[1], c[2], r1, M.SAIL, [0, 0], [St.d, 0], [St.d / 2, 2], St.seed, ctr);
+  tri(A, c[3], c[0], r0, M.SAIL, [0, 0], [St.d, 0], [St.d / 2, 2], St.seed, ctr);
+}
+// stairs on a lane: five stone steps across the cell, set into the slope
+function stairStep(A, St) {
+  const dx = (height(St.x + 1, St.z) - height(St.x - 1, St.z)) / 2, dz = (height(St.x, St.z + 1) - height(St.x, St.z - 1)) / 2;
+  const l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l;
+  const rot = Math.atan2(ux, uz);
+  for (let k = 0; k < 5; k++) {
+    const t = -0.8 + k * 0.4, x = St.x + ux * t, z = St.z + uz * t, y = height(x, z);
+    const P = frame(x, y, z, rot);
+    box(A, P, -1.0, -0.35, -0.21, 1.0, 0.13, 0.21, M.STONE, 2.5);
+  }
+}
+// a ruin: its walls in short pieces of uneven height, open to the sky
+function ruin(A, W) {
+  const gy = height(W.x, W.z) - 0.2, P = frame(W.x, gy, W.z, W.rot), R = mulberry(Math.floor(W.lx * 13 + W.lz * 7) + 11);
+  const alongX = W.w > W.d, L = alongX ? W.w : W.d, n = Math.max(1, Math.round(L / 1.2));
+  for (let k = 0; k < n; k++) {
+    const a = -L / 2 + (k * L) / n, b = a + L / n, h = Math.max(1.2, W.h * (0.6 + 0.5 * R()));
+    if (alongX) box(A, P, a, -0.8, -W.d / 2, b, h, W.d / 2, M.STONE, 11.3); else box(A, P, -W.w / 2, -0.8, a, W.w / 2, h, b, M.STONE, 11.3);
+  }
+}
+// a chapel: a stone box with a steep slate roof and a bellcote on the front gable
+function chapel(A, C) {
+  const gy = height(C.x, C.z) - 0.2, P = frame(C.x, gy, C.z, C.rot), hw = C.w / 2, hd = C.d / 2, wallH = 5.6;
+  box(A, P, -hw, -1, -hd, hw, wallH, hd, { side: M.CHURCH, front: M.STONE_FRONT, top: M.STONE }, 3000.5);
+  const rise = hw * 1.3, yr = wallH + rise, ctr = P(0, wallH, 0);
+  tri(A, P(-hw, wallH, -hd), P(hw, wallH, -hd), P(0, yr, -hd), M.STONE, [0, wallH], [C.w, wallH], [hw, yr], 1, ctr);
+  tri(A, P(-hw, wallH, hd), P(hw, wallH, hd), P(0, yr, hd), M.STONE, [0, wallH], [C.w, wallH], [hw, yr], 1, ctr);
+  quad(A, P(-hw - 0.5, wallH - 0.6, hd + 0.4), P(0, yr, hd + 0.4), P(0, yr, -hd - 0.4), P(-hw - 0.5, wallH - 0.6, -hd - 0.4), M.SLATE, [0, 6], [0, 0], [C.d, 0], [C.d, 6], 3, ctr);
+  quad(A, P(0, yr, hd + 0.4), P(hw + 0.5, wallH - 0.6, hd + 0.4), P(hw + 0.5, wallH - 0.6, -hd - 0.4), P(0, yr, -hd - 0.4), M.SLATE, [0, 0], [0, 6], [C.d, 6], [C.d, 0], 3, ctr);
+  box(A, P, -0.9, yr - 1.5, hd - 0.9, 0.9, yr + 1.6, hd - 0.1, M.STONE, 5);
+  box(A, P, -0.3, yr + 0.2, hd - 0.7, 0.3, yr + 1.0, hd - 0.3, M.DARK, 0);
+  const bc = P(0, yr + 1.6, hd - 0.5);
+  for (const sx of [-1, 1]) quad(A, P(sx * 1.1, yr + 1.5, hd - 1.1), P(sx * 1.1, yr + 1.5, hd + 0.1), P(0, yr + 2.4, hd + 0.1), P(0, yr + 2.4, hd - 1.1), M.SLATE, [0, 0], [1, 0], [1, 1], [0, 1], 3, bc);
+}
+// a low wall: a courtyard, a terrace, a garden
+function lowWall(A, W) {
+  const dx = W.b[0] - W.a[0], dz = W.b[1] - W.a[1], L = Math.hypot(dx, dz);
+  const mx = (W.a[0] + W.b[0]) / 2, mz = (W.a[1] + W.b[1]) / 2, gy = Math.min(height(W.a[0], W.a[1]), height(W.b[0], W.b[1]), height(mx, mz)) - 0.5;
+  const P = frame(mx, gy, mz, Math.atan2(dx, dz));
+  box(A, P, -0.25, -0.5, -L / 2, 0.25, 2.1, L / 2, { side: M.STONE, top: M.WALLTOP }, 11.3);
+}
 function hall(A) {
-  const Hh = HALL, gy = height(Hh.x, Hh.z) - 0.2, P = frame(Hh.x, gy, Hh.z, 0);
+  const Hh = HALL; if (!Hh) return;
+  const gy = height(Hh.x, Hh.z) - 0.2, P = frame(Hh.x, gy, Hh.z, 0);
   const hw = Hh.w / 2, hd = Hh.d / 2, y = 3.6;
   box(A, P, -hw + 0.2, -0.6, -hd + 0.2, hw - 0.2, 0.25, hd - 0.2, M.STONE, 7);
   for (let i = 0; i <= 4; i++) for (const sz of [-1, 1]) { const x = -hw + 0.4 + i * (Hh.w - 0.8) / 4; box(A, P, x - 0.22, 0, sz * (hd - 0.4) - 0.22, x + 0.22, y, sz * (hd - 0.4) + 0.22, M.TIMBER, 1); }
@@ -197,6 +291,7 @@ function hall(A) {
   box(A, P, hw - 4.5, 0.25, 0.2, hw - 1.4, 1.0, 1.6, M.PLANK, 4);
 }
 function well(A) {
+  if (!WELL) return;
   const gy = height(WELL.x, WELL.z), P = frame(WELL.x, gy, WELL.z, 0.3);
   cyl(A, P, 0, -0.3, 0, 1.0, 0.85, 1.0, 10, M.STONE, 1.5, false);
   cyl(A, P, 0, -0.3, 0, 0.75, 0.86, 0.75, 10, M.DARK, 1.5, false);
@@ -301,9 +396,16 @@ export function buildWorld() {
   houses.forEach((H) => house(at(H.x, H.z), H));
   wallSegs.forEach((W) => wall(at((W.a[0] + W.b[0]) / 2, (W.a[1] + W.b[1]) / 2), W));
   towers.forEach((T) => tower(at(T.x, T.z), T));
-  church(at(CHURCH.x, CHURCH.z));
-  hall(at(HALL.x, HALL.z));
-  well(at(WELL.x, WELL.z));
+  if (CHURCH) church(at(CHURCH.x, CHURCH.z));
+  if (HALL) hall(at(HALL.x, HALL.z));
+  if (WELL) well(at(WELL.x, WELL.z));
+  arcades.forEach((Ar, k) => arcade(at(Ar.x, Ar.z), Ar, arcadePosts[k]));
+  stalls.forEach((St, k) => stall(at(St.x, St.z), St, stallPosts[k]));
+  stairs.forEach((St) => stairStep(at(St.x, St.z), St));
+  ruinWallList.forEach((W) => ruin(at(W.x, W.z), W));
+  chapels.forEach((C) => chapel(at(C.x, C.z), C));
+  lowWalls.forEach((W) => lowWall(at((W.a[0] + W.b[0]) / 2, (W.a[1] + W.b[1]) / 2), W));
+  bushes.forEach((B) => broad(at(B.x, B.z), B));
   bridge(at(BRIDGE.x, BRIDGE.z));
   mill(at(MILL.x, MILL.z));
   trees.forEach((T) => (T.kind === 1 ? broad : pine)(at(T.x, T.z), T));

@@ -4,7 +4,7 @@
 import { texture, upload } from '../lib/gl.js';
 import { mulberry, smooth, clamp } from '../lib/noise.js';
 const R0 = 0;
-import { NEAR, height, normalAt, riverDist, RIVER_W, roadDist, streetDist, townR, forest, houses, wallSegs, towers, CHURCH, TOWN } from './world.js';
+import { NEAR, height, normalAt, riverDist, RIVER_W, roadDist, streetAt, townR, forest, houses, wallSegs, towers, lowWalls, chapels, ruinWallList, CHURCH, TOWN } from './world.js';
 
 export function noiseTex(gl) {
   const S = 256, d = new Uint8Array(S * S * 4), R = mulberry(99);
@@ -35,12 +35,13 @@ export function nearMap(gl) {
   for (const H of houses) { const c = Math.cos(H.rot), s = Math.sin(H.rot); for (let a = -0.5; a <= 0.5; a += 0.125) for (const b of [-0.5, 0.5]) { stamp(H.x + a * H.w * c + b * H.d * s, H.z - a * H.w * s + b * H.d * c, 2.4, 0.7); stamp(H.x + b * H.w * c + a * H.d * s, H.z - b * H.w * s + a * H.d * c, 2.4, 0.7); } }
   for (const W of wallSegs) for (let t = 0; t <= 1; t += 0.25) stamp(W.a[0] + (W.b[0] - W.a[0]) * t, W.a[1] + (W.b[1] - W.a[1]) * t, 3, 0.6);
   for (const T of towers) stamp(T.x, T.z, (T.r || 5) + 2.5, 0.7);
-  for (let z = -CHURCH.d / 2; z <= CHURCH.d / 2 + 6; z += 2) for (const sx of [-1, 1]) stamp(CHURCH.x + sx * (CHURCH.w / 2 + 1), CHURCH.z + z, 3, 0.7);
+  if (CHURCH) { const c = Math.cos(CHURCH.rot), s = Math.sin(CHURCH.rot); for (let z = -CHURCH.d / 2; z <= CHURCH.d / 2 + 6; z += 2) for (const sx of [-1, 1]) { const lx = sx * (CHURCH.w / 2 + 1); stamp(CHURCH.x + lx * c + z * s, CHURCH.z - lx * s + z * c, 3, 0.7); } }
+  for (const W of lowWalls) for (let t = 0; t <= 1; t += 0.25) stamp(W.a[0] + (W.b[0] - W.a[0]) * t, W.a[1] + (W.b[1] - W.a[1]) * t, 1.6, 0.4);
+  for (const C of [...chapels, ...ruinWallList]) stamp(C.x, C.z, Math.max(C.w, C.d) / 2 + 2, 0.5);
   for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
     const x = -NEAR + (i + 0.5) * k, z = -NEAR + (j + 0.5) * k, o = (j * S + i) * 4;
     const inTown = townR(x, z) < 1.02;
-    const st = streetDist(x, z);
-    d[o] = inTown ? Math.round(clamp(1 - (st + 0.5) / 1.6) * 255) : 0;
+    d[o] = inTown ? Math.round(clamp(streetAt(x, z)) * 255) : 0;
     d[o + 1] = Math.round(clamp(ao[j * S + i]) * 255);
     const rd = roadDist(x, z);
     d[o + 2] = !inTown ? Math.round(clamp(1 - (rd - 1.6) / 2.2) * 255) : 0;

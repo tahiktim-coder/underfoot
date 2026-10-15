@@ -1,7 +1,11 @@
 // UNDERFOOT — the world. A walled hill town in a wide valley, a river round its south side, fields, woods,
 // and mountains far off. Metres, y up. The camera looks toward -x -z, so -x is the top left of the screen
 // and +x +z comes toward you. The giant comes in from -x, with the low sun behind it.
+// The town itself is drawn by hand in townmap.js and read by town.js; this file puts the ground under it,
+// adds what stands outside the walls, and builds the collision grid, the occluders and the covers the game
+// reads.
 import { makeNoise, mulberry, clamp, smooth } from '../lib/noise.js';
+import { LAYOUT, streetAt, ruinWalls, at as cellAt, cx as cellX, cz as cellZ, isWalkable, NI, NJ } from './town.js';
 
 export const NEAR = 256;        // the detailed square (±256 m) around the town
 export const FAR = 9000;        // the whole valley (±9 km)
@@ -15,7 +19,7 @@ export function riverDist(x, z) {
 }
 export const RIVER_W = 9; // half width
 
-// ---- the town: centre, wall ellipse
+// ---- the town: centre, wall ellipse (the drawn wall follows it; this is the quick "inside the walls" test)
 export const TOWN = { x: -4, z: -6, rx: 74, rz: 66 };
 export function townR(x, z) { const dx = (x - TOWN.x) / TOWN.rx, dz = (z - TOWN.z) / TOWN.rz; return Math.hypot(dx, dz); }
 
@@ -50,9 +54,11 @@ export function normalAt(x, z, e = 1) {
   const l = Math.hypot(dx, 1, dz); return [-dx / l, 1 / l, -dz / l];
 }
 
-// ---- roads (polylines). The west road leaves the west gate for the hills; the east road crosses the bridge.
-export const GATE_W = { x: TOWN.x - TOWN.rx, z: TOWN.z + 4 };
-export const GATE_E = { x: TOWN.x + TOWN.rx * 0.94, z: TOWN.z + 22 };
+// ---- the gates (from the map), and the roads. The west road leaves the west gate for the hills; the east
+// road crosses the bridge; a track runs north from outside the wall to the woods.
+export const gates = LAYOUT.wall.gates;
+export const GATE_W = gates.reduce((a, b) => (b.x < a.x ? b : a));
+export const GATE_E = gates.reduce((a, b) => (b.x > a.x ? b : a));
 export const BRIDGE = { x: 70, z: 0, rot: 0 };
 {
   // the bridge sits where the east road meets the river
@@ -62,8 +68,7 @@ export const BRIDGE = { x: 70, z: 0, rot: 0 };
 export const ROADS = [
   [[GATE_W.x + 6, GATE_W.z], [GATE_W.x - 30, GATE_W.z + 6], [-160, 30], [-205, 30], [-300, 10], [-520, -40], [-900, -60], [-1500, -10], [-2600, 120]],
   [[GATE_E.x - 6, GATE_E.z], [GATE_E.x + 10, GATE_E.z + 6], [BRIDGE.x - 6, BRIDGE.z - 26], [BRIDGE.x, BRIDGE.z], [BRIDGE.x + 8, BRIDGE.z + 30], [170, 220], [320, 420], [700, 760], [1400, 1200], [2600, 1800]],
-  // a track north to the woods
-  [[TOWN.x - 4, TOWN.z - TOWN.rz + 4], [-20, -110], [-60, -190], [-90, -320], [-60, -520]],
+  [[TOWN.x - 4, TOWN.z - TOWN.rz - 4], [-20, -110], [-60, -190], [-90, -320], [-60, -520]],
 ];
 export function segDist(px, pz, a, b) {
   const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
@@ -85,31 +90,23 @@ export function forest(x, z) {
 }
 export function isForest(x, z) { return forest(x, z) > 0.6 && riverDist(x, z) > 18 && roadDist(x, z) > 7; }
 
-// ---- the town plan: a square, a main street west-east, lanes north and south
-export const SQUARE = { x: 2, z: -4, w: 34, d: 26 };
-export const STREETS = [
-  { a: [GATE_W.x + 2, GATE_W.z], b: [SQUARE.x - SQUARE.w / 2, SQUARE.z + 2], w: 7 },
-  { a: [SQUARE.x + SQUARE.w / 2, SQUARE.z + 4], b: [GATE_E.x - 2, GATE_E.z], w: 7 },
-  { a: [SQUARE.x - 4, SQUARE.z - SQUARE.d / 2], b: [TOWN.x - 4, TOWN.z - TOWN.rz + 6], w: 6 },
-  { a: [SQUARE.x + 6, SQUARE.z + SQUARE.d / 2], b: [TOWN.x + 16, TOWN.z + TOWN.rz - 4], w: 6 },
-  // a back lane in the north-east quarter
-  { a: [SQUARE.x + SQUARE.w / 2, SQUARE.z - 8], b: [48, -46], w: 5 },
-  { a: [-40, 4], b: [-36, 44], w: 5 },
-];
-export function streetDist(x, z) {
-  let d = 1e9;
-  for (const S of STREETS) d = Math.min(d, segDist(x, z, S.a, S.b) - S.w / 2);
-  const sq = Math.max(Math.abs(x - SQUARE.x) - SQUARE.w / 2, Math.abs(z - SQUARE.z) - SQUARE.d / 2);
-  return Math.min(d, sq);
-}
+// ---- the town plan, from the map: the square (the biggest plaza) and the smaller plazas, the lanes as
+// segments for the strollers, the paving for the ground map
+export const PLAZAS = LAYOUT.plazas;
+export const SQUARE = PLAZAS[0];
+export const STREETS = LAYOUT.streets;
+export { streetAt };
+export const SPAWN = { x: -12, z: 8 };   // where you start every night (game.js has the same numbers)
 
-export const CHURCH = { x: 22, z: -36, w: 12, d: 28, rot: 0, towerH: 50 };
-export const HALL = { x: SQUARE.x - 4, z: SQUARE.z + 3, w: 13, d: 8, rot: 0 };   // open market hall on posts: cover
-export const WELL = { x: SQUARE.x + 9, z: SQUARE.z - 6 };
+export const CHURCH = LAYOUT.church;
+export const HALL = LAYOUT.hall;        // open market hall on posts: cover
+export const WELL = LAYOUT.well;
 export const MILL = { x: -210, z: 40 };
+export const stalls = LAYOUT.stalls, arcades = LAYOUT.arcades, chapels = LAYOUT.chapels, ruins = LAYOUT.ruins;
+export const lowWalls = LAYOUT.lowWalls, stairs = LAYOUT.stairs, bushes = LAYOUT.bushes;
 
 // buildings: oriented boxes {x, z, w, d, h, rot, ...}; rot turns local +z (front) toward the street
-export const houses = [];
+export const houses = LAYOUT.houses.slice();
 // every house has a slot in the per-house state the game uploads each frame (lit, dark, taken); the walls
 // carry the slot in the fraction of their seed, as the slot's texel centre, so it survives float32
 export const HOUSE_SLOTS = 128;
@@ -117,55 +114,6 @@ export const houseKey = (H) => (H.i + 0.5) / HOUSE_SLOTS;
 export const towers = [];
 export const wallSegs = [];
 const R = mulberry(1213);
-function overlaps(b, pad = 0.6) {
-  const corners = (q) => { const c = Math.cos(q.rot), s = Math.sin(q.rot); return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, k]) => [q.x + (a * q.w / 2) * c + (k * q.d / 2) * s, q.z - (a * q.w / 2) * s + (k * q.d / 2) * c]); };
-  const axes = (q) => [[Math.cos(q.rot), -Math.sin(q.rot)], [Math.sin(q.rot), Math.cos(q.rot)]];
-  const all = [...houses, { x: CHURCH.x, z: CHURCH.z, w: CHURCH.w + 2, d: CHURCH.d + 14, rot: 0 }, { x: HALL.x, z: HALL.z, w: HALL.w + 2, d: HALL.d + 2, rot: 0 }];
-  for (const o of all) {
-    const A = { ...b, w: b.w + pad * 2, d: b.d + pad * 2 }, B = o;
-    let sep = false;
-    for (const ax of [...axes(A), ...axes(B)]) {
-      const pa = corners(A).map((p) => p[0] * ax[0] + p[1] * ax[1]), pb = corners(B).map((p) => p[0] * ax[0] + p[1] * ax[1]);
-      if (Math.max(...pa) < Math.min(...pb) || Math.max(...pb) < Math.min(...pa)) { sep = true; break; }
-    }
-    if (!sep) return true;
-  }
-  return false;
-}
-function clearOfStreets(b, margin) {
-  const c = Math.cos(b.rot), s = Math.sin(b.rot);
-  for (const [a, k] of [[-1, -1], [1, -1], [1, 1], [-1, 1], [0, 0], [0, 1], [0, -1], [1, 0], [-1, 0]]) {
-    const x = b.x + (a * b.w / 2) * c + (k * b.d / 2) * s, z = b.z - (a * b.w / 2) * s + (k * b.d / 2) * c;
-    if (streetDist(x, z) < margin) return false;
-    if (townR(x, z) > 0.9) return false;
-  }
-  return true;
-}
-// houses along each street, both sides, fronts to the street
-for (const S of STREETS) {
-  const dx = S.b[0] - S.a[0], dz = S.b[1] - S.a[1], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L;
-  for (const side of [-1, 1]) {
-    let t = 3 + R() * 3;
-    while (t < L - 3) {
-      const w = 6.5 + R() * 3.5, d = 8 + R() * 3.5;
-      const off = S.w / 2 + 1.2 + d / 2 + R() * 0.8;
-      const nx = -uz * side, nz = ux * side;
-      const cx = S.a[0] + ux * (t + w / 2) + nx * off, cz = S.a[1] + uz * (t + w / 2) + nz * off;
-      const rot = Math.atan2(-nx, -nz); // front (+z local) faces the street
-      const H = { x: cx, z: cz, w, d, h: 5.6 + R() * 3.4, rot, seed: R(), gableFront: R() < 0.45, jetty: R() < 0.5, chimney: R() < 0.7, stone: R() < 0.22, tile: R() < 0.3 };
-      if (!overlaps(H) && clearOfStreets(H, 0.4)) houses.push(H);
-      t += w + 0.4 + (R() < 0.18 ? 2.5 + R() * 3 : 0);
-    }
-  }
-}
-// infill: back houses in the blocks between streets
-for (let i = 0; i < 260; i++) {
-  const a = R() * Math.PI * 2, rr = Math.sqrt(R()) * 0.82;
-  const x = TOWN.x + Math.cos(a) * TOWN.rx * rr, z = TOWN.z + Math.sin(a) * TOWN.rz * rr;
-  const H = { x, z, w: 6 + R() * 3.5, d: 7 + R() * 3, h: 5 + R() * 3, rot: Math.round(R() * 4) * Math.PI / 2 + (R() - 0.5) * 0.1, seed: R(), gableFront: R() < 0.5, jetty: false, chimney: R() < 0.6, stone: R() < 0.3, tile: R() < 0.3 };
-  if (!overlaps(H, 1.4) && clearOfStreets(H, 2.2)) houses.push(H);
-  if (houses.length > 96) break;
-}
 // farmsteads outside the walls
 const farms = [[-150, -40, 0.3], [-120, 70, -0.2], [150, -60, 0.6], [40, 150, 0.1], [-60, 120, 1.2], [190, 40, -0.4]];
 for (const [x, z, rot] of farms) {
@@ -175,26 +123,13 @@ for (const [x, z, rot] of farms) {
 // each house's slot, whether it stands inside the walls, and its door: the step in front of its street side
 houses.forEach((H, i) => { H.i = i; H.inTown = townR(H.x, H.z) < 1; H.door = [H.x + (H.d / 2 + 1.1) * Math.sin(H.rot), H.z + (H.d / 2 + 1.1) * Math.cos(H.rot)]; });
 
-// the wall: an ellipse broken by the two gates, with round towers
-{
-  const n = 64, gateA = [Math.atan2((GATE_W.z - TOWN.z) / TOWN.rz, (GATE_W.x - TOWN.x) / TOWN.rx), Math.atan2((GATE_E.z - TOWN.z) / TOWN.rz, (GATE_E.x - TOWN.x) / TOWN.rx), Math.atan2(-1, -0.06), Math.atan2(1, 0.27)];
-  const pt = (a) => [TOWN.x + Math.cos(a) * TOWN.rx, TOWN.z + Math.sin(a) * TOWN.rz];
-  for (let i = 0; i < n; i++) {
-    const a0 = (i / n) * Math.PI * 2, a1 = ((i + 1) / n) * Math.PI * 2, am = (a0 + a1) / 2;
-    const gap = gateA.some((g) => Math.abs(Math.atan2(Math.sin(am - g), Math.cos(am - g))) < 0.075);
-    const ruin = R() < 0.06;
-    if (!gap) wallSegs.push({ a: pt(a0), b: pt(a1), h: ruin ? 3.2 : 7.5 + R() * 0.8 });
-  }
-  for (let i = 0; i < 9; i++) {
-    const a = (i / 9) * Math.PI * 2 + 0.2;
-    if (gateA.some((g) => Math.abs(Math.atan2(Math.sin(a - g), Math.cos(a - g))) < 0.2)) continue;
-    const [x, z] = pt(a); towers.push({ x, z, r: 4.2, h: 13 + R() * 3 });
-  }
-  for (const g of gateA.slice(0, 2)) { const [x, z] = pt(g); towers.push({ x, z, r: 0, h: 15, gate: true, rot: g }); }
-}
+// the wall: the traced ring, with round towers where the map has them and a gatehouse on each gate
+for (const S of LAYOUT.wall.segs) { const ruin = R() < 0.06; wallSegs.push({ a: S.a, b: S.b, h: ruin ? 3.2 : 7.5 + R() * 0.8 }); }
+for (const T of LAYOUT.wall.towers) towers.push({ x: T.x, z: T.z, r: 4.2, h: 13 + R() * 3 });
+for (const G of gates) towers.push({ x: G.x, z: G.z, r: 0, h: 15, gate: true, rot: G.rot });
 
-// trees: woods (instanced near the town), orchards, and singles along the river
-export const trees = [];
+// trees: the town's own from the map, then woods (instanced near the town), orchards, singles along the river
+export const trees = LAYOUT.trees.slice();
 {
   const TR = mulberry(77);
   for (let i = 0; i < 9000 && trees.length < 2600; i++) {
@@ -202,6 +137,8 @@ export const trees = [];
     if (townR(x, z) < 1.12 || roadDist(x, z) < 6 || riverDist(x, z) < RIVER_W + 3) continue;
     if (Math.hypot(x - MILL.x, z - MILL.z) < 30) continue;
     if (houses.some((H) => Math.hypot(H.x - x, H.z - z) < 12)) continue;
+    // nothing to hide behind within forty metres of a gate: out there you are in the open
+    if (gates.some((G) => Math.hypot(G.x - x, G.z - z) < 40)) continue;
     const f = forest(x, z);
     const byRiver = riverDist(x, z) < RIVER_W + 16 && TR() < 0.25;
     if (f > 0.6 || byRiver || (f > 0.5 && TR() < 0.25)) trees.push({ x, z, h: 9 + TR() * 9, r: 2.6 + TR() * 1.4, seed: TR(), kind: f > 0.6 ? 0 : (TR() < 0.6 ? 1 : 0) });
@@ -210,22 +147,30 @@ export const trees = [];
   for (let i = 0; i < 6; i++) for (let j = 0; j < 4; j++) trees.push({ x: -112 + i * 8 + TR(), z: 86 + j * 8 + TR(), h: 5 + TR() * 1.5, r: 2.4, seed: TR(), kind: 1 });
 }
 
-// haystacks and props
+// haystacks in the fields; carts and barrels against the lane walls
 export const props = [];
 {
   const PR = mulberry(5);
   for (let i = 0; i < 40; i++) {
     const a = PR() * 6.28, r = 95 + PR() * 160, x = Math.cos(a) * r, z = Math.sin(a) * r;
     if (townR(x, z) < 1.15 || riverDist(x, z) < 20 || roadDist(x, z) < 6 || isForest(x, z)) continue;
+    if (gates.some((G) => Math.hypot(G.x - x, G.z - z) < 45)) continue;
     props.push({ x, z, kind: 'hay', r: 2 + PR() * 1.2, seed: PR() });
   }
-  // carts and barrels in the streets
-  for (let i = 0; i < 26; i++) {
-    const S = STREETS[i % STREETS.length], t = 0.15 + PR() * 0.7;
-    const x = S.a[0] + (S.b[0] - S.a[0]) * t, z = S.a[1] + (S.b[1] - S.a[1]) * t;
-    const dx = S.b[0] - S.a[0], dz = S.b[1] - S.a[1], L = Math.hypot(dx, dz), side = PR() < 0.5 ? -1 : 1;
-    const px = x - (dz / L) * side * (S.w / 2 - 0.8), pz = z + (dx / L) * side * (S.w / 2 - 0.8);
-    props.push({ x: px, z: pz, kind: PR() < 0.25 ? 'cart' : 'barrel', rot: Math.atan2(dx, dz), seed: PR() });
+  // carts and barrels against the lane walls: a lane cell with a wall beside it, the prop pushed to that
+  // side; a cart only where the lane is two cells wide, so the way past stays open; none on top of another
+  const laneCells = [];
+  for (let j = 0; j < NJ; j++) for (let i = 0; i < NI; i++) if (cellAt(i, j) === '.') laneCells.push([i, j]);
+  const sides = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  for (let tries = 0; tries < 200 && props.filter((P) => P.kind !== 'hay').length < 24; tries++) {
+    const [i, j] = laneCells[Math.floor(PR() * laneCells.length)];
+    const walls = sides.filter(([a, b]) => !isWalkable(cellAt(i + a, j + b)));
+    if (!walls.length) continue;
+    const [a, b] = walls[Math.floor(PR() * walls.length)], open = isWalkable(cellAt(i - a, j - b));
+    const cart = open && PR() < 0.3;
+    const x = cellX(i) + a * (cart ? 0.1 : 0.5), z = cellZ(j) + b * (cart ? 0.1 : 0.5);
+    if (props.some((P) => P.kind !== 'hay' && Math.hypot(P.x - x, P.z - z) < 3.5)) continue;
+    props.push({ x, z, kind: cart ? 'cart' : 'barrel', rot: a ? 0 : Math.PI / 2, seed: PR() });
   }
 }
 
@@ -247,15 +192,33 @@ function stampCircle(x, z, r) {
     if (Math.hypot(-NEAR + (i + 0.5) * COL_S - x, -NEAR + (j + 0.5) * COL_S - z) < r) COL[j * COL_N + i] = 1;
   }
 }
+// the posts of a roof on posts: at its corners, and along the open side of an arcade
+function posts(B, along = false) {
+  const c = Math.cos(B.rot), s = Math.sin(B.rot), at = (lx, lz) => [B.x + lx * c + lz * s, B.z - lx * s + lz * c];
+  const out = [];
+  if (along) { const n = Math.max(2, Math.round(B.w / 2) + 1); for (let k = 0; k < n; k++) out.push(at(-B.w / 2 + 0.3 + (k * (B.w - 0.6)) / (n - 1), B.d / 2 - 0.3)); }
+  else for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) out.push(at(sx * (B.w / 2 - 0.4), sz * (B.d / 2 - 0.4)));
+  return out;
+}
+export const arcadePosts = arcades.map((A) => posts(A, true));
+export const stallPosts = stalls.map((S) => posts(S));
 houses.forEach((H) => stampBox(H.x, H.z, H.w, H.d, H.rot));
-stampBox(CHURCH.x, CHURCH.z, CHURCH.w, CHURCH.d, 0);
-stampBox(CHURCH.x, CHURCH.z + CHURCH.d / 2 + 3.4, 6.4, 6.4, 0);
+// the church: the nave and its tower (the porch stands on posts); a chapel is a box; a ruin is its walls
+const churchTower = () => ({ x: CHURCH.x + Math.sin(CHURCH.rot) * CHURCH.tz, z: CHURCH.z + Math.cos(CHURCH.rot) * CHURCH.tz, w: CHURCH.tw * 2, d: CHURCH.tw * 2, rot: CHURCH.rot });
+if (CHURCH) { stampBox(CHURCH.x, CHURCH.z, CHURCH.w, CHURCH.d, CHURCH.rot); const T = churchTower(); stampBox(T.x, T.z, T.w, T.d, T.rot); }
+chapels.forEach((C) => stampBox(C.x, C.z, C.w, C.d, C.rot));
+export const ruinWallList = ruins.flatMap((Ru) => ruinWalls(Ru));
+ruinWallList.forEach((W) => stampBox(W.x, W.z, W.w, W.d, W.rot));
 for (const W of wallSegs) { const dx = W.b[0] - W.a[0], dz = W.b[1] - W.a[1]; stampBox((W.a[0] + W.b[0]) / 2, (W.a[1] + W.b[1]) / 2, 1.8, Math.hypot(dx, dz) + 0.4, Math.atan2(dx, dz)); }
+for (const W of lowWalls) { const dx = W.b[0] - W.a[0], dz = W.b[1] - W.a[1]; stampBox((W.a[0] + W.b[0]) / 2, (W.a[1] + W.b[1]) / 2, 0.6, Math.hypot(dx, dz), Math.atan2(dx, dz), 0.2); }
 towers.forEach((T) => { if (!T.gate) stampCircle(T.x, T.z, T.r + 0.2); });
-for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) stampCircle(HALL.x + sx * (HALL.w / 2 - 0.4), HALL.z + sz * (HALL.d / 2 - 0.4), 0.45);
-stampCircle(WELL.x, WELL.z, 1.3);
+if (HALL) posts(HALL).forEach(([x, z]) => stampCircle(x, z, 0.45));
+arcadePosts.forEach((ps) => ps.forEach(([x, z]) => stampCircle(x, z, 0.4)));
+stallPosts.forEach((ps) => ps.forEach(([x, z]) => stampCircle(x, z, 0.3)));
+if (WELL) stampCircle(WELL.x, WELL.z, 1.3);
 stampCircle(MILL.x, MILL.z, 5);
-trees.forEach((T) => { if (Math.abs(T.x) < NEAR && Math.abs(T.z) < NEAR) stampCircle(T.x, T.z, 0.5); });
+trees.forEach((T) => { if (Math.abs(T.x) < NEAR && Math.abs(T.z) < NEAR) stampCircle(T.x, T.z, T.big ? 0.9 : 0.5); });
+bushes.forEach((B) => stampCircle(B.x, B.z, 0.7));
 props.forEach((P) => { if (P.kind === 'hay') stampCircle(P.x, P.z, P.r); else if (P.kind === 'cart') stampBox(P.x, P.z, 1.8, 2.8, P.rot); else stampCircle(P.x, P.z, 0.5); });
 // the river is deep: only the bridge crosses it
 for (let j = 0; j < COL_N; j++) for (let i = 0; i < COL_N; i++) {
@@ -282,32 +245,42 @@ export function standY(x, z) {
 BRIDGE.len = 44;
 BRIDGE.deck = (lz) => { const e = Math.max(height(BRIDGE.x + Math.sin(BRIDGE.rot) * -22, BRIDGE.z + Math.cos(BRIDGE.rot) * -22), height(BRIDGE.x + Math.sin(BRIDGE.rot) * 22, BRIDGE.z + Math.cos(BRIDGE.rot) * 22)); return e + 1.6 - (lz / 22) ** 2 * 1.4; };
 
-// what the town is made of, for the hiding test: boxes with their roof ridge height
+// what the town is made of, for the hiding test: boxes with their roof ridge height. Roofs on posts (the
+// hall, the stalls, the arcades, the porch) block only above their eaves; tree crowns are boxes in the air.
 export const OCCLUDERS = [];
 {
+  const roofOnly = (B, eave, ridge, alongZ = false) => { const y = height(B.x, B.z); OCCLUDERS.push({ x: B.x, z: B.z, w: B.w + 1.2, d: B.d + 1.2, rot: B.rot || 0, y0: y + eave, y1: y + eave + 0.3, ridge: y + ridge, ridgeAlongZ: alongZ, roofOnly: true }); };
   for (const H of houses) {
     const gy = height(H.x, H.z);
-    const rise = H.gableFront ? (H.w / 2) * 1.35 : (H.d / 2) * 1.25;
+    const rise = H.tower ? 0.6 : H.gableFront ? (H.w / 2) * 1.35 : (H.d / 2) * 1.25;
     OCCLUDERS.push({ x: H.x, z: H.z, w: H.w + 0.9, d: H.d + 0.9, rot: H.rot, y0: gy - 1, y1: gy + H.h, ridge: gy + H.h + rise, ridgeAlongZ: H.gableFront });
   }
-  const cy = height(CHURCH.x, CHURCH.z);
-  OCCLUDERS.push({ x: CHURCH.x, z: CHURCH.z, w: CHURCH.w + 1, d: CHURCH.d + 1, rot: 0, y0: cy - 1, y1: cy + 13, ridge: cy + 22, ridgeAlongZ: true });
-  OCCLUDERS.push({ x: CHURCH.x, z: CHURCH.z + CHURCH.d / 2 + 3.4, w: 7, d: 7, rot: 0, y0: cy - 1, y1: cy + CHURCH.towerH, ridge: cy + CHURCH.towerH + 9, ridgeAlongZ: true });
-  const hy = height(HALL.x, HALL.z);
-  OCCLUDERS.push({ x: HALL.x, z: HALL.z, w: HALL.w + 1.4, d: HALL.d + 1.4, rot: 0, y0: hy + 3.3, y1: hy + 3.6, ridge: hy + 6.4, ridgeAlongZ: false, roofOnly: true });
+  if (CHURCH) {
+    const cy = height(CHURCH.x, CHURCH.z), T = churchTower();
+    OCCLUDERS.push({ x: CHURCH.x, z: CHURCH.z, w: CHURCH.w + 1, d: CHURCH.d + 1, rot: CHURCH.rot, y0: cy - 1, y1: cy + 12, ridge: cy + 12 + (CHURCH.w / 2) * 1.7, ridgeAlongZ: true });
+    OCCLUDERS.push({ x: T.x, z: T.z, w: T.w + 0.4, d: T.d + 0.4, rot: T.rot, y0: cy - 1, y1: cy + CHURCH.towerH, ridge: cy + CHURCH.towerH + 9, ridgeAlongZ: true });
+    if (CHURCH.porch) roofOnly({ ...CHURCH.porch, rot: CHURCH.rot }, 3.3, 5.0, true);
+  }
+  for (const C of chapels) { const gy = height(C.x, C.z); OCCLUDERS.push({ x: C.x, z: C.z, w: C.w + 0.9, d: C.d + 0.9, rot: C.rot, y0: gy - 1, y1: gy + 6, ridge: gy + 6 + (C.w / 2) * 1.3, ridgeAlongZ: true }); }
+  for (const W of ruinWallList) { const gy = height(W.x, W.z); OCCLUDERS.push({ x: W.x, z: W.z, w: W.w + 0.4, d: W.d + 0.4, rot: W.rot, y0: gy - 1, y1: gy + W.h, ridge: gy + W.h, ridgeAlongZ: true }); }
+  if (HALL) roofOnly(HALL, 3.3, 6.6);
+  for (const S of stalls) roofOnly(S, 2.3, 3.3);
+  for (const A of arcades) roofOnly(A, 3.3, 4.4);
   for (const W of wallSegs) { const dx = W.b[0] - W.a[0], dz = W.b[1] - W.a[1]; const y = height((W.a[0] + W.b[0]) / 2, (W.a[1] + W.b[1]) / 2); OCCLUDERS.push({ x: (W.a[0] + W.b[0]) / 2, z: (W.a[1] + W.b[1]) / 2, w: 1.8, d: Math.hypot(dx, dz) + 0.4, rot: Math.atan2(dx, dz), y0: y - 1, y1: y + W.h, ridge: y + W.h, ridgeAlongZ: true }); }
+  for (const W of lowWalls) { const dx = W.b[0] - W.a[0], dz = W.b[1] - W.a[1]; const y = height((W.a[0] + W.b[0]) / 2, (W.a[1] + W.b[1]) / 2); OCCLUDERS.push({ x: (W.a[0] + W.b[0]) / 2, z: (W.a[1] + W.b[1]) / 2, w: 0.6, d: Math.hypot(dx, dz), rot: Math.atan2(dx, dz), y0: y - 1, y1: y + 2.1, ridge: y + 2.1, ridgeAlongZ: true }); }
   for (const T of towers) { if (T.gate) continue; const y = height(T.x, T.z); OCCLUDERS.push({ x: T.x, z: T.z, w: T.r * 1.8, d: T.r * 1.8, rot: 0, y0: y - 1, y1: y + T.h, ridge: y + T.h + 5, ridgeAlongZ: true }); }
+  for (const T of trees) { if (!T.inTown) continue; const y = height(T.x, T.z) + T.h * 0.62, r = T.r * 0.82; OCCLUDERS.push({ x: T.x, z: T.z, w: T.r * 1.9, d: T.r * 1.9, rot: 0, y0: y - r, y1: y + r, ridge: y + r, ridgeAlongZ: true }); }
 }
 
 // the covers: under a roof with no walls, where the light never reaches whatever the lantern does. The
-// market hall, the church porch (in front of the tower), the two gate arches, and the banks under the
-// bridge. Oriented rectangles {x, z, w, d, rot}, tested like the houses' footprints.
-export const COVERS = [
-  { x: HALL.x, z: HALL.z, w: HALL.w - 0.4, d: HALL.d - 0.4, rot: 0, name: 'the market hall' },
-  { x: CHURCH.x, z: CHURCH.z + CHURCH.d / 2 + 3.4 + 3.4 + 2.2, w: 5, d: 4.4, rot: 0, name: 'the church porch' },
-  { x: BRIDGE.x + Math.cos(BRIDGE.rot) * 3.9, z: BRIDGE.z - Math.sin(BRIDGE.rot) * 3.9, w: 2.6, d: 10, rot: BRIDGE.rot, name: 'under the bridge' },
-  { x: BRIDGE.x - Math.cos(BRIDGE.rot) * 3.9, z: BRIDGE.z + Math.sin(BRIDGE.rot) * 3.9, w: 2.6, d: 10, rot: BRIDGE.rot, name: 'under the bridge' },
-];
+// market hall, the arcades, the church porch, the two gate arches, and the banks under the bridge. Oriented
+// rectangles {x, z, w, d, rot}, tested like the houses' footprints.
+export const COVERS = [];
+if (HALL) COVERS.push({ x: HALL.x, z: HALL.z, w: HALL.w - 0.4, d: HALL.d - 0.4, rot: 0, name: 'the market hall' });
+for (const A of arcades) COVERS.push({ x: A.x, z: A.z, w: A.w - 0.3, d: A.d, rot: A.rot, name: 'the arcade' });
+if (CHURCH && CHURCH.porch) COVERS.push({ x: CHURCH.porch.x, z: CHURCH.porch.z, w: CHURCH.porch.w + 0.6, d: CHURCH.porch.d + 0.4, rot: CHURCH.rot, name: 'the church porch' });
+COVERS.push({ x: BRIDGE.x + Math.cos(BRIDGE.rot) * 3.9, z: BRIDGE.z - Math.sin(BRIDGE.rot) * 3.9, w: 2.6, d: 10, rot: BRIDGE.rot, name: 'under the bridge' });
+COVERS.push({ x: BRIDGE.x - Math.cos(BRIDGE.rot) * 3.9, z: BRIDGE.z + Math.sin(BRIDGE.rot) * 3.9, w: 2.6, d: 10, rot: BRIDGE.rot, name: 'under the bridge' });
 for (const T of towers) if (T.gate) COVERS.push({ x: T.x, z: T.z, w: 4.2, d: 9, rot: -T.rot, name: 'the gate' });
 export function inCover(x, z) {
   for (const C of COVERS) {
@@ -341,8 +314,7 @@ export function segmentBlocked(p, q) {
       const x = lp[0] + d[0] * t, y = lp[1] + d[1] * t, z = lp[2] + d[2] * t;
       const across = O.ridgeAlongZ ? Math.abs(x) / ext[0] : Math.abs(z) / ext[1];
       const top = O.y1 + (O.ridge - O.y1) * Math.max(0, 1 - across);
-      const bottom = O.roofOnly ? O.y0 : O.y0;
-      if (y < top && y > bottom) return true;
+      if (y < top && y > O.y0) return true;
     }
   }
   return false;
