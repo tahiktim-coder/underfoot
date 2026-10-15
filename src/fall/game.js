@@ -249,6 +249,11 @@ export function createGame(canvas, opts = {}) {
   canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up); canvas.addEventListener('lostpointercapture', up);
   canvas.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') up(e); });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  // on iOS a touch's pointerdown does not count as a gesture for audio, so the context made there stays
+  // suspended; the end of the same touch does count, and init() resumes a context that is not running
+  canvas.addEventListener('pointerup', () => snd.init());
+  canvas.addEventListener('click', () => snd.init());
+  document.addEventListener('touchend', () => snd.init(), { passive: true });
   function readInput() {
     let x = 0, y = 0;
     if (keys.has('left')) x -= 1;

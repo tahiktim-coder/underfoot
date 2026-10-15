@@ -35,7 +35,7 @@ function boot() {
   // the buttons: sound (the game starts it on the first key or click; this flips it), fullscreen, look up
   const sb = $('soundBtn');
   const syncSound = () => sb.setAttribute('aria-pressed', game.snd.on ? 'true' : 'false');
-  sb.addEventListener('click', () => { if (!game.snd.on) { game.snd.init(); game.snd.setMuted(false); } else game.snd.setMuted(true); syncSound(); canvas.focus({ preventScroll: true }); });
+  sb.addEventListener('click', () => { game.snd.init(); if (!game.snd.on) game.snd.setMuted(false); else game.snd.setMuted(true); syncSound(); canvas.focus({ preventScroll: true }); });
   canvas.addEventListener('pointerdown', () => setTimeout(syncSound, 0));
   window.addEventListener('keydown', () => setTimeout(syncSound, 0));
   // fullscreen on the document, not the screen: the screen keeps its 16:9 rule inside it and is letterboxed
