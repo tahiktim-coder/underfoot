@@ -195,8 +195,8 @@ float cloudShadow(vec3 P){
 // The hiding test (game.js isLit) fires three rays to points 24 m apart across the lantern's glass, so its
 // shadows have a penumbra that wide: eight taps over a disc the size of that spread as seen from the
 // receiver (assuming the blocker is a house, about eight metres nearer the lantern), rotated per cell so the
-// band dithers. Where only part of the glass shows, the ground gets a tenth of the light at least: under
-// the overexposed pool that is a mid amber, so the shallow shadow is faintly amber and the deep shadow
+// band dithers. Where only part of the glass shows, the ground gets at least three tenths of the light:
+// under the overexposed pool that is a clear amber, so the shallow shadow is an amber band, the deep shadow
 // black, and the picture says what the rule says.
 float lanternLight(vec3 P, vec3 n, out float sh){
   sh = 1.0;
@@ -215,7 +215,7 @@ float lanternLight(vec3 P, vec3 n, out float sh){
     for (int i = 0; i < 8; i++) acc += texture(uLtShadow, vec3(lc.xy + R*PD[i]*r, lc.z - 0.00002));
     sh = acc/8.0;
   }
-  float lit = sh > 0.02 ? mix(0.1, 1.0, sh*sh) : 0.0;
+  float lit = sh > 0.02 ? mix(0.3, 1.0, sh) : 0.0;
   return uLan.w*cone*att*ndl*lit;
 }
 
@@ -944,6 +944,7 @@ precision highp float;
 uniform sampler2D uQ, uUI;
 uniform vec2 uLow, uView, uOff, uCanvas;
 uniform float uTime, uTilt, uFocus, uGrain, uUIon, uFade, uFlash, uVig;
+uniform vec4 uEdge;            // a colour and a strength bleeding in from the screen's edges (the light has you)
 layout(location=0) out vec4 o;
 float hash(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y)*p3.z); }
 const vec2 PD[12] = vec2[12](vec2(-0.326,-0.406), vec2(-0.840,-0.074), vec2(-0.696,0.457), vec2(-0.203,0.621), vec2(0.962,-0.195), vec2(0.473,-0.480), vec2(0.519,0.767), vec2(0.185,-0.893), vec2(0.507,0.064), vec2(0.896,0.412), vec2(-0.322,-0.933), vec2(-0.792,-0.598));
@@ -967,5 +968,6 @@ void main(){
   if (uUIon > 0.5){ vec4 ui = texelFetch(uUI, ivec2(floor(uv.x*uView.x), floor((1.0 - uv.y)*uView.y)), 0); col = mix(col, ui.rgb, ui.a); }
   col += (hash(gl_FragCoord.xy*0.5 + fract(uTime*7.13)*317.0) - 0.5)*uGrain;
   col *= 1.0 - uVig*pow(clamp(length(q)*1.3, 0.0, 1.0), 2.3);
+  col = mix(col, uEdge.rgb, uEdge.a*pow(clamp(length(q)*1.25, 0.0, 1.0), 3.0));
   o = vec4(col, 1.0);
 }`;

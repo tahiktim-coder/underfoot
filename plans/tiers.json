@@ -1,23 +1,75 @@
 [
-  {"eval": "__v16.hold=true; const g=__v16.game; g.S.played=true; g.S.auto=false; __v16.force('search'); const P=g.S.player; window.probe=()=>{ const li=g.isLit([P.x, g.standY(P.x,P.z)+1.6, P.z]); return [P.x.toFixed(1), P.z.toFixed(1), li.tier, li.rays, li.L.toFixed(2), 'seen', P.seen.toFixed(2), 'off', g.S.lanOff.toFixed(0)]; }; window.find=(tier)=>{ const aim=g.S.aimS; for(let r=1;r<45;r+=1) for(let a=0;a<24;a++){ const x=aim[0]+Math.cos(a/24*6.283+r)*r, z=aim[1]+Math.sin(a/24*6.283+r)*r; if(g.blocked(x,z)) continue; const li=g.isLit([x, g.standY(x,z)+1.6, z]); if(li.tier===tier) return [x,z]; } return null; }; window.put=(tier, seen)=>{ const q=find(tier); if(q){ P.x=q[0]; P.z=q[1]; } P.seen=seen; g.update(0.016); return !!q; }; window.zoom=()=>{ g.S.view={x:P.x,y:g.standY(P.x,P.z)+1,z:P.z,yaw:Math.PI/4,pitch:0.84,hh:9,D:1500}; g.S.cam=g.S.view; g.render(); g.S.view=null; }; for(let i=0;i<60;i++){ g.update(0.05); P.seen=Math.min(P.seen,0.2); } g.render(); return probe()"},
-  {"shot": "t0_start", "sel": "canvas"},
-  {"eval": "const g=__v16.game; const P=g.S.player; let log=[]; for(let i=0;i<200;i++){ g.update(0.05); P.seen=Math.min(P.seen,0.25); if(i%20===0) log.push(P.tier+'/'+P.seen.toFixed(2)+'/'+g.S.lanOff.toFixed(0)); } g.render(); return [log, probe()]"},
-  {"shot": "t1_search12", "sel": "canvas"},
-  {"eval": "return [put('deep', 0.3), probe()]"},
-  {"shot": "t2_deep", "sel": "canvas"},
-  {"eval": "zoom(); return probe()"},
-  {"shot": "t2_deep_zoom", "sel": "canvas"},
-  {"eval": "return [put('shallow', 0.35), probe()]"},
-  {"shot": "t3_shallow", "sel": "canvas"},
-  {"eval": "zoom(); return probe()"},
-  {"shot": "t3_shallow_zoom", "sel": "canvas"},
-  {"eval": "const g=__v16.game; const P=g.S.player; let log=[]; for(let i=0;i<120;i++){ g.update(0.05); if(i%15===0) log.push(P.tier+'/'+P.seen.toFixed(2)); if(P.seen>=0.98) break; } return log"},
-  {"eval": "return [put('lit', 0.5), probe()]"},
-  {"shot": "t4_lit", "sel": "canvas"},
-  {"eval": "zoom(); return probe()"},
-  {"shot": "t4_lit_zoom", "sel": "canvas"},
-  {"eval": "const g=__v16.game; const P=g.S.player; P.x=-2; P.z=-1; P.seen=0.5; g.update(0.016); g.render(); return [g.inCover(P.x,P.z) && g.inCover(P.x,P.z).name, probe(), __v16.errors]"},
-  {"shot": "t5_hall", "sel": "canvas"},
-  {"eval": "const g=__v16.game; __v16.view('town'); g.S.cam=g.S.view; g.S.noUI=true; g.render(); return __v16.errors"},
-  {"shot": "t6_town", "sel": "canvas"}
+  {
+    "eval": "__v16.hold=true; const g=__v16.game; g.S.played=true; g.S.auto=false; __v16.force('search'); const P=g.S.player; window.probe=()=>{ const li=g.isLit([P.x, g.standY(P.x,P.z)+1.6, P.z]); return [P.x.toFixed(1), P.z.toFixed(1), li.tier, li.rays, li.L.toFixed(2), 'seen', P.seen.toFixed(2), 'off', g.S.lanOff.toFixed(0)]; }; window.find=(tier)=>{ const aim=g.S.aimS; for(let r=1;r<45;r+=1) for(let a=0;a<24;a++){ const x=aim[0]+Math.cos(a/24*6.283+r)*r, z=aim[1]+Math.sin(a/24*6.283+r)*r; if(g.blocked(x,z)) continue; const li=g.isLit([x, g.standY(x,z)+1.6, z]); if(li.tier===tier) return [x,z]; } return null; }; window.put=(tier, seen)=>{ const q=find(tier); if(q){ P.x=q[0]; P.z=q[1]; } P.seen=seen; g.update(0.016); return !!q; }; window.zoom=()=>{ g.S.view={x:P.x,y:g.standY(P.x,P.z)+1,z:P.z,yaw:Math.PI/4,pitch:0.84,hh:9,D:1500}; g.S.cam=g.S.view; g.render(); g.S.view=null; }; for(let i=0;i<60;i++){ g.update(0.05); P.seen=Math.min(P.seen,0.2); } g.render(); return probe()"
+  },
+  {
+    "shot": "t0_start",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game; const P=g.S.player; let log=[]; for(let i=0;i<200;i++){ g.update(0.05); P.seen=Math.min(P.seen,0.25); if(i%20===0) log.push(P.tier+'/'+P.seen.toFixed(2)+'/'+g.S.lanOff.toFixed(0)); } g.render(); return [log, probe()]"
+  },
+  {
+    "shot": "t1_search12",
+    "sel": "canvas"
+  },
+  {
+    "eval": "return [put('deep', 0.3), probe()]"
+  },
+  {
+    "shot": "t2_deep",
+    "sel": "canvas"
+  },
+  {
+    "eval": "zoom(); return probe()"
+  },
+  {
+    "shot": "t2_deep_zoom",
+    "sel": "canvas"
+  },
+  {
+    "eval": "return [put('shallow', 0.35), probe()]"
+  },
+  {
+    "shot": "t3_shallow",
+    "sel": "canvas"
+  },
+  {
+    "eval": "zoom(); return probe()"
+  },
+  {
+    "shot": "t3_shallow_zoom",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game; const P=g.S.player; let log=[]; for(let i=0;i<120;i++){ g.update(0.05); if(i%15===0) log.push(P.tier+'/'+P.seen.toFixed(2)); if(P.seen>=0.98) break; } return log"
+  },
+  {
+    "eval": "return [put('lit', 0.5), probe()]"
+  },
+  {
+    "shot": "t4_lit",
+    "sel": "canvas"
+  },
+  {
+    "eval": "zoom(); return probe()"
+  },
+  {
+    "shot": "t4_lit_zoom",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game; const P=g.S.player; P.x=-2; P.z=-1; P.seen=0.5; g.update(0.016); g.render(); return [g.inCover(P.x,P.z) && g.inCover(P.x,P.z).name, probe(), __v16.errors]"
+  },
+  {
+    "shot": "t5_hall",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game; __v16.view('town'); g.S.cam=g.S.view; g.S.noUI=true; g.render(); return __v16.errors"
+  },
+  {
+    "shot": "t6_town",
+    "sel": "canvas"
+  }
 ]

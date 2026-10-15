@@ -47,6 +47,8 @@ const LEAVE_LATER = 12;       // seconds of the leave from night 2 on (night 1 a
 const GIVE_UP = 5;            // the last seconds of a search, once it has lost you: the lantern lifts and the light widens and dims
 const OVERTIME = 20;          // seconds past the search length it keeps hunting while it still has you, at most
 const LIFT = 40;              // how much higher the lantern rides when it is giving up (metres)
+const TELL_WORDS = true;      // the word over your head in the search (Hidden, Half seen, Seen) and the eye bar under it
+const TELL_EDGE = true;       // the pulse at the screen's edges while the light has you: amber half seen, red seen
 const PUFF_KEEP_OUT = 150;    // no footfall dust ring spawns closer to you than this (metres)
 
 function walkPlan(from, to, t0, stepLen, end) {
@@ -713,7 +715,7 @@ export function createGame(canvas, opts = {}) {
     const plot = (c) => (x, y) => { ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1); };
     const plate = (x, y, w, h) => { ctx.fillStyle = C.plate; ctx.fillRect(x, y, w, h); ctx.fillStyle = C.edge; ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + h - 1, w, 1); ctx.fillRect(x, y, 1, h); ctx.fillRect(x + w - 1, y, 1, h); };
     // the three tiers of shadow in the HUD: deep is the look's cold ramp, shallow a dim amber, lit the accent
-    const H = LK.palette.hues, tierCol = (t) => (t === 'lit' ? C.accent : t === 'shallow' ? (H[0] ? H[0][2] : C.dim) : (H[2] ? H[2][2] : C.edge));
+    const H = LK.palette.hues, tierCol = (t) => (t === 'lit' ? (H[3] ? H[3][4] : C.accent) : t === 'shallow' ? (H[0] ? H[0][3] : C.dim) : (H[2] ? H[2][2] : C.edge));
     const label = S.retry && (S.phase === 'approach' || S.phase === 'plant') ? 'It is still here' : { calm: 'Quiet', approach: 'It is coming', plant: 'It is here', search: S.giveUp > 0.3 ? 'It is giving up' : 'Hide', caught: 'It sees you', leave: 'It is passing' }[S.phase];
     if (!S.intro && !(S.card && S.card.kind !== 'night')) {
       const w = measureWisp(label) + 12;
@@ -733,6 +735,21 @@ export function createGame(canvas, opts = {}) {
           if (hg > 1) { ctx.fillStyle = tierCol(S.player.tier); ctx.fillRect(x0 + 15 + x, 15 - hg + 1, 1, hg * 2 - 1); }
         }
         if (o > 0.15) { ctx.fillStyle = LK.palette.greys[0]; ctx.fillRect(x0 + 14, 14, 3, 3); }
+      }
+    }
+    // over your head in the search: the word for your shadow and the eye filling in its colour, so what the
+    // light sees is never a guess
+    if (TELL_WORDS && S.phase === 'search' && !S.card && S.player.tier !== 'none') {
+      const P = S.player, tier = P.tier, hp = R.project([P.x, standY(P.x, P.z) + 2.5, P.z]);
+      if (hp[2]) {
+        const word = tier === 'lit' ? 'Seen' : tier === 'shallow' ? 'Half seen' : 'Hidden', col = tierCol(tier);
+        const ww = measureWisp(word), x = Math.round(hp[0] - ww / 2), y = Math.round(hp[1]) - 16;
+        ctx.globalAlpha = tier === 'shallow' ? 0.6 + 0.4 * Math.sin(S.t * 7) : 1;
+        ctx.fillStyle = C.plate; ctx.fillRect(x - 2, y - 2, ww + 4, 11);
+        drawWisp(word, x, y, plot(col));
+        ctx.globalAlpha = 1;
+        const bx = Math.round(hp[0]) - 8, by = y + 11;
+        plate(bx, by, 17, 5); ctx.fillStyle = col; ctx.fillRect(bx + 1, by + 1, Math.round(15 * clamp(P.seen)), 3);
       }
     }
     if (S.hint > 0.01 && !S.intro && !S.card && S.phase !== 'caught') {
@@ -874,6 +891,11 @@ export function createGame(canvas, opts = {}) {
     for (const p of out) person(A, p.x, standY(p.x, p.z), p.z, p.yaw, p.ph, p.run, { hood: false, scarf: false, inflate, mat: M.P_OUTLINE });
     const sh = S.phase === 'caught' ? 0 : S.shake;
     const ll = lanLight(), ls = lanScreen();
+    // the screen's edges pulse while the light has you: amber half seen, red seen, stronger as the eye fills
+    const lcol = LK.light.lanCol, pulse = 0.7 + 0.3 * Math.sin(S.t * 6);
+    const edge = TELL_EDGE && S.phase === 'search' && !S.card && (P.tier === 'lit' || P.tier === 'shallow')
+      ? (P.tier === 'lit' ? [0.75, 0.12, 0.06, (0.28 + 0.4 * P.seen) * pulse] : [lcol[0] * 0.8, lcol[1] * 0.6, lcol[2] * 0.3, (0.16 + 0.3 * P.seen) * pulse])
+      : [0, 0, 0, 0];
     HM.sync();
     R.render({
       t: S.t, cam: S.cam, light: dimmed(S.dim),
@@ -885,7 +907,7 @@ export function createGame(canvas, opts = {}) {
       cloudK: S.cam.hh > 120 ? Math.min(1, (S.cam.hh - 120) / 400) : 0, holeC: [-300, 0], cloudCov: LK.cloudCov,
       cut: S.cam.hh < 60 ? [P.x, standY(P.x, P.z) + 1.2, P.z] : null,
       gCentre: [lerp(G.x, TOWN.x, 0.5), 0, lerp(G.z, TOWN.z, 0.5)],
-      tilt: clamp(1 - (S.cam.hh - 40) / 60) * LK.tilt, focus: 0.5, grain: LK.grain, vignette: LK.vignette,
+      tilt: clamp(1 - (S.cam.hh - 40) / 60) * LK.tilt, focus: 0.5, grain: LK.grain, vignette: LK.vignette, edge,
       shake: [Math.sin(S.t * 63) * sh, Math.cos(S.t * 71) * sh * 0.7],
       fade: Math.max(S.fade, S.dipT < 0 ? 0 : S.dipT < DIP_OUT ? S.dipT / DIP_OUT : 1 - (S.dipT - DIP_OUT) / DIP_IN), flash: S.flash * 0.85, eye: S.eye, seen: S.player.seen,
       birds: S.birds.map((b) => [b.x, b.y + 0.4, b.z, b.fly ? b.ph : 0.25]),

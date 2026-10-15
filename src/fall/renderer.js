@@ -331,7 +331,7 @@ export function createRenderer(canvas, giantMesh) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height);
     P.post.use().tex('uQ', tQ, 0).tex('uUI', tUI, 1).set('uLow', LW, LH).set('uView', VW, VH).set('uOff', frac[0] + (scene.shake ? scene.shake[0] : 0), frac[1] + (scene.shake ? scene.shake[1] : 0))
       .set('uCanvas', canvas.width, canvas.height).set('uTime', t).set('uTilt', scene.tilt ?? 1).set('uFocus', scene.focus ?? 0.5).set('uGrain', scene.grain ?? 0.045)
-      .set('uUIon', uiOn ? 1 : 0).set('uFade', scene.fade || 0).set('uFlash', scene.flash || 0).set('uVig', scene.vignette ?? 0.4);
+      .set('uUIon', uiOn ? 1 : 0).set('uFade', scene.fade || 0).set('uFlash', scene.flash || 0).set('uVig', scene.vignette ?? 0.4).set('uEdge', scene.edge || [0, 0, 0, 0]);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
