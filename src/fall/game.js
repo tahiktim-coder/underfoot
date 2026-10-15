@@ -8,7 +8,7 @@ import { createRenderer, VW, VH } from './renderer.js';
 import { createGiant, buildGiantMesh, footAt } from './giant.js';
 import { chain, lantern, person, beam } from './props.js';
 import { millSails, M } from './mesh.js';
-import { standY, height, blocked, segmentBlocked, inCover, houses, OCCLUDERS, TOWN, SQUARE, STREETS, townR } from './world.js';
+import { standY, height, blocked, segmentBlocked, inCover, houses, OCCLUDERS, TOWN, SQUARE, STREETS, CHURCH, townR } from './world.js';
 import { drawWisp, measureWisp } from '../lib/wisp.js';
 import { mulberry } from '../lib/noise.js';
 import { createSound } from './sound.js';
@@ -37,7 +37,10 @@ const STANCE = { front: { foot: 1, x: -470, z: 26, yaw: Math.PI / 2 }, back: { f
 const STEP_T = 8.5, SWING = 7.2;
 const CUT1 = 1.1, INTRO_CUT = 5.6;
 const DIP_OUT = 0.12, DIP_IN = 0.2;   // the quick dip to dark on a camera cut
-const LAN = 40, LAN_Y = 56;   // the lantern's size, and how high its ring rides over the ground while it searches (the body hangs 37 m below the ring: 56 keeps the drip over the roofs)
+const LAN = 40, LAN_Y = 56;   // the lantern's size, and how high its ring rides over the ground while it searches
+const LAN_BODY = 37;          // the lantern's body hangs this far below the ring (the drip is at its end)
+const RING_CLEAR = LAN_BODY + 7, RING_CLEAR_TOWER = LAN_BODY + 13;   // the ring never hangs nearer a roof ridge (a tower top) than this: the drip clears it by 7 m (13 m)
+const RING_REACH = 8, RING_SLOPE = 1.5;   // how far past a building's footprint the floor reaches, and how fast it falls off beyond (metres per metre)
 const SHADOW_DRAIN = 0.3;     // how fast the eye empties per second in deep shadow
 const OFF_PERIOD = 36;        // seconds for the lantern to drift from low to nearly overhead and back
 const TAKE_LIT = 1.2;         // seconds the light must hold a townsperson before it narrows on them
@@ -309,6 +312,19 @@ export function createGame(canvas, opts = {}) {
     for (const o of [[0, 0], [12, 5], [-12, -5]]) if (segmentBlocked(p, add(lp.pos, add(scl(side, o[0]), scl(up, o[1]))))) rays++;
     return { L, rays, tier: rays === 3 ? 'deep' : rays > 0 ? 'shallow' : 'lit' };
   }
+  // the lowest the ring may hang over a point: LAN_Y over the ground, or clear of any roof ridge or tower
+  // top the lantern's body would pass through, the floor sloping down away from each building so the lantern
+  // rises as it comes rather than jumping
+  function ringFloor(x, z) {
+    let f = height(x, z) + LAN_Y;
+    for (const O of OCCLUDERS) {
+      const d = Math.hypot(O.x - x, O.z - z) - Math.hypot(O.w, O.d) * 0.5 - RING_REACH;
+      const need = O.top !== undefined ? O.top + RING_CLEAR_TOWER : O.ridge + RING_CLEAR;
+      if (need <= f) continue;
+      if (d <= 0) f = need; else if (need - d * RING_SLOPE > f) f = need - d * RING_SLOPE;
+    }
+    return f;
+  }
   function stepLantern(dt) {
     const L = S.lan, grip = G.W.gripR;
     if (S.lanReset) { L.pos = add(grip, [0, -L.len, 0]); L.vel = [0, 0, 0]; S.lanReset = false; }
@@ -321,7 +337,7 @@ export function createGame(canvas, opts = {}) {
       L.pos[0] += L.vel[0] * h; L.pos[2] += L.vel[2] * h;
     }
     const hd = Math.hypot(grip[0] - L.pos[0], grip[2] - L.pos[2]);
-    L.pos[1] = Math.max(grip[1] - Math.sqrt(Math.max(0, L.len * L.len - hd * hd)), height(L.pos[0], L.pos[2]) + LAN_Y);
+    L.pos[1] = Math.max(grip[1] - Math.sqrt(Math.max(0, L.len * L.len - hd * hd)), ringFloor(L.pos[0], L.pos[2]));
   }
 
   // ---------------------------------------------------------------------------------- footfalls
@@ -465,9 +481,11 @@ export function createGame(canvas, opts = {}) {
     if (S.phase === 'caught') { const P = S.player; look = lerp3(look, [P.x, standY(P.x, P.z), P.z], ease(S.pt / 1.5)); }
     G.headLook = look;
     G.pose();
-    // the chain is paid out until the lantern rides about LAN_Y over the ground under it; giving up, it
-    // draws the lantern up by LIFT, so the pool widens and dims (the hiding test reads the real position)
-    const want = G.W.gripR[1] - height(S.lan.pos[0], S.lan.pos[2]) - LAN_Y - 2 - LIFT * ease(S.giveUp);
+    // the chain is paid out until the lantern rides about LAN_Y over the ground under it (higher over a tall
+    // roof or the church tower, the same floor the lantern itself keeps, so the spring never fights it);
+    // giving up, it draws the lantern up by LIFT, so the pool widens and dims (the hiding test reads the real
+    // position)
+    const want = G.W.gripR[1] - ringFloor(S.lan.pos[0], S.lan.pos[2]) - 2 - LIFT * ease(S.giveUp);
     S.lan.len = lerp(1100, want, k);
   }
 
@@ -925,7 +943,7 @@ export function createGame(canvas, opts = {}) {
   updateGiant(0);
 
   const api = {
-    R, G, S, snd, LOOKS, LOOK_ORDER, NIGHTS, nightTable: night, isLit, inCover, blocked, standY, height, lanLight, segmentBlocked, OCCLUDERS, houses, brain, HM,
+    R, G, S, snd, LOOKS, LOOK_ORDER, NIGHTS, nightTable: night, isLit, inCover, blocked, standY, height, lanLight, segmentBlocked, OCCLUDERS, houses, brain, HM, ringFloor, CHURCH, LAN_BODY,
     get look() { return lookName; },
     get night() { return S.night; },
     begin, startNight, newRun, dismissCard,

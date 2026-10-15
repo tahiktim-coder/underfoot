@@ -258,7 +258,9 @@ export const OCCLUDERS = [];
   if (CHURCH) {
     const cy = height(CHURCH.x, CHURCH.z), T = churchTower();
     OCCLUDERS.push({ x: CHURCH.x, z: CHURCH.z, w: CHURCH.w + 1, d: CHURCH.d + 1, rot: CHURCH.rot, y0: cy - 1, y1: cy + 12, ridge: cy + 12 + (CHURCH.w / 2) * 1.7, ridgeAlongZ: true });
-    OCCLUDERS.push({ x: T.x, z: T.z, w: T.w + 0.4, d: T.d + 0.4, rot: T.rot, y0: cy - 1, y1: cy + CHURCH.towerH, ridge: cy + CHURCH.towerH + 9, ridgeAlongZ: true });
+    // `top` is the spire's iron tip as the mesh builds it (a spire two half-widths tall, a 2.4 m finial): the
+    // lantern keeps clear of it; the hiding test uses `ridge` as before
+    OCCLUDERS.push({ x: T.x, z: T.z, w: T.w + 0.4, d: T.d + 0.4, rot: T.rot, y0: cy - 1, y1: cy + CHURCH.towerH, ridge: cy + CHURCH.towerH + 9, ridgeAlongZ: true, top: cy + CHURCH.towerH + 2 * CHURCH.tw + 2.4 });
     if (CHURCH.porch) roofOnly({ ...CHURCH.porch, rot: CHURCH.rot }, 3.3, 5.0, true);
   }
   for (const C of chapels) { const gy = height(C.x, C.z); OCCLUDERS.push({ x: C.x, z: C.z, w: C.w + 0.9, d: C.d + 0.9, rot: C.rot, y0: gy - 1, y1: gy + 6, ridge: gy + 6 + (C.w / 2) * 1.3, ridgeAlongZ: true }); }
