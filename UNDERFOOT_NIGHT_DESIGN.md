@@ -172,6 +172,10 @@ So night 1 is survivable by hiding alone and nights 4 and 5 are hard even for th
 
 `npm run zip:itch` makes `itch/underfoot-itch.zip` (about 67 KB) with `index.html` at its root; README section 13 has the itch project settings. The page: doctype, charset, viewport with `viewport-fit=cover`, a 16:9 screen at `min(100vw, 177.78vh)`, `touch-action: none`, no fonts, no picker; Sound and Fullscreen top right, a hold-to-look button on coarse pointers; the credit from `AUTHOR` in `src/itch.js`. Input: keys on the window by `e.code`, the right button from `e.buttons` and cleared on leave, a second finger for the look-up, the canvas focused at boot. Robustness: a 60 Hz cap with fixed 1/60 s steps (at most four a frame), the sound suspended while hidden or off screen, a message on a lost graphics context or a frame error, "Building the valley..." while the game is made. `tools/shot.mjs` no longer wraps a doctype round the page, so screenshots test what ships.
 
+### The take, later
+
+The flash and the pop that marked a take were removed (the user saw them as a glitch, since the take usually happens off screen). What remains of a take: the beam narrows on the target for a second, then the candle or the window simply dies, the townsperson is gone and a stain stays, a house goes dark with its scorch and the stain on its step. The catch cinematic keeps its own flashes.
+
 ### Skipped
 
 - The night 2 and 3 bad hiders were already built in section 7, so they stay; nothing else from the townsperson step was added.

@@ -513,8 +513,10 @@ export function createGame(canvas, opts = {}) {
     if (S.take) {
       const T = S.take, p = T.p, H = T.house; T.t += dt;
       if (p) T.pos = [p.x, p.z];
+      // the take itself is quiet: the beam has narrowed, and the candle or the window simply dies (the
+      // take is usually off screen, and a flash and a pop there read as a glitch)
       if (T.t >= 1.0 && !T.done) {
-        T.done = true; S.flash = Math.max(S.flash, 0.8); snd.pop(panOf(T.pos[0], T.pos[1]));
+        T.done = true;
         if (p) { p.state = 'taken'; R.stain(p.x, p.z, 1.4, rnd); S.stains.push([p.x, p.z]); }
         if (H) { HM.take(H); R.stain(H.door[0], H.door[1], 0.9, rnd); S.stains.push(H.door.slice()); }
       }
