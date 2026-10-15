@@ -892,9 +892,9 @@ export function createGame(canvas, opts = {}) {
     const sh = S.phase === 'caught' ? 0 : S.shake;
     const ll = lanLight(), ls = lanScreen();
     // the screen's edges pulse while the light has you: amber half seen, red seen, stronger as the eye fills
-    const lcol = LK.light.lanCol, pulse = 0.7 + 0.3 * Math.sin(S.t * 6);
+    const lcol = LK.light.lanCol, ep = 0.7 + 0.3 * Math.sin(S.t * 6);
     const edge = TELL_EDGE && S.phase === 'search' && !S.card && (P.tier === 'lit' || P.tier === 'shallow')
-      ? (P.tier === 'lit' ? [0.75, 0.12, 0.06, (0.28 + 0.4 * P.seen) * pulse] : [lcol[0] * 0.8, lcol[1] * 0.6, lcol[2] * 0.3, (0.16 + 0.3 * P.seen) * pulse])
+      ? (P.tier === 'lit' ? [0.75, 0.12, 0.06, (0.28 + 0.4 * P.seen) * ep] : [lcol[0] * 0.8, lcol[1] * 0.6, lcol[2] * 0.3, (0.16 + 0.3 * P.seen) * ep])
       : [0, 0, 0, 0];
     HM.sync();
     R.render({
