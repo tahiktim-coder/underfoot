@@ -44,6 +44,7 @@ const LOST_AFTER = 6;         // seconds without a sight of you (at least; the n
 const TAKE_LIT = 1.2;         // seconds the light must hold a townsperson before it narrows on them
 const TITLE_LOOP = 14;        // the title's slow push repeats every this many seconds until you begin
 const CARD_HOLD = 7;          // a night card moves on by itself after this long
+const LEAVE_LATER = 12;       // seconds of the leave from night 2 on (night 1 and the title loop keep the full 21)
 const PUFF_KEEP_OUT = 150;    // no footfall dust ring spawns closer to you than this (metres)
 
 function walkPlan(from, to, t0, stepLen, end) {
@@ -126,14 +127,27 @@ export function createGame(canvas, opts = {}) {
     S.windows = 0.65; S.player.seen = 0; S.attn = [TOWN.x, TOWN.z]; S.aim = [TOWN.x, TOWN.z]; S.aimS = [TOWN.x, TOWN.z]; S.aimT = 0;
     S.lanReset = true;
   }
-  // a night begins: the walk in from the valley, you back at the start, the night's table in force
-  function startNight(n) {
+  // A night begins: you back at the start, the night's table in force. The full walk in from the valley is
+  // the title's; a night starts late in the approach. The first night starts at the last footfall ('last':
+  // the town already dark but for the stragglers, the boot comes down outside the wall, 'Hide' about 13 s
+  // after the click); later nights start three plants out ('three', about 24 s), with the look up at it coming.
+  function startNight(n, from = 'three') {
     S.night = Math.max(1, n); NT = night(S.night);
     S.nightScore = 0; S.card = null; S.retry = false;
     HM.set('calm'); S.smokeLevel = 1; S.slams = 0;
     Object.assign(S.player, { x: -12, z: 8, yaw: 0.8, seen: 0, lit: false, run: 0 });
     S.trail = []; S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.autoLook = 0; S.lookHeld = false;
     startCycle();
+    if (from === 'last') {
+      S.t = S.planEnd - STEP_T - 0.5; setPhase('approach'); S.pt = 17;
+      // two booms' worth of windows already out, the smoke mostly gone, the sky already dim
+      const b = S.plan[S.plan.length - 2];
+      for (let k = 0; k < 2; k++) HM.out(Math.ceil(HM.lit().filter((H) => !HM.stragglers.has(H.i)).length * 0.45), [b.x, b.z]);
+      S.smokeLevel = 0.25; S.windows = 0.3; S.dim = 0.9; S.slams = 1;
+    } else if (from === 'three') {
+      S.t = S.planEnd - 3 * STEP_T + 1; setPhase('approach'); S.autoLook = 6.5;
+    }
+    updateGiant(0); stepLantern(0.016);
     Object.assign(smoothCam, playCam());
   }
   // straight to the plant of the current night, no walk in: the restart after it found you
@@ -528,7 +542,7 @@ export function createGame(canvas, opts = {}) {
       }
     } else if (S.phase === 'leave') {
       if (S.pt > 5) HM.relight(dt);
-      if (S.pt > 21 && !S.card) {
+      if (S.pt > (S.night > 1 ? LEAVE_LATER : 21) && !S.card) {
         if (!S.played) startCycle();
         else { S.score += Math.round(S.nightScore) + NIGHT_BONUS; S.nightScore = 0; best.set(S.score); S.card = card('night', nightCard(S.night, S.score)); }
       }
@@ -786,7 +800,7 @@ export function createGame(canvas, opts = {}) {
     if (S.intro) {
       S.intro.t += dt;
       const c = S.intro.cutAt;
-      if (c !== null && S.intro.t >= c && !S.intro.cut) { S.intro.cut = true; startNight(firstNight); }
+      if (c !== null && S.intro.t >= c && !S.intro.cut) { S.intro.cut = true; startNight(firstNight, 'last'); }
       if (c !== null && S.intro.t > c + 0.5) S.intro = null;
     }
     if (!S.intro && S.played) S.hint = Math.max(0, S.hint - dt * (S.t > 25 ? 0.15 : 0));
