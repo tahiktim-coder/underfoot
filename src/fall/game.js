@@ -381,9 +381,12 @@ export function createGame(canvas, opts = {}) {
     snd.lift(d, panOf(pl.x, pl.z));
     if (d > 2600) return;
     const fx = Math.sin(pl.yaw), fz = Math.cos(pl.yaw);
-    for (let k = 0; k < 120; k++) {
+    for (let k = 0; k < 40; k++) {
       const u = rnd() * 400 - 110, v = (rnd() - 0.5) * 150, x = pl.x + fx * u + fz * v, z = pl.z + fz * u - fx * v;
-      R.puff(x, height(x, z) + 20 + rnd() * 120, z, S.t + 0.6 + rnd() * 2.2, fx * 25, 20 + rnd() * 10, fz * 25, 9, 2 + rnd() * 5, 0, 1);
+      const y0 = height(x, z) + 20 + rnd() * 120, t0 = S.t + 0.6 + rnd() * 2.2, size = 0.5 + rnd() * 1.5;
+      // never over the town or near you: from the play camera a clod falling past the lens is a circle
+      if (townR(x, z) < 1.3 || Math.hypot(x - S.player.x, z - S.player.z) < 200) continue;
+      R.puff(x, y0, z, t0, fx * 25, 20 + rnd() * 10, fz * 25, 9, size, 0, 1);
     }
   }
 

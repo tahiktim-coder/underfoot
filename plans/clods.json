@@ -1,0 +1,30 @@
+[
+  {
+    "eval": "__v16.hold=true; const g=__v16.game; g.S.played=true; g.S.auto=false; __v16.force('leave'); window.toPt=(t)=>{ while(g.S.pt<t){ g.update(0.05); g.S.autoLook=0; g.S.camMode='play'; g.S.dipT=-1; g.S.dipTo=null; } g.update(0.05); g.S.autoLook=0; g.S.camMode='play'; g.S.dipT=-1; g.update(0.016); g.render(); return [g.S.phase, g.S.pt.toFixed(1), g.S.camMode, g.S.cam.hh.toFixed(1)]; }; return toPt(3)"
+  },
+  {
+    "shot": "leave3",
+    "sel": "canvas"
+  },
+  {
+    "eval": "return toPt(6)"
+  },
+  {
+    "shot": "leave6",
+    "sel": "canvas"
+  },
+  {
+    "eval": "return toPt(9)"
+  },
+  {
+    "shot": "leave9",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game; __v16.view('foot3'); g.S.cam=g.S.view; g.S.noUI=true; g.render(); g.S.view=null; return __v16.errors"
+  },
+  {
+    "shot": "leave9_foot3",
+    "sel": "canvas"
+  }
+]

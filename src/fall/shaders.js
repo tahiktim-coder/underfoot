@@ -757,7 +757,12 @@ uniform float uLanOn; uniform vec4 uLanPos; uniform vec4 uLanDir;
 void main(){
   float d = length(vC);
   int k = int(vK.w + 0.5);
-  if (k == 1){ if (d > 1.0) discard; o = toneOut(fogged(vec3(0.05, 0.045, 0.04), vW)); return; }
+  if (k == 1){
+    // a clod of earth: a dark lump with a ragged edge, never a disc
+    float e = (1.0 - d*d)*(0.75 + 0.5*n2(vC*0.5 + vK.z*17.0));
+    if (e < 0.45 + 0.35*bayerF(gl_FragCoord.xy)) discard;
+    o = toneOut(fogged(vec3(0.05, 0.045, 0.04)*(0.8 + 0.4*n3(vC*0.7 + vK.z*9.0)), vW)); return;
+  }
   float a = (1.0 - d*d)*(0.55 + 0.6*n2(vC*0.3 + vK.z*17.0 + vT*0.3));
   a *= smoothstep(0.0, 0.06, vT)*(1.0 - smoothstep(0.45, 1.0, vT));
   if (k == 2) a *= 0.6;                 // smoke: thinner
