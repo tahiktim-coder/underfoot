@@ -131,15 +131,20 @@ export function person(A, x, y, z, yaw, ph, run, look = {}) {
     if (!only) box(A, Q, -0.09, 1.64, 0.11, 0.09, 1.69, 0.145, dark, 0);
     // a red crest along the helm, leaning back: the second red mark on him, and the one the play camera sees
     boxI(Q, -0.03, 1.86, -0.16, 0.03, 2.1, 0.06, cape, 0.1);
+    // a belt, and a sword hung at the left hip, angled back
+    boxI(Q, -0.21, 0.84, -0.15, 0.21, 0.9, 0.16, dark, 0.1);
+    barI(Q(-0.2, 0.92, -0.02), Q(-0.3, 0.3, -0.34), 0.025 * k, 0.05 * k, [1, 0, 0], dark);
+    boxI(Q, -0.27, 0.86, -0.1, -0.15, 0.94, 0.02, armour, 0.1);
     // the cape: two halves from the shoulders to the calves, a little thick so it shows from any side,
     // swinging behind with the stride and flaring when running
     if (!only) {
       // wider and thicker than it was, so the red shows from the side and from above, not only from behind
       const hemBack = -0.22 - 0.3 * run - 0.06 * Math.max(0, Math.sin(ph * 2)), flare = 0.2 + 0.3 * run, hem = 0.24 + 0.12 * run, top = 1.46, th = 0.06;
       const side = Math.sin(ph) * 0.05 * run, hint = Q(0, 1, 1);
+      // each half in three strips with a ragged hem: an old cape, not a new one
       for (const s of [-1, 1]) {
         const F = (lx, ly, lz) => { const u = lx * s, t = (top - ly) / (top - hem); return Q(u * (0.27 + flare * t) + side * t, ly, -0.17 + (hemBack + 0.17) * t + lz); };
-        box(A, F, 0, hem, -th, 1, top, 0, cape, 0.3, false);
+        for (const [u0, u1, dh] of [[0, 0.36, 0.02], [0.36, 0.7, 0.09], [0.7, 1, -0.03]]) box(A, F, u0, hem + dh, -th, u1, top, 0, cape, 0.3, false);
       }
       void hint;
     }
