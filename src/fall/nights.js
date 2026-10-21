@@ -9,9 +9,9 @@
 // moves along your trail, hunt: once it has half seen you (you walk at 4.6).
 export const NIGHTS = [
   null,
-  { search: 30, fill: 0.55, k: 2, offLo: 30, offHi: 60, lag: 25, people: 1, walk: 3.6, hunt: 4.2, spin: 26 },
-  { search: 35, fill: 0.75, k: 1.75, offLo: 25, offHi: 60, lag: 20, people: 2, walk: 4.2, hunt: 5.4, spin: 22 },
-  { search: 40, fill: 1.0, k: 1.5, offLo: 20, offHi: 60, lag: 10, people: 3, walk: 5.0, hunt: 6.5, spin: 18 },
+  { search: 30, fill: 0.55, k: 1.6, offLo: 30, offHi: 60, lag: 25, people: 1, walk: 3.6, hunt: 4.2, spin: 26 },
+  { search: 35, fill: 0.75, k: 1.9, offLo: 25, offHi: 60, lag: 16, people: 2, walk: 4.2, hunt: 5.4, spin: 22 },
+  { search: 40, fill: 1.0, k: 2.2, offLo: 20, offHi: 60, lag: 6, people: 3, walk: 5.0, hunt: 6.5, spin: 18 },
 ];
 // past the table the nights keep tightening, to a floor: a longer search, a thinner shallow shadow, a
 // lantern nearer overhead, a quicker light
@@ -21,8 +21,8 @@ export function night(n) {
   const b = NIGHTS[NIGHTS.length - 1], k = n - (NIGHTS.length - 1);
   return {
     ...b,
-    search: Math.min(60, b.search + 4 * k), k: Math.max(1.3, b.k - 0.05 * k), offLo: Math.max(15, b.offLo - k),
-    lag: Math.max(10, b.lag - k), spin: Math.max(14, b.spin - k),
+    search: Math.min(60, b.search + 4 * k), k: Math.max(1.6, b.k - 0.1 * k), offLo: Math.max(15, b.offLo - k),
+    lag: Math.max(4, b.lag - k), spin: Math.max(14, b.spin - k),
     walk: Math.min(5.4, b.walk + 0.1 * k), hunt: Math.min(7.5, b.hunt + 0.25 * k),
   };
 }
@@ -31,11 +31,11 @@ export const NIGHT_BONUS = 100;
 export const RULE = 'It takes what its light finds.';
 
 // the words on the cards: each is a list of lines, the first drawn large
-export function nightCard(n, score) {
-  return [`Night ${n} passed.`, `Score ${score}.`];
+export function nightCard(n, score, secs = 0) {
+  return [`Night ${n} passed.`, `${secs} s + ${NIGHT_BONUS}. Score ${score}.`];
 }
 export function overCard(n, score, bestScore) {
-  return [`Night ${n}.`, 'It found you.', `Nights survived: ${n - 1}. Score ${score}.`, `Best: ${Math.max(bestScore, score)}.`];
+  return ['It found you.', `Night ${n}. Nights survived: ${n - 1}.`, `Score ${score}.`, score > bestScore ? `New best ${score}.` : `Best ${bestScore}.`];
 }
 
 // the best score, kept in the browser when it allows it
