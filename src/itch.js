@@ -14,12 +14,16 @@ window.addEventListener('error', (e) => V.errors.push(String(e.message)));
 
 function boot() {
   const canvas = $('fall'), msg = $('fallMsg'), box = $('box');
-  // the picture is 480 x 270: shown at a whole multiple of that whenever the multiple fills most of the
-  // window (4x on a 1080p screen), so every pixel is the same size; otherwise it fills the window's width
-  // or height as before
+  // the picture's size: 960 x 540 on a large screen (every game pixel is a 2 x 2 block on a 1080p screen),
+  // 480 x 270 otherwise; ?res=WxH overrides
+  const rq = /[?&]res=(\d+)x(\d+)/.exec(location.search);
+  const big = Math.min(screen.width, screen.height * 16 / 9) * (devicePixelRatio || 1) >= 1800;
+  let res = rq ? [+rq[1], +rq[2]] : big ? [960, 540] : [480, 270];
+  // the picture is shown at a whole multiple of its size whenever the multiple fills most of the window
+  // (2x for 960 x 540 on a 1080p screen), so every pixel is the same size; otherwise it fills the window
   const fit = () => {
-    const w = innerWidth, h = innerHeight, k = Math.floor(Math.min(w / 480, h / 270)), fill = Math.min(w, h * 16 / 9);
-    if (box && k >= 2 && (480 * k) / fill >= 0.72) { box.style.width = 480 * k + 'px'; box.style.height = 270 * k + 'px'; }
+    const w = innerWidth, h = innerHeight, k = Math.floor(Math.min(w / res[0], h / res[1])), fill = Math.min(w, h * 16 / 9);
+    if (box && k >= 1 && (res[0] * k) / fill >= 0.72) { box.style.width = res[0] * k + 'px'; box.style.height = res[1] * k + 'px'; }
     else if (box) { box.style.width = ''; box.style.height = ''; }
   };
   addEventListener('resize', fit); document.addEventListener('fullscreenchange', fit); fit();
@@ -27,7 +31,7 @@ function boot() {
   let game = null, dead = false;
   const nq = /[?&]night=(\d+)/.exec(location.search);
   const touch = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
-  try { game = createGame(canvas, { noIntro: /nointro/.test(location.search), look: LOOK, night: nq ? +nq[1] : 1, credit: AUTHOR, touch }); }
+  try { game = createGame(canvas, { noIntro: /nointro/.test(location.search), look: LOOK, night: nq ? +nq[1] : 1, credit: AUTHOR, touch, res }); }
   catch (e) { V.errors.push(String((e && e.stack) || e)); show('Could not start.', String(e && e.message || e)); V.ready = true; return; }
   if (!game) { show('This needs WebGL2, which this browser does not offer.'); V.ready = true; return; }
   msg.hidden = true;
@@ -74,11 +78,16 @@ function boot() {
   // the loop: fixed steps, at most 60 a second, a few at once after a hitch, never a catch-up of seconds.
   // A frame a hair short of a step still steps (the slack), so a 60 Hz display steps exactly once a frame
   // and a 120 Hz one every other frame, without a judder of zero-then-two.
-  let acc = 0, last = performance.now(), drawn = 0;
+  // the first hundred frames after warm-up are timed: on a large screen the picture starts at 960 x 540, and
+  // if the display cannot keep up (frames averaging slower than 50 a second) it drops to 480 x 270 and stays
+  // there; ?res= forces a size and skips this
+  let acc = 0, last = performance.now(), drawn = 0, probeN = 0, probeMs = 0;
   function loop(now) {
     if (dead) return;
     requestAnimationFrame(loop);
-    acc = Math.min(acc + Math.max(0, (now - last) / 1000), 0.12); last = now;
+    const gap = now - last;
+    if (!document.hidden && visible && !V.hold) { probeN++; if (probeN > 30) probeMs += gap; if (!rq && probeN === 130 && res[0] > 480 && probeMs / 100 > 20) { res = [480, 270]; game.setPicture(480, 270); fit(); } }
+    acc = Math.min(acc + Math.max(0, gap / 1000), 0.12); last = now;
     if (V.hold || document.hidden || !visible) { acc = 0; return; }
     try {
       let n = 0;

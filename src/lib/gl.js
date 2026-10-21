@@ -126,9 +126,12 @@ export function bindTarget(gl, f, w, h) {
 }
 
 // Match the canvas backing store to its CSS size (capped DPR).
-export function fitCanvas(canvas, maxDpr = 2) {
+export function fitCanvas(canvas, maxDpr = 2, snapTo = 0) {
   const r = canvas.getBoundingClientRect();
-  const dpr = Math.min(maxDpr, window.devicePixelRatio || 1);
+  let dpr = Math.min(maxDpr, window.devicePixelRatio || 1);
+  // when the page has sized the canvas to a whole multiple of the picture, the backing store stays a whole
+  // multiple too (Windows at 125% would otherwise make it 2.5x: uneven pixels and a dearer post pass)
+  if (snapTo && Math.abs(r.width / snapTo - Math.round(r.width / snapTo)) < 0.01) dpr = Math.max(1, Math.floor(dpr));
   const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
   if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; return true; }
   return false;

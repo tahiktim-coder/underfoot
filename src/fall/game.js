@@ -94,7 +94,8 @@ function walkPlan(t0, stepLen, back, front, far = 3500, wobble = 0) {
 
 export function createGame(canvas, opts = {}) {
   const gmesh = buildGiantMesh();
-  const R = createRenderer(canvas, gmesh);
+  const R = createRenderer(canvas, gmesh, { width: opts.res && opts.res[0], height: opts.res && opts.res[1] });
+  const uiK = () => VW / R.PW;   // picture pixels to HUD pixels
   if (!R) return null;
   const G = createGiant();
   const snd = createSound();
@@ -294,7 +295,7 @@ export function createGame(canvas, opts = {}) {
       if (ptr.touch) { dx = ptr.x - ptr.x0; dy = ptr.y - ptr.y0; const m = Math.hypot(dx, dy); if (m < 8) { dx = 0; dy = 0; } else { const k = Math.min(1, m / 40) / m; dx *= k; dy *= k; } }
       else {
         const pp = R.project([S.player.x, standY(S.player.x, S.player.z) + 1, S.player.z]);
-        dx = ((ptr.x - r.left) / r.width) * VW - pp[0]; dy = ((ptr.y - r.top) / r.height) * VH - pp[1];
+        dx = ((ptr.x - r.left) / r.width) * R.PW - pp[0]; dy = ((ptr.y - r.top) / r.height) * R.PH - pp[1];
         const m = Math.hypot(dx, dy); if (m < 3) { dx = 0; dy = 0; } else { dx /= m; dy /= m; }
       }
       x += dx; y -= dy;
@@ -821,7 +822,7 @@ export function createGame(canvas, opts = {}) {
     // over your head in the search: the word for your shadow and the eye filling in its colour, so what the
     // light sees is never a guess
     if (TELL_WORDS && S.phase === 'search' && !S.card && S.player.tier !== 'none') {
-      const P = S.player, tier = P.tier, hp = R.project([P.x, standY(P.x, P.z) + 3.4, P.z]);   // over the helm (3 m)
+      const P = S.player, tier = P.tier, hp = R.project([P.x, standY(P.x, P.z) + 3.4, P.z]).map((v, i) => (i < 2 ? v * uiK() : v));   // over the helm (3 m), in HUD pixels
       if (hp[2]) {
         const word = tier === 'lit' ? 'Seen' : tier === 'shallow' ? 'Half seen' : 'Hidden', col = tierCol(tier);
         const ww = measureWisp(word), x = Math.round(hp[0] - ww / 2), y = Math.round(hp[1]) - 16;
@@ -897,7 +898,7 @@ export function createGame(canvas, opts = {}) {
     const zNear = R.project(sub(c, scl(toC, LAN * 0.7)))[3], zFar = R.project(add(c, scl(toC, LAN * 0.7)))[3];
     const bp = R.project(add(c, scl(lanLight().dir, 300)));
     const beam = nrm([bp[0] - cp[0], -(bp[1] - cp[1]), 0]);
-    const onScreen = cp[0] > -size && cp[0] < VW + size && cp[1] > -size && cp[1] < VH + size;
+    const onScreen = cp[0] > -size && cp[0] < R.PW + size && cp[1] > -size && cp[1] < R.PH + size;
     return { x: cp[0], y: cp[1], size, zNear, zFar, beam, onScreen };
   }
   // screen glows: the lantern in the air (a wide warm halo and a hot core), the eyes when they burn
@@ -983,7 +984,7 @@ export function createGame(canvas, opts = {}) {
       person(A, p.x, yy, p.z, p.yaw, p.ph, p.run, { cloak: M.P_LIGHT, hood: false, scarf: false, candle: true });
       if (i < 4) candles.set([p.x + Math.sin(p.yaw) * 0.4, yy + 1.0, p.z + Math.cos(p.yaw) * 0.4, 0.5], i * 4);
     });
-    const inflate = clamp((2 * S.cam.hh / VH) * 1.1, 0.1, 0.5);   // never thinner than a pixel's worth at play zoom
+    const inflate = clamp((2 * S.cam.hh / R.PH) * 1.1, 0.05, 0.5);   // never thinner than a pixel's worth at play zoom
     // the beam in the air, from the glass to the pool (drawn after the solid things, never into a shadow map)
     A.beam();
     if (S.lan.on > 0) beam(A, lanLight(), LAN, height);
@@ -1028,6 +1029,7 @@ export function createGame(canvas, opts = {}) {
 
   const api = {
     R, G, S, snd, LOOKS, LOOK_ORDER, NIGHTS, nightTable: night, isLit, inCover, blocked, standY, height, lanLight, segmentBlocked, OCCLUDERS, houses, brain, HM, ringFloor, CHURCH, LAN_BODY,
+    setPicture: (w, h) => R.setPicture(w, h),
     get look() { return lookName; },
     get night() { return S.night; },
     begin, startNight, newRun, dismissCard,

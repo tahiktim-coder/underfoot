@@ -978,7 +978,7 @@ void main(){
 export const FS_POST = `#version 300 es
 precision highp float;
 uniform sampler2D uQ, uUI;
-uniform vec2 uLow, uView, uOff, uCanvas;
+uniform vec2 uLow, uView, uOff, uCanvas, uUIView;
 uniform float uTime, uTilt, uFocus, uGrain, uUIon, uFade, uFlash, uVig;
 uniform vec4 uEdge;            // a colour and a strength bleeding in from the screen's edges (the light has you)
 layout(location=0) out vec4 o;
@@ -1001,7 +1001,7 @@ void main(){
   vec2 q = uv - 0.5; q.x *= uCanvas.x/uCanvas.y*0.62;
   col = mix(col, vec3(0.92, 0.86, 0.74), uFlash);
   col = mix(col, vec3(0.043, 0.04, 0.047), uFade);
-  if (uUIon > 0.5){ vec4 ui = texelFetch(uUI, ivec2(floor(uv.x*uView.x), floor((1.0 - uv.y)*uView.y)), 0); col = mix(col, ui.rgb, ui.a); }
+  if (uUIon > 0.5){ vec4 ui = texelFetch(uUI, ivec2(floor(uv.x*uUIView.x), floor((1.0 - uv.y)*uUIView.y)), 0); col = mix(col, ui.rgb, ui.a); }
   col += (hash(gl_FragCoord.xy*0.5 + fract(uTime*7.13)*317.0) - 0.5)*uGrain;
   col *= 1.0 - uVig*pow(clamp(length(q)*1.3, 0.0, 1.0), 2.3);
   col = mix(col, uEdge.rgb, uEdge.a*pow(clamp(length(q)*1.25, 0.0, 1.0), 3.0));

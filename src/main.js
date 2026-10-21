@@ -105,7 +105,8 @@ function boot() {
 
   const nq = /[?&]night=(\d)/.exec(location.search);
   if (/[?&]debug/.test(location.search)) for (const el of document.querySelectorAll('[data-debug]')) el.hidden = false;
-  try { game = createGame(canvas, { noIntro: /nointro/.test(location.search), look, night: nq ? +nq[1] : 1 }); } catch (e) { V.errors.push(String((e && e.stack) || e)); console.error(e); if (msg) { msg.hidden = false; msg.textContent = 'Could not start: ' + e.message; } V.ready = true; return; }
+  const rq = /[?&]res=(\d+)x(\d+)/.exec(location.search), res = rq ? [+rq[1], +rq[2]] : null;
+  try { game = createGame(canvas, { noIntro: /nointro/.test(location.search), look, night: nq ? +nq[1] : 1, res }); } catch (e) { V.errors.push(String((e && e.stack) || e)); console.error(e); if (msg) { msg.hidden = false; msg.textContent = 'Could not start: ' + e.message; } V.ready = true; return; }
   if (!game) { if (msg) { msg.hidden = false; msg.textContent = 'This needs WebGL2, which this browser does not offer. The stills above show every look.'; } V.ready = true; return; }
   V.game = game;
   V.step = (_, dt) => game.frame(dt);

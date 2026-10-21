@@ -9,7 +9,7 @@ import { buildWorld, buildTerrain, STRIDE, makeArr } from './mesh.js';
 import { noiseTex, nearMap, farMap, poolMap, stainMap, stampStain, clearStains } from './textures.js';
 import { mulberry } from '../lib/noise.js';
 
-export const LW = 482, LH = 272, VW = 480, VH = 270;   // the picture: 480 x 270 visible (4x on a 1080p screen, 2x at 960 x 540), a 1 px border for the sub-pixel slide
+export const VW = 480, VH = 270;   // the HUD's canvas, and the picture's default size; the picture itself is chosen at run time (opts.width/height: 480 x 270, or 960 x 540 on a large screen) with a 1 px border for the sub-pixel slide
 // The default palette (the Ashwake grey look): eight warm greys, then amber, moss, slate and rust ramps. The game
 // replaces it with the current look's palette at start and on every look change (setPalette, looks.js).
 const GREYS = ['#0f0e10', '#1f1d20', '#34313a', '#4d494c', '#6b6667', '#8e8884', '#b5aea6', '#dfd9cf'];
@@ -89,7 +89,8 @@ function inst(gl, buf, loc0, nvec) {
   for (let k = 0; k < nvec; k++) { gl.enableVertexAttribArray(loc0 + k); gl.vertexAttribPointer(loc0 + k, 4, gl.FLOAT, false, nvec * 16, k * 16); gl.vertexAttribDivisor(loc0 + k, 1); }
 }
 
-export function createRenderer(canvas, giantMesh) {
+export function createRenderer(canvas, giantMesh, opts = {}) {
+  let PW = opts.width || VW, PH = opts.height || VH, LW = PW + 2, LH = PH + 2;   // the picture: visible size and the bordered size it is drawn at (setPicture changes them)
   const gl = getGL(canvas);
   if (!gl) return null;
   const T0 = performance.now();
@@ -135,11 +136,25 @@ export function createRenderer(canvas, giantMesh) {
   const tSh = texture(gl, SHS, SHS, { fmt: 'depth' }), fSh = framebuffer(gl, null, tSh);
   const tGSh = texture(gl, GSS, GSS, { fmt: 'depth' }), fGSh = framebuffer(gl, null, tGSh);
   const tLt = texture(gl, LTS, LTS, { fmt: 'depth' }), fLt = framebuffer(gl, null, tLt);
-  const tScene = texture(gl, LW, LH, { fmt: 'rgba8' }), tSceneD = texture(gl, LW, LH, { fmt: 'depth' }), fScene = framebuffer(gl, tScene, tSceneD);
+  let tScene = texture(gl, LW, LH, { fmt: 'rgba8' }), tSceneD = texture(gl, LW, LH, { fmt: 'depth' }), fScene = framebuffer(gl, tScene, tSceneD);
   gl.bindTexture(gl.TEXTURE_2D, tSceneD); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.NONE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  const tScene2 = texture(gl, LW, LH, { fmt: 'rgba8' }), fScene2 = framebuffer(gl, tScene2);
-  const tQ = texture(gl, LW, LH, { fmt: 'rgba8', filter: 'linear' }), fQ = framebuffer(gl, tQ);
+  let tScene2 = texture(gl, LW, LH, { fmt: 'rgba8' }), fScene2 = framebuffer(gl, tScene2);
+  let tQ = texture(gl, LW, LH, { fmt: 'rgba8', filter: 'linear' }), fQ = framebuffer(gl, tQ);
+  // the picture can change size at run time (the itch page drops from 960 x 540 to 480 x 270 when frames
+  // come slow): the three picture-sized targets are made again at the new size
+  function setPicture(w, h) {
+    if (w === PW && h === PH) return;
+    PW = w; PH = h; LW = w + 2; LH = h + 2;
+    for (const t of [tScene, tSceneD, tScene2, tQ]) gl.deleteTexture(t);
+    for (const f of [fScene, fScene2, fQ]) gl.deleteFramebuffer(f);
+    tScene = texture(gl, LW, LH, { fmt: 'rgba8' }); tSceneD = texture(gl, LW, LH, { fmt: 'depth' }); fScene = framebuffer(gl, tScene, tSceneD);
+    gl.bindTexture(gl.TEXTURE_2D, tSceneD); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.NONE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    tScene2 = texture(gl, LW, LH, { fmt: 'rgba8' }); fScene2 = framebuffer(gl, tScene2);
+    tQ = texture(gl, LW, LH, { fmt: 'rgba8', filter: 'linear' }); fQ = framebuffer(gl, tQ);
+    api.PW = PW; api.PH = PH;
+  }
   const uiCanvas = document.createElement('canvas'); uiCanvas.width = VW; uiCanvas.height = VH;
   const uictx = uiCanvas.getContext('2d');
   const tUI = texture(gl, VW, VH, { fmt: 'rgba8' });
@@ -152,8 +167,8 @@ export function createRenderer(canvas, giantMesh) {
     if (!view.VP) return [-99, -99, false, 0];
     const c = xform(view.VP, p);
     const x = (c[0] / c[3] * 0.5 + 0.5) * LW - 1 - view.frac[0];
-    const y = VH + 1 + view.frac[1] - (c[1] / c[3] * 0.5 + 0.5) * LH;
-    return [x, y, c[3] > 0 && x > -8 && x < VW + 8 && y > -8 && y < VH + 8, c[2] / c[3] * 0.5 + 0.5, c[3] > 0];
+    const y = PH + 1 + view.frac[1] - (c[1] / c[3] * 0.5 + 0.5) * LH;
+    return [x, y, c[3] > 0 && x > -8 && x < PW + 8 && y > -8 && y < PH + 8, c[2] / c[3] * 0.5 + 0.5, c[3] > 0];
   }
 
   function drawTerrain(PL, rings) {
@@ -188,7 +203,7 @@ export function createRenderer(canvas, giantMesh) {
   }
 
   function render(scene) {
-    fitCanvas(canvas, 2);
+    fitCanvas(canvas, 2, PW);
     const t = scene.t, cam = scene.cam, L = scene.light;
     if (dyn.n > dynCap) { dynCap = dyn.data.length; gl.bindBuffer(gl.ARRAY_BUFFER, dynVBO); gl.bufferData(gl.ARRAY_BUFFER, dynCap * 4, gl.DYNAMIC_DRAW); }
     if (dyn.n) { gl.bindBuffer(gl.ARRAY_BUFFER, dynVBO); gl.bufferSubData(gl.ARRAY_BUFFER, 0, dyn.data); }
@@ -336,7 +351,7 @@ export function createRenderer(canvas, giantMesh) {
     const uiOn = scene.ui ? scene.ui(uictx, api) : false;
     if (uiOn) { gl.bindTexture(gl.TEXTURE_2D, tUI); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, uiCanvas); }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height);
-    P.post.use().tex('uQ', tQ, 0).tex('uUI', tUI, 1).set('uLow', LW, LH).set('uView', VW, VH).set('uOff', frac[0] + (scene.shake ? scene.shake[0] : 0), frac[1] + (scene.shake ? scene.shake[1] : 0))
+    P.post.use().tex('uQ', tQ, 0).tex('uUI', tUI, 1).set('uLow', LW, LH).set('uView', PW, PH).set('uUIView', VW, VH).set('uOff', frac[0] + (scene.shake ? scene.shake[0] : 0), frac[1] + (scene.shake ? scene.shake[1] : 0))
       .set('uCanvas', canvas.width, canvas.height).set('uTime', t).set('uTilt', scene.tilt ?? 1).set('uFocus', scene.focus ?? 0.5).set('uGrain', scene.grain ?? 0.045)
       .set('uUIon', uiOn ? 1 : 0).set('uFade', scene.fade || 0).set('uFlash', scene.flash || 0).set('uVig', scene.vignette ?? 0.4).set('uEdge', scene.edge || [0, 0, 0, 0]);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -348,6 +363,6 @@ export function createRenderer(canvas, giantMesh) {
     puffData.set([x, y, z, t, vx, vy, vz, life, s0, s1, Math.random(), kind], o);
     puffHead = (puffHead + 1) % PUFFS; puffDirty = true;
   }
-  const api = { gl, canvas, render, project, view, genMs, dyn, puff, stain: (x, z, r, rnd) => stampStain(gl, tStain, x, z, r, rnd), clearStains: () => clearStains(gl, tStain), setPalette(greys, hues) { PAL = buildPalette(greys, hues); }, stats: { worldTris: world.verts / 3, terrTris: terr.idx.length / 3, giantTris: giantN / 3 } };
+  const api = { gl, canvas, render, project, view, genMs, dyn, puff, PW, PH, setPicture, stain: (x, z, r, rnd) => stampStain(gl, tStain, x, z, r, rnd), clearStains: () => clearStains(gl, tStain), setPalette(greys, hues) { PAL = buildPalette(greys, hues); }, stats: { worldTris: world.verts / 3, terrTris: terr.idx.length / 3, giantTris: giantN / 3 } };
   return api;
 }
