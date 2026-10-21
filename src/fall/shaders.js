@@ -128,6 +128,7 @@ uniform float uLtK;            // the lantern map's 1/(2 tan(fov/2)): metres to 
 uniform float uRaySpread;      // how far apart the hiding test's rays reach across the glass (metres): the penumbra's width
 uniform float uBeamK;          // the beam in the air: 0 faint (the play camera looks down through it), 1 full (seen from the side)
 uniform vec4 uRing;            // the ring under your feet: its colour, and how much of the circle is drawn
+uniform vec4 uBurn;            // the catch: x, z and radius of the figure that burns, and how far gone it is (0 = none)
 uniform vec4 uCandles[4];      // candles in the street: x, y, z, strength (0 = none)
 uniform sampler2D uStainMap;   // where the light took someone: 1 in the stain, ~0.43 in the scorch round it
 uniform float uLocalOn;
@@ -323,6 +324,17 @@ vec3 fieldAlb(vec2 p, out float hedge){
 void main(){
   PXW = max(length(dFdx(vP)), length(dFdy(vP)));
   int m = int(vM + 0.5);
+  // the catch: the figure in the burn flares white-hot, then comes apart from the top down through the
+  // dither until nothing is left (only the figure's own materials, only within the burn's radius)
+  float burnGlow = 0.0;
+  if (uBurn.w > 0.0 && m >= 50 && m <= 59){
+    vec2 bq = vP.xz - uBurn.xy;
+    if (dot(bq, bq) < uBurn.z*uBurn.z){
+      float gone = uBurn.w*1.15;
+      if (bayerF(gl_FragCoord.xy + vec2(2.0, 1.0)) < gone) discard;
+      burnGlow = smoothstep(0.0, 0.3, uBurn.w)*(1.0 - 0.4*uBurn.w);
+    }
+  }
   // see-through round the player when the town would hide them (never the player's own figure)
   if (uCut.w > 0.0 && m != 0 && uIsGiant < 0.5 && (m < 50 || m > 59)){
     // the lantern and its chain get a much wider hole: they must never hide you
@@ -653,6 +665,7 @@ void main(){
     col += uSunCol*rim*0.7*cloudShadow(P);
   }
   col += emit;
+  col += vec3(1.0, 0.62, 0.28)*5.0*burnGlow;
   col = fogged(col, P);
   o = toneOut(col);
 }`;

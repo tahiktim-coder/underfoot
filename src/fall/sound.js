@@ -129,12 +129,13 @@ export function createSound() {
       for (let i = 0; i < 14; i++) burst(white, t + Math.random() * 0.9, 0.01, 0.06, 0.05, o, 'bandpass', 1800 + Math.random() * 1200, 1.5);
     },
     // it has you: a slow horn, rising
-    caught() {
+    caught(len = 6) {
+      // the horn swells over `len` seconds, to the cut
       if (!ctx) return;
       const t = now(), o = out(0, null);
-      const lp = filt('lowpass', 140, 2); lp.frequency.setValueAtTime(140, t); lp.frequency.exponentialRampToValueAtTime(1100, t + 6);
-      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.32, t + 5.8); g.gain.setTargetAtTime(0.0001, t + 6.5, 0.08);
-      for (const [f, det] of [[55, -8], [55, 7], [82.4, -4], [41.2, 0]]) { const s = ctx.createOscillator(); s.type = 'sawtooth'; s.frequency.value = f; s.detune.value = det; s.connect(lp); s.start(t); s.stop(t + 7.2); }
+      const lp = filt('lowpass', 140, 2); lp.frequency.setValueAtTime(140, t); lp.frequency.exponentialRampToValueAtTime(1100, t + len);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.32, t + len * 0.97); g.gain.setTargetAtTime(0.0001, t + len + 0.05, 0.04);
+      for (const [f, det] of [[55, -8], [55, 7], [82.4, -4], [41.2, 0]]) { const s = ctx.createOscillator(); s.type = 'sawtooth'; s.frequency.value = f; s.detune.value = det; s.connect(lp); s.start(t); s.stop(t + len + 0.6); }
       lp.connect(g); g.connect(o);
     },
     hit() {
