@@ -106,6 +106,13 @@ export function createSound() {
       burst(white, t + 0.8, 0.4, 2.8, 0.12 * k, o, 'lowpass', 700, 0.7, 250);
     },
     // the light has found you: a short rising note, dry
+    // someone taken by the light, near you: a dry crackle and a hiss going out, placed, faint with distance
+    crackle(pan, near = 1) {
+      if (!ctx) return;
+      const t = now(), o = out(pan * 0.7, 1800 + 1400 * near);
+      for (let i = 0; i < 5; i++) burst(white, t + i * 0.09 + Math.random() * 0.04, 0.002, 0.05 + Math.random() * 0.04, 0.09 * near, o, 'bandpass', 1800 + Math.random() * 1600, 2.5);
+      burst(white, t + 0.3, 0.08, 0.9, 0.05 * near, o, 'lowpass', 900, 0.7, 180);
+    },
     notice() {
       if (!ctx) return;
       const t = now(), o = out(0, 2600);

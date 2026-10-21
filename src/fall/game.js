@@ -64,23 +64,32 @@ const TELL_WORDS = true;      // the word over your head in the search (Hidden, 
 const TELL_EDGE = true;       // the pulse at the screen's edges while the light has you: amber half seen, red seen
 const PUFF_KEEP_OUT = 150;    // no footfall dust ring spawns closer to you than this (metres)
 
-function walkPlan(from, to, t0, stepLen, end) {
-  // plants along a line, alternating, each foot to its own side; the last two are replaced by `end`
-  const dx = to[0] - from[0], dz = to[1] - from[1], D = Math.hypot(dx, dz), yaw = Math.atan2(dx, dz);
-  const lx = Math.cos(yaw), lz = -Math.sin(yaw), n = Math.max(2, Math.ceil(D / stepLen));
-  const plants = [
-    { foot: 0, x: from[0] + lx * 175, z: from[1] + lz * 175, yaw, t: t0 - 40 },
-    { foot: 1, x: from[0] - lx * 175, z: from[1] - lz * 175, yaw, t: t0 - 40 },
-  ];
-  // the last plant must be the front (right) foot
-  let foot = n % 2 === 0 ? 0 : 1;
-  for (let k = 1; k <= n; k++) {
-    const s = k / n, x = from[0] + dx * s, z = from[1] + dz * s, side = foot === 0 ? 1 : -1;
-    plants.push({ foot, x: x + lx * 175 * side, z: z + lz * 175 * side, yaw, t: t0 + (k - 1) * STEP_T });
-    foot = 1 - foot;
+function walkPlan(t0, stepLen, back, front, far = 3500, wobble = 0) {
+  // The walk in is planned backward from where it stops, so every stride is the same length: the last two
+  // plants are the stance itself, and the plants before them step back along the line through it, one
+  // stepLen apart, alternating feet, each foot to its own side. (Planned forward and patched at the end, one
+  // stride came out half as long again, and for a second the giant stood in a 1.5 km split with a knee
+  // thrown up to its hip.)
+  const side = (p) => (p.foot === 0 ? 1 : -1);
+  const u = nrm([front.x - back.x, 0, front.z - back.z]), yaw = Math.atan2(u[0], u[2]);
+  const lx = Math.cos(yaw), lz = -Math.sin(yaw);
+  // the stance plants' centreline points (each plant sits 175 m to its foot's side of the line)
+  const cB = [back.x - lx * 175 * side(back), back.z - lz * 175 * side(back)];
+  const cF = [front.x - lx * 175 * side(front), front.z - lz * 175 * side(front)];
+  const rev = [{ ...front, t: 0 }, { ...back, t: 0 }];
+  let foot = front.foot, c = cB, k = 1;
+  while (Math.hypot(c[0] - cF[0], c[1] - cF[1]) < far) {
+    c = [c[0] - u[0] * stepLen + lz * wobble * Math.sin(k * 1.7), c[1] - u[2] * stepLen - lx * wobble * Math.sin(k * 1.7)];
+    const s = foot === 0 ? 1 : -1;
+    rev.push({ foot, x: c[0] + lx * 175 * s, z: c[1] + lz * 175 * s, yaw, t: 0 });
+    foot = 1 - foot; k++;
   }
-  for (const e of end) for (let i = plants.length - 1; i >= 2; i--) if (plants[i].foot === e.foot) { Object.assign(plants[i], { x: e.x, z: e.z, yaw: e.yaw }); break; }
-  return plants;
+  // each foot starts one stride behind its first plant, already planted
+  const plants = rev.reverse();
+  for (let i = 0; i < plants.length; i++) plants[i].t = t0 + i * STEP_T;
+  const first = [0, 1].map((f) => plants.find((p) => p.foot === f));
+  const start = first.map((p) => ({ foot: p.foot, x: p.x - u[0] * stepLen * 2, z: p.z - u[2] * stepLen * 2, yaw, t: t0 - 40 }));
+  return [...start, ...plants];
 }
 
 export function createGame(canvas, opts = {}) {
@@ -140,8 +149,7 @@ export function createGame(canvas, opts = {}) {
   }
   function startCycle() {
     S.cycle++;
-    const from = [-4700, -1800 + rnd() * 1000];
-    S.plan = walkPlan(from, [-860, -130], S.t + 3, 1000, [STANCE.back, STANCE.front]);
+    S.plan = walkPlan(S.t + 3, 1000, STANCE.back, STANCE.front, 3500, 60 + rnd() * 120);
     S.lastPlant = 1; S.planEnd = Math.max(...S.plan.map((p) => p.t));
     setPhase('calm');
     S.windows = 0.65; S.player.seen = 0; S.attn = [TOWN.x, TOWN.z]; S.aim = [TOWN.x, TOWN.z]; S.aimS = [TOWN.x, TOWN.z]; S.aimT = 0;
@@ -584,12 +592,18 @@ export function createGame(canvas, opts = {}) {
     if (S.take) {
       const T = S.take, p = T.p; T.t += dt;
       if (p) T.pos = [p.x, p.z];
-      // the take itself is quiet: the beam has narrowed, and the candle or the window simply dies (the
-      // take is usually off screen, and a flash and a pop there read as a glitch)
+      // the take, seen where it happens and nowhere else: the beam has narrowed on them, they flare and come
+      // apart upward through the dither over 1.2 s (the same burn as the catch), the candle dies, a stain and
+      // a scorch ring stay. A dry crackle, placed and faint, only when it is near enough to be on screen.
       if (T.t >= 1.0 && !T.done) {
         T.done = true;
-        if (p) { p.state = 'taken'; R.stain(p.x, p.z, 1.4, rnd); S.stains.push([p.x, p.z]); }
+        if (p) {
+          p.burning = true; R.stain(p.x, p.z, 1.4, rnd); S.stains.push([p.x, p.z]);
+          const dp = Math.hypot(p.x - S.player.x, p.z - S.player.z);
+          if (dp < 70) snd.crackle(panOf(p.x, p.z), 1 - dp / 70);
+        }
       }
+      if (T.t >= 2.2 && p && p.state === 'out') p.state = 'taken';
       if (T.t > 2.4) S.take = null;
     }
   }
@@ -736,8 +750,8 @@ export function createGame(canvas, opts = {}) {
     smoothCam.hh = lerp(smoothCam.hh, pc.hh, Math.min(1, dt * 2.5));
     let cam = { ...smoothCam };
     // looking up is a quick dip to dark and a cut, both ways: no long blended moves through the middle
-    // the look up at it passing is cancelled only by a held key, not a touch, so everyone sees it at least once
-    if (S.autoLook > 0) { S.autoLook -= dt; if ((S.inputT || 0) > 0.5 && !S.auto) S.autoLook = 0; }
+    // the look up at it passing is never cut short: walking is frozen under it, and it is the best picture
+    if (S.autoLook > 0) S.autoLook -= dt;
     if (S.phase === 'leave' && S.pt >= 3.0 && S.pt - dt < 3.0) S.autoLook = 9.6;
     const want = (S.input.look || S.autoLook > 0) && S.phase !== 'caught' && !S.intro ? 'look' : 'play';
     if (S.dipT < 0 && want !== S.camMode) { S.dipT = 0; S.dipTo = want; }
@@ -774,7 +788,7 @@ export function createGame(canvas, opts = {}) {
     }
   }
 
-  // ---------------------------------------------------------------------------------- UI at 384x216
+  // ---------------------------------------------------------------------------------- UI at 480x270
   function drawUI(ctx) {
     ctx.clearRect(0, 0, VW, VH);
     if (S.noUI) return false;
@@ -895,11 +909,16 @@ export function createGame(canvas, opts = {}) {
       out.push([ls.x, ls.y, ls.zNear, Math.max(4, ls.size * 0.5), 0.12, 1]);
     }
     for (const p of S.people) if (p.state === 'out') { const cp = R.project([p.x + Math.sin(p.yaw) * 0.4, standY(p.x, p.z) + 1.0, p.z + Math.cos(p.yaw) * 0.4]); if (cp[2] && out.length < 4) out.push([cp[0], cp[1], cp[3], 2.2, 0.35, 1]); }
-    // the catch: you flare before you come apart, a glow over the knight that swells and goes out
+    // the catch: you flare before you come apart, a glow over the knight that swells and goes out; a take
+    // flares the same way over whoever the light has
     if (S.phase === 'caught' && S.pt > 1.2) {
       const P = S.player, fl = ease((S.pt - 1.2) / 1.2) * (1 - ease((S.pt - CATCH_BURN - 0.6) / 1.2));
       const kp = R.project([P.x, standY(P.x, P.z) + 1.4, P.z]);
       if (kp[2] && fl > 0.01) out.unshift([kp[0], kp[1], kp[3], 3 + 7 * fl, 1.4 * fl, 1]);
+    } else if (S.take && S.take.p && S.take.t > 0.3) {
+      const p = S.take.p, fl = ease((S.take.t - 0.3) / 0.7) * (1 - ease((S.take.t - 1.6) / 0.8));
+      const kp = R.project([p.x, standY(p.x, p.z) + 1.2, p.z]);
+      if (kp[2] && fl > 0.01) out.unshift([kp[0], kp[1], kp[3], 3 + 6 * fl, 1.2 * fl, 1]);
     }
     if (G.W.eyes) for (const e of G.W.eyes) { const ep = R.project(e); if (ep[2]) out.push([ep[0], ep[1], ep[3], 1.5 + 0.8 * S.player.seen + 1.4 * (S.eye - 1), 0.15 + 0.35 * S.player.seen + 0.14 * (S.eye - 1), 2]); }
     return out;
@@ -997,7 +1016,7 @@ export function createGame(canvas, opts = {}) {
       fade: Math.max(S.fade, S.dipT < 0 ? 0 : S.dipT < DIP_OUT ? S.dipT / DIP_OUT : 1 - (S.dipT - DIP_OUT) / DIP_IN), flash: S.flash * 0.85, eye: S.eye, seen: S.player.seen,
       birds: S.birds.map((b) => [b.x, b.y + 0.4, b.z, b.fly ? b.ph : 0.25]),
       ash: S.cam.hh < 60 ? LK.ash.amount : 0, ashLum: LK.ash.lum, ashFall: S.phase === 'caught' && S.pt > 1.2 ? -LK.ash.fall * 1.6 : LK.ash.fall,
-      burn: S.phase === 'caught' ? [P.x, P.z, 2.4, clamp((S.pt - CATCH_BURN) / 1.2)] : null,
+      burn: S.phase === 'caught' ? [P.x, P.z, 2.4, clamp((S.pt - CATCH_BURN) / 1.2)] : S.take && S.take.p && S.take.t >= 1.0 ? [S.take.p.x, S.take.p.z, 2.4, clamp((S.take.t - 1.0) / 1.2)] : null,
       chromaLo: LK.chroma[0], chromaHi: LK.chroma[1], contrast: LK.contrast, lift: LK.lift || 0, gamma: LK.gamma || 1, dither: LK.dither, bloom: LK.bloom,
       stars: LK.stars, sunSize: LK.sunSize, sunDisc: LK.sunDisc, snow: LK.snow,
       ui: drawUI,
