@@ -43,7 +43,7 @@ Pages open straight from disk. Address options: `?look=<id>`, `?night=<1-3>`, `?
 
 - Looks change only the picture. Gameplay never reads the look: the hiding test uses `S.lan.I` (1.5), the fixed cone and the night table, never `lanI`. Keep it that way so looks stay comparable.
 - The hiding test is `isLit()` in game.js: three rays to the lantern's glass, and the tier is how many are blocked (deep 3, shallow 1 to 2, lit 0). The penumbra in the lantern shadow map (shaders.js `lanternLight`) is sized to the same 24 m ray spread, so the picture and the rule agree; change them together.
-- The scene renders at 482 x 272 (480 x 270 visible, a 1 px border for the sub-pixel camera slide; a whole 4x on a 1080p screen). The UI is a 480 x 270 2D canvas in the Wisp pixel font (`src/lib/wisp.js`).
+- The picture is 480 x 270 by default and 960 x 540 on a large screen (src/itch.js picks by screen size; `?res=WxH` overrides on both pages), drawn with a 1 px border for the sub-pixel camera slide; `R.PW`/`R.PH` are the size in use and `R.project()` returns picture pixels. The UI is always a 480 x 270 2D canvas in the Wisp pixel font (`src/lib/wisp.js`).
 - Palette uniforms are fixed-size: 8 greys and 4 ramps of 5. `buildPalette()` pads; `uNGrey` and `uNHue` say how many are real.
 - Material ids in `mesh.js` `M` must match the `m ==` branches in `FS_MESH`.
 - `maskZ` / `maskRelief` exist in both `giant.js` and `shaders.js`. Change them together.
