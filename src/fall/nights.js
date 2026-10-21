@@ -9,9 +9,9 @@
 // moves along your trail, hunt: once it has half seen you (you walk at 4.6).
 export const NIGHTS = [
   null,
-  { search: 30, fill: 0.55, k: 2, offLo: 30, offHi: 60, lag: 25, people: 1, walk: 3.6, hunt: 4.2 },
-  { search: 35, fill: 0.75, k: 1.75, offLo: 25, offHi: 60, lag: 20, people: 2, walk: 4.2, hunt: 5.4 },
-  { search: 40, fill: 1.0, k: 1.5, offLo: 20, offHi: 60, lag: 10, people: 3, walk: 5.0, hunt: 6.5 },
+  { search: 30, fill: 0.55, k: 2, offLo: 30, offHi: 60, lag: 25, people: 1, walk: 3.6, hunt: 4.2, spin: 26 },
+  { search: 35, fill: 0.75, k: 1.75, offLo: 25, offHi: 60, lag: 20, people: 2, walk: 4.2, hunt: 5.4, spin: 22 },
+  { search: 40, fill: 1.0, k: 1.5, offLo: 20, offHi: 60, lag: 10, people: 3, walk: 5.0, hunt: 6.5, spin: 18 },
 ];
 // past the table the nights keep tightening, to a floor: a longer search, a thinner shallow shadow, a
 // lantern nearer overhead, a quicker light
@@ -22,7 +22,7 @@ export function night(n) {
   return {
     ...b,
     search: Math.min(60, b.search + 4 * k), k: Math.max(1.3, b.k - 0.05 * k), offLo: Math.max(15, b.offLo - k),
-    lag: Math.max(10, b.lag - k),
+    lag: Math.max(10, b.lag - k), spin: Math.max(14, b.spin - k),
     walk: Math.min(5.4, b.walk + 0.1 * k), hunt: Math.min(7.5, b.hunt + 0.25 * k),
   };
 }
