@@ -1,6 +1,6 @@
 // UNDERFOOT — static geometry. Flat-shaded triangles in world space, sorted into chunks with bounding boxes
 // so each pass draws only what its camera can see. Vertex: position 3, normal 3, material 1, uv 2, seed 1.
-import { NEAR, height, houses, towers, wallSegs, trees, props, CHURCH, HALL, WELL, MILL, BRIDGE, TOWN, houseKey, stalls, arcades, chapels, ruinWallList, lowWalls, stairs, bushes, arcadePosts, stallPosts } from './world.js';
+import { NEAR, height, houses, towers, wallSegs, trees, props, CHURCH, HALL, wells, MILL, BRIDGE, TOWN, houseKey, stalls, arcades, chapels, ruinWallList, lowWalls, stairs, bushes, arcadePosts, stallPosts } from './world.js';
 import { mulberry } from '../lib/noise.js';
 
 export const STRIDE = 10;
@@ -159,7 +159,15 @@ function church(A) {
   cyl(A, AP, 0, wallH - 1, 0, hw + 0.2, wallH + 4.5, 0.01, 10, M.SLATE, 3, false);
   // the tower at the near end, its door toward the porch
   const tz = C.tz, tw = C.tw, top = C.towerH;
-  box(A, P, -tw, -1, tz - tw, tw, top, tz + tw, { side: M.STONE, front: M.STONE_FRONT, top: M.STONE }, 5.5);
+  box(A, P, -tw, -1, tz - tw, tw, top - 6, tz + tw, { side: M.STONE, front: M.STONE_FRONT, top: M.STONE }, 5.5);
+  // the belfry: the church's wall material with its texture starting at the belfry's foot, so each face gets
+  // one of the nave's lit windows and the tower reads at night from across the town (dark on the footfalls)
+  {
+    const y0 = top - 6, bc = P(0, top - 3, tz), W = tw * 2;
+    const faces = [[[-tw, tz + tw], [tw, tz + tw]], [[tw, tz + tw], [tw, tz - tw]], [[tw, tz - tw], [-tw, tz - tw]], [[-tw, tz - tw], [-tw, tz + tw]]];
+    for (const [[ax, az], [bx, bz]] of faces) quad(A, P(ax, y0, az), P(bx, y0, bz), P(bx, top, bz), P(ax, top, az), M.CHURCH, [0, 0], [W, 0], [W, 6], [0, 6], 3000.5, bc);
+    quad(A, P(-tw, top, tz + tw), P(tw, top, tz + tw), P(tw, top, tz - tw), P(-tw, top, tz - tw), M.STONE, [0, 0], [W, 0], [W, W], [0, W], 2, bc);
+  }
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(A, P, sx * tw - 0.7, top - 0.2, tz + sz * tw - 0.7, sx * tw + 0.7, top + 2.2, tz + sz * tw + 0.7, M.STONE, 2);
   const sh = tw * 2, ap = P(0, top + sh, tz), tc = P(0, top + sh * 0.3, tz);
   const co = [P(-tw + 0.3, top, tz - tw + 0.3), P(tw - 0.3, top, tz - tw + 0.3), P(tw - 0.3, top, tz + tw - 0.3), P(-tw + 0.3, top, tz + tw - 0.3)];
@@ -290,8 +298,7 @@ function hall(A) {
   box(A, P, -hw + 1.2, 0.25, -1.2, -hw + 4.2, 1.1, 0.4, M.PLANK, 3);
   box(A, P, hw - 4.5, 0.25, 0.2, hw - 1.4, 1.0, 1.6, M.PLANK, 4);
 }
-function well(A) {
-  if (!WELL) return;
+function well(A, WELL) {
   const gy = height(WELL.x, WELL.z), P = frame(WELL.x, gy, WELL.z, 0.3);
   cyl(A, P, 0, -0.3, 0, 1.0, 0.85, 1.0, 10, M.STONE, 1.5, false);
   cyl(A, P, 0, -0.3, 0, 0.75, 0.86, 0.75, 10, M.DARK, 1.5, false);
@@ -398,14 +405,14 @@ export function buildWorld() {
   towers.forEach((T) => tower(at(T.x, T.z), T));
   if (CHURCH) church(at(CHURCH.x, CHURCH.z));
   if (HALL) hall(at(HALL.x, HALL.z));
-  if (WELL) well(at(WELL.x, WELL.z));
+  wells.forEach((W) => well(at(W.x, W.z), W));
   arcades.forEach((Ar, k) => arcade(at(Ar.x, Ar.z), Ar, arcadePosts[k]));
   stalls.forEach((St, k) => stall(at(St.x, St.z), St, stallPosts[k]));
   stairs.forEach((St) => stairStep(at(St.x, St.z), St));
   ruinWallList.forEach((W) => ruin(at(W.x, W.z), W));
   chapels.forEach((C) => chapel(at(C.x, C.z), C));
   lowWalls.forEach((W) => lowWall(at((W.a[0] + W.b[0]) / 2, (W.a[1] + W.b[1]) / 2), W));
-  bushes.forEach((B) => broad(at(B.x, B.z), B));
+  bushes.forEach((B) => { if (!B.bare) broad(at(B.x, B.z), B); });
   bridge(at(BRIDGE.x, BRIDGE.z));
   mill(at(MILL.x, MILL.z));
   trees.forEach((T) => (T.kind === 1 ? broad : pine)(at(T.x, T.z), T));

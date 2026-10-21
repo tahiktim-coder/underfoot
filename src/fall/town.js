@@ -9,11 +9,18 @@ export const CELL = 2, MAP_X0 = -80, MAP_Z0 = -74, NI = 76;
 export const LEGEND = {
   wall: '#', tower: 'T', gate: 'G', lane: '.', plaza: 'Q', yard: ':', stairs: '=', ground: ' ',
   houses: '123abcS', arcade: 'A', hall: 'H', stall: 'm', church: 'C', churchTower: 'K', porch: 'P',
-  chapel: 'k', ruin: 'r', well: 'W', bigTree: 'Y', tree: 't', garden: 'g', lowWall: '-|',
+  chapel: 'k', ruin: 'r', well: 'W', bigTree: 'Y', tree: 't', garden: 'g', hedge: 'h', cart: 'u', barrel: 'o', lowWall: '-|',
 };
 // what counts as paved (the ground map), open (a house front looks for it) and walkable (the checks)
-const PAVED = '.=AHmPGQ', OPEN = '.Q:= gtYAHmPGW', WALKABLE = '.Q:= gtAHmPG';
+const PAVED = '.=AHmPGQuo', OPEN = '.Q:= gtYAHmPGWuo', WALKABLE = '.Q:= gtAHmPG';
 const HOUSE_KIND = { 1: 1, a: 1, 2: 2, b: 2, 3: 3, c: 3, S: 'S' };
+// the quarters: the north-west is built in stone, the north-east in timber with jettied fronts; elsewhere the
+// seed decides. Districts are drawn by cell so a house keeps its look when the map changes round it.
+export function district(i, j) {
+  if (i <= 20 && j <= 33) return 'stone';
+  if (i >= 53 && j <= 31) return 'timber';
+  return null;
+}
 
 const rows = TOWN_MAP.replace(/^\n/, '').replace(/\n$/, '').split('\n');
 export const NJ = rows.length;
@@ -105,9 +112,10 @@ export function readHouses() {
       for (const r of splitLong(r0, mulberry(r0.i0 * 131 + r0.j0 * 7))) {
         const R = mulberry(r.i0 * 977 + r.j0 * 31 + (kind === 'S' ? 5 : kind) * 3);
         const f = front(r), b = orient(r, f, 0.25 + R() * 0.12);
-        const stone = R() < K.stone;
+        const q = district(r.i0, r.j0), stone = q === 'stone' ? true : q === 'timber' ? false : R() < K.stone;
+        const jettyP = q === 'timber' && kind !== 1 ? 0.9 : K.jetty;
         out.push({
-          ...b, h: K.h[0] + R() * (K.h[1] - K.h[0]), seed: R(), gableFront: R() < K.gable, jetty: !stone && R() < K.jetty,
+          ...b, h: K.h[0] + R() * (K.h[1] - K.h[0]), seed: R(), gableFront: R() < K.gable, jetty: !stone && R() < jettyP,
           chimney: R() < K.chimney, stone, tile: R() < K.tile, tower: !!K.tower, storeys: kind === 'S' ? 4 : kind, cell: [r.i0, r.j0, r.i1, r.j1],
         });
       }
@@ -119,7 +127,23 @@ export function readHouses() {
 // ---- the rest of the buildings, by glyph
 const oneRect = (glyph) => { const reg = regions(glyph); return reg.length ? bbox(reg[0].cells) : null; };
 export function readHall() { const r = oneRect(LEGEND.hall); if (!r) return null; const [x, z] = centre(r), [w, d] = extent(r); return { x, z, w, d, rot: 0 }; }
-export function readWell() { const r = oneRect(LEGEND.well); return r ? { x: cx(r.i0), z: cz(r.j0) } : null; }
+export function readWells() { return regions(LEGEND.well).map((reg) => ({ x: cx(reg.cells[0][0]), z: cz(reg.cells[0][1]) })); }
+// carts and barrels: a cart stands along the street it is in (the way its walkable neighbours run); a barrel
+// cell is a stack of three
+export function readProps() {
+  const out = [];
+  for (let j = 0; j < NJ; j++) for (let i = 0; i < NI; i++) {
+    const ch = at(i, j);
+    if (ch === LEGEND.cart) {
+      const ew = isWalkable(at(i - 1, j)) + isWalkable(at(i + 1, j)), ns = isWalkable(at(i, j - 1)) + isWalkable(at(i, j + 1));
+      out.push({ x: cx(i), z: cz(j), kind: 'cart', rot: ew >= ns ? Math.PI / 2 : 0, seed: (i * 7 + j * 3) % 13 / 13 });
+    } else if (ch === LEGEND.barrel) {
+      const R = mulberry(i * 17 + j * 5 + 9);
+      for (const [a, b] of [[-0.5, -0.4], [0.5, -0.3], [0, 0.5]]) out.push({ x: cx(i) + a + (R() - 0.5) * 0.2, z: cz(j) + b + (R() - 0.5) * 0.2, kind: 'barrel', rot: 0, seed: R() });
+    }
+  }
+  return out;
+}
 export function readStalls() { return regions(LEGEND.stall).map((reg) => { const r = bbox(reg.cells), [x, z] = centre(r), [w, d] = extent(r); return { x, z, w, d, rot: 0, seed: (r.i0 * 7 + r.j0) % 17 / 17 }; }); }
 export function readArcades() { return regions(LEGEND.arcade).flatMap((reg) => rects(reg).map((r) => ({ ...orient(r, front(r), 0), seed: (r.i0 * 3 + r.j0) % 11 / 11 }))); }
 export function readChapels() { return regions(LEGEND.chapel).map((reg) => { const r = bbox(reg.cells); return { ...orient(r, front(r), 0.3), seed: 0.37 }; }); }
@@ -133,13 +157,21 @@ export function readTrees() {
   }
   return out;
 }
+// bushes: on a garden's rim (a garden cell beside something built, about two in three), so the middle of a
+// garden is open grass you can cross; and every hedge cell (a hedge cell is blocked whole: `cell` says so)
 export function readBushes() {
   const out = [];
   for (let j = 0; j < NJ; j++) for (let i = 0; i < NI; i++) {
-    if (at(i, j) !== LEGEND.garden) continue;
+    const ch = at(i, j), hedge = ch === LEGEND.hedge;
+    if (ch !== LEGEND.garden && !hedge) continue;
     const R = mulberry(i * 29 + j * 71 + 3);
-    if (R() < 0.45) continue;
-    out.push({ x: cx(i) + (R() - 0.5) * 1.2, z: cz(j) + (R() - 0.5) * 1.2, h: 2.4 + R() * 0.8, r: 1.1 + R() * 0.4, seed: R(), kind: 1 });
+    const rim = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => { const n = at(i + a, j + b); return !isWalkable(n) && n !== LEGEND.hedge; });
+    if (!hedge && (!rim || R() < 0.6)) continue;
+    // a hedge is a bush on every cell along its edge; inside a thick band (under the wall) half the cells are
+    // bare ground, still blocked
+    if (hedge) { const edge = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]].some(([a, b]) => isWalkable(at(i + a, j + b))); if (!edge && R() < 0.5) { out.push({ x: cx(i), z: cz(j), h: 0, r: 0, seed: 0, kind: 1, cell: [cx(i), cz(j)], bare: true }); continue; } }
+    const jit = hedge ? 0.5 : 1.2;
+    out.push({ x: cx(i) + (R() - 0.5) * jit, z: cz(j) + (R() - 0.5) * jit, h: hedge ? 2.0 + R() * 0.7 : 2.4 + R() * 0.8, r: hedge ? 1.25 + R() * 0.2 : 1.1 + R() * 0.4, seed: R(), kind: 1, cell: hedge ? [cx(i), cz(j)] : null });
   }
   return out;
 }
@@ -265,9 +297,9 @@ export function streetAt(x, z) {
 
 // everything, read once
 export const LAYOUT = {
-  houses: readHouses(), hall: readHall(), well: readWell(), stalls: readStalls(), arcades: readArcades(), chapels: readChapels(), ruins: readRuins(),
+  houses: readHouses(), hall: readHall(), wells: readWells(), stalls: readStalls(), arcades: readArcades(), chapels: readChapels(), ruins: readRuins(),
   trees: readTrees(), bushes: readBushes(), church: readChurch(), plazas: readPlazas(), stairs: readStairs(), streets: readStreets(), lowWalls: readLowWalls(),
-  wall: readWall(),
+  props: readProps(), wall: readWall(),
 };
 
 // a ruin's four walls as oriented boxes, with a doorway in the middle of the front (local +z) wall
