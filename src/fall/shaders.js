@@ -1,4 +1,4 @@
-// UNDERFOOT — shaders. The scene pass lights everything in colour at 386x218, tone-maps it and writes it
+// UNDERFOOT — shaders. The scene pass lights everything in colour at 482x272, tone-maps it and writes it
 // out. The palette pass then snaps each pixel to a ramp: eight greys, or one of four dull hues (amber,
 // moss, slate, rust) when the pixel is coloured enough, dithered with a 4x4 Bayer that stays flat inside a
 // band and only breaks up near its edges. Post adds tilt-shift, fades, the UI, grain and vignette.

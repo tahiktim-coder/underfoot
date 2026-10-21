@@ -1,6 +1,6 @@
 // UNDERFOOT — the renderer. Owns every GPU resource and draws one frame from a plain `scene` object.
 // Frame: sun shadow maps (the town, sharp; the giant and the land, wide and soft), the lantern's shadow map,
-// then the scene at 386x218 in colour (sky, land, town, giant, the per-frame mesh, clouds, dust, birds,
+// then the scene at 482x272 in colour (sky, land, town, giant, the per-frame mesh, clouds, dust, birds,
 // ash), then the palette pass, then post at screen size.
 import { getGL, program, texture, framebuffer, upload, VS_TRI, fitCanvas } from '../lib/gl.js';
 import { mul, lookAt, ortho } from '../lib/mat4.js';
@@ -9,7 +9,7 @@ import { buildWorld, buildTerrain, STRIDE, makeArr } from './mesh.js';
 import { noiseTex, nearMap, farMap, poolMap, stainMap, stampStain, clearStains } from './textures.js';
 import { mulberry } from '../lib/noise.js';
 
-export const LW = 386, LH = 218, VW = 384, VH = 216;
+export const LW = 482, LH = 272, VW = 480, VH = 270;   // the picture: 480 x 270 visible (4x on a 1080p screen, 2x at 960 x 540), a 1 px border for the sub-pixel slide
 // The default palette (the Ashwake grey look): eight warm greys, then amber, moss, slate and rust ramps. The game
 // replaces it with the current look's palette at start and on every look change (setPalette, looks.js).
 const GREYS = ['#0f0e10', '#1f1d20', '#34313a', '#4d494c', '#6b6667', '#8e8884', '#b5aea6', '#dfd9cf'];

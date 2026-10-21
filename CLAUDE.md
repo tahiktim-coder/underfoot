@@ -1,6 +1,6 @@
 # Underfoot: notes for Claude Code
 
-A small WebGL2 game with no engine: a score game of nights in which you hide in a walled hill town from a giant about 2.9 km tall whose lantern searches the streets a few steps behind you; each night it asks more, until it finds you. The picture is drawn at 384 x 216 and snapped to a small palette with dithering. Seven "looks" (palette, light, fog, sky, post) can be switched at run time; the game itself is the same under all of them. README.md is the full description; read its sections 3 to 6 before changing gameplay or rendering.
+A small WebGL2 game with no engine: a score game of nights in which you hide in a walled hill town from a giant about 2.9 km tall whose lantern searches the streets a few steps behind you; each night it asks more, until it finds you. The picture is drawn at 480 x 270 and snapped to a small palette with dithering. Seven "looks" (palette, light, fog, sky, post) can be switched at run time; the game itself is the same under all of them. README.md is the full description; read its sections 3 to 6 before changing gameplay or rendering.
 
 ## Commands
 
@@ -43,7 +43,7 @@ Pages open straight from disk. Address options: `?look=<id>`, `?night=<1-3>`, `?
 
 - Looks change only the picture. Gameplay never reads the look: the hiding test uses `S.lan.I` (1.5), the fixed cone and the night table, never `lanI`. Keep it that way so looks stay comparable.
 - The hiding test is `isLit()` in game.js: three rays to the lantern's glass, and the tier is how many are blocked (deep 3, shallow 1 to 2, lit 0). The penumbra in the lantern shadow map (shaders.js `lanternLight`) is sized to the same 24 m ray spread, so the picture and the rule agree; change them together.
-- The scene renders at 386 x 218 (384 x 216 visible, a 1 px border for the sub-pixel camera slide). The UI is a 384 x 216 2D canvas in the Wisp pixel font (`src/lib/wisp.js`).
+- The scene renders at 482 x 272 (480 x 270 visible, a 1 px border for the sub-pixel camera slide; a whole 4x on a 1080p screen). The UI is a 480 x 270 2D canvas in the Wisp pixel font (`src/lib/wisp.js`).
 - Palette uniforms are fixed-size: 8 greys and 4 ramps of 5. `buildPalette()` pads; `uNGrey` and `uNHue` say how many are real.
 - Material ids in `mesh.js` `M` must match the `m ==` branches in `FS_MESH`.
 - `maskZ` / `maskRelief` exist in both `giant.js` and `shaders.js`. Change them together.

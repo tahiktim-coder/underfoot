@@ -13,7 +13,16 @@ const V = (window.__v16 = { ready: false, hold: /[?&]hold/.test(location.search)
 window.addEventListener('error', (e) => V.errors.push(String(e.message)));
 
 function boot() {
-  const canvas = $('fall'), msg = $('fallMsg');
+  const canvas = $('fall'), msg = $('fallMsg'), box = $('box');
+  // the picture is 480 x 270: shown at a whole multiple of that whenever the multiple fills most of the
+  // window (4x on a 1080p screen), so every pixel is the same size; otherwise it fills the window's width
+  // or height as before
+  const fit = () => {
+    const w = innerWidth, h = innerHeight, k = Math.floor(Math.min(w / 480, h / 270)), fill = Math.min(w, h * 16 / 9);
+    if (box && k >= 2 && (480 * k) / fill >= 0.72) { box.style.width = 480 * k + 'px'; box.style.height = 270 * k + 'px'; }
+    else if (box) { box.style.width = ''; box.style.height = ''; }
+  };
+  addEventListener('resize', fit); document.addEventListener('fullscreenchange', fit); fit();
   const show = (text, small) => { msg.hidden = false; msg.textContent = text; if (small) { const s = document.createElement('small'); s.textContent = small; msg.appendChild(s); } };
   let game = null, dead = false;
   const nq = /[?&]night=(\d+)/.exec(location.search);
