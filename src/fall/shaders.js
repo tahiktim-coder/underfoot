@@ -219,7 +219,9 @@ float lanternLight(vec3 P, vec3 n, out float sh){
     sh = acc/8.0;
   }
   float lit = sh > 0.02 ? mix(0.3, 1.0, sh) : 0.0;
-  return uLan.w*cone*att*ndl*lit;
+  // two steps in the pool: only its inner third reaches full, the rest holds a step lower, so the picture
+  // says the centre fills the eye faster than the rim
+  return uLan.w*cone*att*ndl*lit*(0.72 + 0.28*smoothstep(0.6, 1.0, cone));
 }
 
 // a taken house: soot up the walls from the eaves and a black bloom round the door
@@ -608,7 +610,7 @@ void main(){
     // the play camera (0) only a trace, its edges a tenth or so and its body a few percent; thinner toward
     // the ground either way, so the pool stays the main read
     float cine = (0.06 + 0.5*(1.0 - u)*(1.0 - u))*(0.35 + 0.65*edge);
-    float play = (0.012 + 0.03*(1.0 - u))*(1.0 + 2.5*edge);
+    float play = 0.0;   // nothing from the play camera: there it was two columns of dots that never met the pool
     float dens = mix(play, cine, uBeamK)*(1.0 - 0.5*u)*clamp(uLan.w/1.5, 0.0, 1.5);
     if (bayerF(gl_FragCoord.xy + vec2(2.0, 1.0)) > dens) discard;
     o = toneOut(fogged(uLanCol*(1.1/uExposure)*(0.55 + 0.45*(1.0 - u)), P)); return;
@@ -638,7 +640,11 @@ void main(){
   // light, so it reads as red (it still halves when you crouch in deep shadow)
   if (m == 59) col = max(col, alb*max(uPlayer[3].x, 0.75)); else if ((m >= 50 && m <= 55) || m == 58) col = max(col, alb*uPlayer[3].x);
   float lsh; float L = lanternLight(P, n, lsh);
-  col += alb*uLanCol*L;
+  // the lantern's light: on roofs and timber it is half desaturated before the snap, so a lit roof goes to
+  // the amber ramp or the greys, never the red one (red stays for the cape, Seen and the edge pulse)
+  vec3 lanC = alb*uLanCol*L;
+  if (m == 3 || m == 4 || m == 5 || m == 6) lanC = mix(lanC, vec3(dot(lanC, vec3(0.333))), 0.5);
+  col += lanC;
   // candles carried through the streets: a small warm pool on the ground and the walls near them
   if (m < 30) for (int i = 0; i < 4; i++){
     if (uCandles[i].w <= 0.0) continue;

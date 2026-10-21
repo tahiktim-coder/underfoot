@@ -17,7 +17,8 @@ function boot() {
   const show = (text, small) => { msg.hidden = false; msg.textContent = text; if (small) { const s = document.createElement('small'); s.textContent = small; msg.appendChild(s); } };
   let game = null, dead = false;
   const nq = /[?&]night=(\d+)/.exec(location.search);
-  try { game = createGame(canvas, { noIntro: /nointro/.test(location.search), look: LOOK, night: nq ? +nq[1] : 1, credit: AUTHOR }); }
+  const touch = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+  try { game = createGame(canvas, { noIntro: /nointro/.test(location.search), look: LOOK, night: nq ? +nq[1] : 1, credit: AUTHOR, touch }); }
   catch (e) { V.errors.push(String((e && e.stack) || e)); show('Could not start.', String(e && e.message || e)); V.ready = true; return; }
   if (!game) { show('This needs WebGL2, which this browser does not offer.'); V.ready = true; return; }
   msg.hidden = true;
@@ -36,8 +37,10 @@ function boot() {
   const sb = $('soundBtn');
   const syncSound = () => sb.setAttribute('aria-pressed', game.snd.on ? 'true' : 'false');
   sb.addEventListener('click', () => { game.snd.init(); if (!game.snd.on) game.snd.setMuted(false); else game.snd.setMuted(true); syncSound(); canvas.focus({ preventScroll: true }); });
-  canvas.addEventListener('pointerdown', () => setTimeout(syncSound, 0));
-  window.addEventListener('keydown', () => setTimeout(syncSound, 0));
+  // after the first gesture the overlay buttons fade back so they never sit over the pool; they wake on hover
+  const quiet = () => { const ov = document.querySelector('.ov'); if (ov) ov.classList.add('quiet'); };
+  canvas.addEventListener('pointerdown', () => { setTimeout(syncSound, 0); quiet(); });
+  window.addEventListener('keydown', () => { setTimeout(syncSound, 0); quiet(); });
   // fullscreen on the document, not the screen: the screen keeps its 16:9 rule inside it and is letterboxed
   const fs = $('fsBtn'), doc = document.documentElement;
   fs.addEventListener('click', () => {

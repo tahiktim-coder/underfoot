@@ -15,6 +15,7 @@ body { display: grid; place-items: center; font: 14px/1.4 system-ui, sans-serif;
 .msg small { display: block; margin-top: 8px; color: #6d7b94; font-size: 12px; }
 [hidden] { display: none !important; }
 .ov { position: absolute; top: 2%; right: 1.5%; display: flex; gap: 6px; opacity: .45; transition: opacity .2s; }
+.ov.quiet { opacity: .15; }
 .ov:hover, .ov:focus-within { opacity: 1; }
 button { font: 600 12px/1 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .04em; color: #a9b4c6; background: rgba(6, 7, 11, .78); border: 1px solid #334058; padding: 9px 11px; cursor: pointer; min-height: 36px; touch-action: none; -webkit-user-select: none; user-select: none; }
 button[aria-pressed="true"] { color: #06070b; background: #a9b4c6; border-color: #a9b4c6; }
