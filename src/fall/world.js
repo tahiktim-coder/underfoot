@@ -5,7 +5,7 @@
 // adds what stands outside the walls, and builds the collision grid, the occluders and the covers the game
 // reads.
 import { makeNoise, mulberry, clamp, smooth } from '../lib/noise.js';
-import { LAYOUT, streetAt, ruinWalls, at as cellAt, cx as cellX, cz as cellZ, isWalkable, NI, NJ } from './town.js';
+import { LAYOUT, streetAt, ruinWalls, CELL } from './town.js';
 
 export const NEAR = 256;        // the detailed square (±256 m) around the town
 export const FAR = 9000;        // the whole valley (±9 km)
@@ -100,7 +100,8 @@ export const SPAWN = { x: -12, z: 8 };   // where you start every night (game.js
 
 export const CHURCH = LAYOUT.church;
 export const HALL = LAYOUT.hall;        // open market hall on posts: cover
-export const WELL = LAYOUT.well;
+export const wells = LAYOUT.wells;
+export const WELL = wells.length ? wells.reduce((a, b) => (Math.hypot(b.x - SQUARE.x, b.z - SQUARE.z) < Math.hypot(a.x - SQUARE.x, a.z - SQUARE.z) ? b : a)) : null;   // the one on the square
 export const MILL = { x: -210, z: 40 };
 export const stalls = LAYOUT.stalls, arcades = LAYOUT.arcades, chapels = LAYOUT.chapels, ruins = LAYOUT.ruins;
 export const lowWalls = LAYOUT.lowWalls, stairs = LAYOUT.stairs, bushes = LAYOUT.bushes;
@@ -147,8 +148,8 @@ export const trees = LAYOUT.trees.slice();
   for (let i = 0; i < 6; i++) for (let j = 0; j < 4; j++) trees.push({ x: -112 + i * 8 + TR(), z: 86 + j * 8 + TR(), h: 5 + TR() * 1.5, r: 2.4, seed: TR(), kind: 1 });
 }
 
-// haystacks in the fields; carts and barrels against the lane walls
-export const props = [];
+// haystacks in the fields; the carts and barrels the map puts in the streets
+export const props = LAYOUT.props.slice();
 {
   const PR = mulberry(5);
   for (let i = 0; i < 40; i++) {
@@ -156,21 +157,6 @@ export const props = [];
     if (townR(x, z) < 1.15 || riverDist(x, z) < 20 || roadDist(x, z) < 6 || isForest(x, z)) continue;
     if (gates.some((G) => Math.hypot(G.x - x, G.z - z) < 45)) continue;
     props.push({ x, z, kind: 'hay', r: 2 + PR() * 1.2, seed: PR() });
-  }
-  // carts and barrels against the lane walls: a lane cell with a wall beside it, the prop pushed to that
-  // side; a cart only where the lane is two cells wide, so the way past stays open; none on top of another
-  const laneCells = [];
-  for (let j = 0; j < NJ; j++) for (let i = 0; i < NI; i++) if (cellAt(i, j) === '.') laneCells.push([i, j]);
-  const sides = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  for (let tries = 0; tries < 200 && props.filter((P) => P.kind !== 'hay').length < 24; tries++) {
-    const [i, j] = laneCells[Math.floor(PR() * laneCells.length)];
-    const walls = sides.filter(([a, b]) => !isWalkable(cellAt(i + a, j + b)));
-    if (!walls.length) continue;
-    const [a, b] = walls[Math.floor(PR() * walls.length)], open = isWalkable(cellAt(i - a, j - b));
-    const cart = open && PR() < 0.3;
-    const x = cellX(i) + a * (cart ? 0.1 : 0.5), z = cellZ(j) + b * (cart ? 0.1 : 0.5);
-    if (props.some((P) => P.kind !== 'hay' && Math.hypot(P.x - x, P.z - z) < 3.5)) continue;
-    props.push({ x, z, kind: cart ? 'cart' : 'barrel', rot: a ? 0 : Math.PI / 2, seed: PR() });
   }
 }
 
@@ -215,10 +201,11 @@ towers.forEach((T) => { if (!T.gate) stampCircle(T.x, T.z, T.r + 0.2); });
 if (HALL) posts(HALL).forEach(([x, z]) => stampCircle(x, z, 0.45));
 arcadePosts.forEach((ps) => ps.forEach(([x, z]) => stampCircle(x, z, 0.4)));
 stallPosts.forEach((ps) => ps.forEach(([x, z]) => stampCircle(x, z, 0.3)));
-if (WELL) stampCircle(WELL.x, WELL.z, 1.3);
+wells.forEach((W) => stampCircle(W.x, W.z, 1.3));
 stampCircle(MILL.x, MILL.z, 5);
 trees.forEach((T) => { if (Math.abs(T.x) < NEAR && Math.abs(T.z) < NEAR) stampCircle(T.x, T.z, T.big ? 0.9 : 0.5); });
-bushes.forEach((B) => stampCircle(B.x, B.z, 0.7));
+// a garden bush blocks round its trunk; a hedge blocks its whole cell
+bushes.forEach((B) => { if (B.cell) stampBox(B.cell[0], B.cell[1], CELL, CELL, 0, 0); else stampCircle(B.x, B.z, 0.7); });
 props.forEach((P) => { if (P.kind === 'hay') stampCircle(P.x, P.z, P.r); else if (P.kind === 'cart') stampBox(P.x, P.z, 1.8, 2.8, P.rot); else stampCircle(P.x, P.z, 0.5); });
 // the river is deep: only the bridge crosses it
 for (let j = 0; j < COL_N; j++) for (let i = 0; i < COL_N; i++) {
@@ -271,7 +258,9 @@ export const OCCLUDERS = [];
   for (const W of wallSegs) { const dx = W.b[0] - W.a[0], dz = W.b[1] - W.a[1]; const y = height((W.a[0] + W.b[0]) / 2, (W.a[1] + W.b[1]) / 2); OCCLUDERS.push({ x: (W.a[0] + W.b[0]) / 2, z: (W.a[1] + W.b[1]) / 2, w: 1.8, d: Math.hypot(dx, dz) + 0.4, rot: Math.atan2(dx, dz), y0: y - 1, y1: y + W.h, ridge: y + W.h, ridgeAlongZ: true }); }
   for (const W of lowWalls) { const dx = W.b[0] - W.a[0], dz = W.b[1] - W.a[1]; const y = height((W.a[0] + W.b[0]) / 2, (W.a[1] + W.b[1]) / 2); OCCLUDERS.push({ x: (W.a[0] + W.b[0]) / 2, z: (W.a[1] + W.b[1]) / 2, w: 0.6, d: Math.hypot(dx, dz), rot: Math.atan2(dx, dz), y0: y - 1, y1: y + 2.1, ridge: y + 2.1, ridgeAlongZ: true }); }
   for (const T of towers) { if (T.gate) continue; const y = height(T.x, T.z); OCCLUDERS.push({ x: T.x, z: T.z, w: T.r * 1.8, d: T.r * 1.8, rot: 0, y0: y - 1, y1: y + T.h, ridge: y + T.h + 5, ridgeAlongZ: true }); }
-  for (const T of trees) { if (!T.inTown) continue; const y = height(T.x, T.z) + T.h * 0.62, r = T.r * 0.82; OCCLUDERS.push({ x: T.x, z: T.z, w: T.r * 1.9, d: T.r * 1.9, rot: 0, y0: y - r, y1: y + r, ridge: y + r, ridgeAlongZ: true }); }
+  // a tree's crown: a box in the air. The big tree's box is narrower than its crown, so the deep spot under
+  // it is a few metres across like any other tree's and not a hide the light never reaches
+  for (const T of trees) { if (!T.inTown) continue; const y = height(T.x, T.z) + T.h * 0.62, r = T.r * 0.82, k = T.big ? 1.3 : 1.9; OCCLUDERS.push({ x: T.x, z: T.z, w: T.r * k, d: T.r * k, rot: 0, y0: y - r, y1: y + r, ridge: y + r, ridgeAlongZ: true }); }
 }
 
 // the covers: under a roof with no walls, where the light never reaches whatever the lantern does. The
