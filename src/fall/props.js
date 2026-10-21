@@ -93,7 +93,7 @@ export function lantern(A, top, up, size = 64, t = 0) {
 // build the outline hull (the cape, a flat sheet, is left out of it). look.ring (0..1) adds a dithered disc
 // on the ground under the feet.
 export function person(A, x, y, z, yaw, ph, run, look = {}) {
-  const k = 1.6, P0 = frame(x, y, z, yaw);
+  const k = look.knight ? 1.8 : 1.6, P0 = frame(x, y, z, yaw);   // the knight a little larger: he has to read from above
   const crouch = look.crouch || 0;
   const P = (lx, ly, lz) => P0(lx * k, ly * k * (1 - crouch * 0.25), lz * k);
   const sw = Math.sin(ph) * (0.25 + 0.35 * run), lift = Math.max(0, Math.cos(ph)) * 0.15 * run;
@@ -122,19 +122,23 @@ export function person(A, x, y, z, yaw, ph, run, look = {}) {
     // the cuirass, wider at the chest; a short skirt of faulds; a pauldron on each shoulder; the arms in plate
     boxI((lx, ly, lz) => Q(lx * (1 + (ly - 0.85) * 0.3), ly, lz), -0.2, 0.85, -0.13, 0.2, 1.42, 0.15, armour, 0.3);
     boxI((lx, ly, lz) => Q(lx * (1 + (0.9 - ly) * 0.4), ly, lz), -0.2, 0.62, -0.14, 0.2, 0.9, 0.15, dark, 0.3);
-    for (const s of [-1, 1]) boxI(Q, Math.min(s * 0.16, s * 0.33), 1.3, -0.15, Math.max(s * 0.16, s * 0.33), 1.48, 0.15, armour, 0.2);
+    // pauldrons wide enough to give him shoulders from above
+    for (const s of [-1, 1]) boxI(Q, Math.min(s * 0.17, s * 0.4), 1.28, -0.16, Math.max(s * 0.17, s * 0.4), 1.5, 0.16, armour, 0.2);
     for (const s of [-1, 1]) barI(Q(s * 0.24, 1.36, 0), Q(s * 0.27, 0.9, -Math.sin(s * sw) * 0.4 * (0.4 + run)), 0.065 * k, 0.065 * k, [0, 0, 1], armour);
     // the helm: rounded (a box with a smaller crown), a dark slit for the eyes on the front
     boxI(Q, -0.12, 1.5, -0.12, 0.12, 1.78, 0.12, armour, 0.1);
     boxI(Q, -0.09, 1.78, -0.09, 0.09, 1.87, 0.09, armour, 0.1);
     if (!only) box(A, Q, -0.09, 1.64, 0.11, 0.09, 1.69, 0.145, dark, 0);
+    // a red crest along the helm, leaning back: the second red mark on him, and the one the play camera sees
+    boxI(Q, -0.03, 1.86, -0.16, 0.03, 2.1, 0.06, cape, 0.1);
     // the cape: two halves from the shoulders to the calves, a little thick so it shows from any side,
     // swinging behind with the stride and flaring when running
     if (!only) {
-      const hemBack = -0.19 - 0.3 * run - 0.06 * Math.max(0, Math.sin(ph * 2)), flare = 0.1 + 0.3 * run, hem = 0.28 + 0.12 * run, top = 1.44, th = 0.035;
+      // wider and thicker than it was, so the red shows from the side and from above, not only from behind
+      const hemBack = -0.22 - 0.3 * run - 0.06 * Math.max(0, Math.sin(ph * 2)), flare = 0.2 + 0.3 * run, hem = 0.24 + 0.12 * run, top = 1.46, th = 0.06;
       const side = Math.sin(ph) * 0.05 * run, hint = Q(0, 1, 1);
       for (const s of [-1, 1]) {
-        const F = (lx, ly, lz) => { const u = lx * s, t = (top - ly) / (top - hem); return Q(u * (0.22 + flare * t) + side * t, ly, -0.16 + (hemBack + 0.16) * t + lz); };
+        const F = (lx, ly, lz) => { const u = lx * s, t = (top - ly) / (top - hem); return Q(u * (0.27 + flare * t) + side * t, ly, -0.17 + (hemBack + 0.17) * t + lz); };
         box(A, F, 0, hem, -th, 1, top, 0, cape, 0.3, false);
       }
       void hint;
