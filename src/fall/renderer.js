@@ -225,7 +225,7 @@ export function createRenderer(canvas, giantMesh, opts = {}) {
     const D = cam.D;
     const eye = [tgt[0] + off[0] * D, tgt[1] + off[1] * D, tgt[2] + off[2] * D];
     const viewM = lookAt(eye, tgt, [0, 1, 0]);
-    const near = cam.near ?? Math.max(20, D - 1000), far = cam.far ?? D + 24000;
+    const near = cam.near ?? Math.max(20, D - 300), far = cam.far ?? D + 24000;   // the play camera is a long lens 1.5 km out: nothing nearer than 1.2 km to it belongs in the picture (its cloak, passing over)
     const fov = 2 * Math.atan(cam.hh / D);
     const VP = mul(perspective(fov, LW / LH, near, far), viewM);
     view.VP = VP; view.frac = frac; view.eye = eye;

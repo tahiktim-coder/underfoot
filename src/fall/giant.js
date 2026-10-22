@@ -464,7 +464,8 @@ export function footAt(plan, foot, t, swing) {
     const e = s * s * (3 - 2 * s);
     // a colossus does not step: the foot rises a little in the first fifth of the swing, glides flat and low,
     // and settles in the last fifth, so the knee barely bends
-    const lift = (LIFT0 + Math.hypot(p.x - prev.x, p.z - prev.z) * LIFT_K) * sm0(0, 0.2, s) * (1 - sm0(0.8, 1, s));
+    // (a plant may name its own lift: the steps over the town clear the church tower)
+    const lift = (p.lift ?? (LIFT0 + Math.hypot(p.x - prev.x, p.z - prev.z) * LIFT_K)) * sm0(0, 0.2, s) * (1 - sm0(0.8, 1, s));
     const pitch = s < 0.3 ? -PITCH_UP * Math.sin((s / 0.3) * Math.PI * 0.5) : s < 0.8 ? -PITCH_UP + (PITCH_UP + PITCH_DOWN) * ((s - 0.3) / 0.5) : PITCH_DOWN * (1 - (s - 0.8) / 0.2);
     const yaw = prev.yaw + Math.atan2(Math.sin(p.yaw - prev.yaw), Math.cos(p.yaw - prev.yaw)) * e;
     return { p: [prev.x + (p.x - prev.x) * e, lift, prev.z + (p.z - prev.z) * e], yaw, pitch, swing: s, from: prev, to: p };

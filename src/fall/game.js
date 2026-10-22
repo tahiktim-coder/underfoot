@@ -226,8 +226,9 @@ export function createGame(canvas, opts = {}) {
     const pl = [
       { foot: 0, x: STANCE.back.x, z: STANCE.back.z, yaw: STANCE.back.yaw, t: t0 - 40 },
       { foot: 1, x: STANCE.front.x, z: STANCE.front.z, yaw: STANCE.front.yaw, t: t0 - 40 },
-      { foot: 0, x: 360, z: 10, yaw: 1.95, t: t0 + SWING },
-      { foot: 1, x: 1060, z: -470, yaw: 2.3, t: t0 + SWING + STEP_T },
+      // the two steps over the town lift the sole 90 m and 60 m, well over the church tower (31 m)
+      { foot: 0, x: 480, z: 20, yaw: 1.95, t: t0 + SWING, lift: 90 },   // lands east of the farms, not on one
+      { foot: 1, x: 1060, z: -470, yaw: 2.3, t: t0 + SWING + STEP_T, lift: 60 },
     ];
     const w = [0.62, -0.78], L = [-0.78, -0.62], mid = [710, -230];
     let foot = 0;
@@ -750,10 +751,10 @@ export function createGame(canvas, opts = {}) {
     smoothCam.x = lerp(smoothCam.x, pc.x, k); smoothCam.y = lerp(smoothCam.y, pc.y, k); smoothCam.z = lerp(smoothCam.z, pc.z, k);
     smoothCam.hh = lerp(smoothCam.hh, pc.hh, Math.min(1, dt * 2.5));
     let cam = { ...smoothCam };
-    // looking up is a quick dip to dark and a cut, both ways: no long blended moves through the middle
-    // the look up at it passing is never cut short: walking is frozen under it, and it is the best picture
+    // looking up is a quick dip to dark and a cut, both ways: no long blended moves through the middle.
+    // It stepping over the town at the end of a night is seen from where you stand, on the play camera:
+    // no cut to a street shot. Holding L still looks up at it.
     if (S.autoLook > 0) S.autoLook -= dt;
-    if (S.phase === 'leave' && S.pt >= 3.0 && S.pt - dt < 3.0) S.autoLook = 9.6;
     const want = (S.input.look || S.autoLook > 0) && S.phase !== 'caught' && !S.intro ? 'look' : 'play';
     if (S.dipT < 0 && want !== S.camMode) { S.dipT = 0; S.dipTo = want; }
     if (S.dipT >= 0) {
@@ -1028,7 +1029,7 @@ export function createGame(canvas, opts = {}) {
   updateGiant(0);
 
   const api = {
-    R, G, S, snd, LOOKS, LOOK_ORDER, NIGHTS, nightTable: night, isLit, inCover, blocked, standY, height, lanLight, segmentBlocked, OCCLUDERS, houses, brain, HM, ringFloor, CHURCH, LAN_BODY,
+    R, G, S, gmesh, snd, LOOKS, LOOK_ORDER, NIGHTS, nightTable: night, isLit, inCover, blocked, standY, height, lanLight, segmentBlocked, OCCLUDERS, houses, brain, HM, ringFloor, CHURCH, LAN_BODY,
     setPicture: (w, h) => R.setPicture(w, h),
     get look() { return lookName; },
     get night() { return S.night; },
