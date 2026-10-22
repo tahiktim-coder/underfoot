@@ -61,7 +61,7 @@ CLAUDE.md           short notes for working on this with Claude Code
 
 - The title waits for your first key or click. That gesture starts the sound (browsers need a gesture before audio), focuses the picture and begins night 1.
 - Until then the town plays itself under the title: an autopilot hides well on odd cycles and walks out into the light on even ones. Once you have begun, nothing plays for you.
-- **A score game of nights.** Each night the lantern searches longer, aims closer behind you, fills the eye faster and checks the lit windows sooner (`src/fall/nights.js`; past night 3 the table keeps tightening to a floor). The score is the seconds you last in its searches plus 100 for each night passed. A card after each night shows the score; when it finds you, a card shows nights survived, the score and your best (kept in the browser), and that night's seconds are lost. Any key starts a new run at the plant of night 1. `game.html?night=5` starts there.
+- **A score game of nights.** Each night the lantern searches longer, aims closer behind you, fills the eye faster and checks the lit windows sooner (`src/fall/nights.js`; past night 3 the table keeps tightening to a floor). The score is the seconds you last in its searches, banked ten at a time as they tick (a chime, the plate flashes), plus 50 for each night passed. A card after each night shows the night's seconds and the score; when it finds you, a card shows how long you lasted against your best on that night, why it got you (you stayed too long under it, it chased you down, the half light, the open), the score and your best (kept in the browser). A catch keeps the banked tens and loses only the seconds since the last. Any key starts a new run at the plant of night 1. `game.html?night=5` starts there.
 - **Things that happen.** The windows go out in batches as it comes and every one is dark by the plant; after it passes they come back one by one. On night 1 one townsperson walks out with a candle to see the light and is taken; later nights have two or three bad hiders. Every townsperson taken leaves a stain, so the town records the run. The lantern itself follows your trail and nothing else.
 - **Deep and shallow shadow.** Inside a shadow the eye drains; at its edge (where only part of the lantern's glass is hidden) it fills slowly; in the light it fills fast. The ring under your feet is blue, dim amber or bright amber for the three, and the eye meter matches. The market hall, the church porch, the gate arches and the banks under the bridge are always deep.
 - The picture only runs while it is on screen and the tab is visible.
@@ -108,7 +108,7 @@ The whole game is where the lantern's light falls and where the shadows fall. No
 - Your position is recorded every 0.25 s (the trail).
 - The point it aims at walks your trail about **3.5 s behind you** (14 samples back), at up to **4.3 m/s**, a little slower than you run (4.6 m/s). So it is always close, but you can outrun it for a while.
 - Around that point the light hunts in small loops (about 7 m, on four sines), as if it were looking.
-- If you are lit, or once the eye is a third open, it stops following the trail and comes straight for where you are at 6.5 m/s.
+- It walks your trail sample by sample, so it goes round the corners you went round and never cuts through a house; more than 4 m of your walking behind the trail's head it closes at up to twice its pace, so running away only buys time. Lit, or once the eye is a third open, it comes along your path half a second behind you at the night's hunt speed, always a little under yours, so a corner can lose it; half seen, or just after it has lost you, it goes to the last place it saw you and waits there for the trail.
 - Its head turns to look where its light falls; when it has you, it looks at you.
 
 ### Hiding
@@ -464,8 +464,8 @@ A bare 1152 x 648 page for headless runs.
 | `LAN = 40` m | game.js | lantern size |
 | `LAN_Y = 70` m | game.js | how high the lantern ring rides over the ground while searching |
 | `LAN_OFF = 48` m | game.js | how far to the side of the lit spot the lantern is held (the beam angle) |
-| `TRAIL_LAG = 14` | game.js | how many 0.25 s trail samples behind you it aims (3.5 s) |
-| 4.3 / 6.5 m/s | game.js, `updateGiant` | how fast its aim follows your trail / comes at you once it has noticed you |
+| `lag` 25 / 16 / 16 | nights.js | how many 0.25 s trail samples behind you it aims on nights 1 / 2 / 3 (floor 12 later), walked one by one (`S.trailI`) |
+| `walk` / `hunt` 3.6 / 4.2, 3.9 / 4.3, 4.0 / 4.4 m/s | nights.js | how fast its mark follows your trail / comes along your path once it has seen you, by night; never faster than that (you walk 4.6) |
 | 0.08 + 0.17 x light, -0.3 | game.js, `updatePlayer` | how fast the eye fills when lit and empties in the dark |
 | 4.6 m/s | game.js, `updatePlayer` | your running speed |
 | cone 0.36 / 0.11 rad, I = 1.5 | game.js, `lanLight` | beam width, soft edge, brightness (the hiding test uses these) |

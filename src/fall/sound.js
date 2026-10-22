@@ -119,6 +119,13 @@ export function createSound() {
       osc('triangle', 440, 1180, t, 0.03, 0.42, 0.14, o);
       osc('sine', 220, 590, t, 0.03, 0.42, 0.08, o);
     },
+    // ten seconds banked: a small, soft two-note chime, well under the drone
+    bank() {
+      if (!ctx) return;
+      const t = now(), o = out(0, 3200);
+      osc('sine', 660, 660, t, 0.01, 0.16, 0.05, o);
+      osc('sine', 880, 880, t + 0.09, 0.01, 0.22, 0.045, o);
+    },
     // the town bolts itself in: a few wooden bangs round you, and now and then a door slammed
     shutters(pan, slam) {
       if (!ctx) return;

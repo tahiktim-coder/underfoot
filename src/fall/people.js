@@ -16,17 +16,21 @@ export function brain(who, mem, mode, env, dt) {
   const lp = env.aimS, here = [who.x, standY(who.x, who.z) + 1.6, who.z];
   if (mode === 'hider') {
     const near = Math.hypot(who.x - lp[0], who.z - lp[1]) < 30;
+    // the light's centre nearly on it: it leaves before the peer, for somewhere 12 m or more from the centre
+    const mark = env.attn || lp, crowded = Math.hypot(who.x - mark[0], who.z - mark[1]) < 9;
+    if (crowded && !mem.fleeing) { mem.goal = null; mem.t = 0; }
     if (mem.t <= 0 || !mem.goal) {
-      mem.t = mem.slow ? 2.4 : 0.8;
+      mem.t = mem.slow ? 2.4 : 0.8; mem.fleeing = crowded;
       if (env.isLit(here).tier !== 'deep' || !mem.goal || near) {
         // somewhere close that is dark now, tucked against a house, away from where the light is, and
         // inside the walls (out in the fields there is nothing to hide behind). A bad hider looks less far
         // and sometimes does not mind the light.
         const reach = mem.slow ? 15 : 27, careless = mem.slow && env.rnd() < 0.35;
         let best = null, bs = -1e9;
-        for (let r = 3; r <= reach; r += 3) for (let k = 0; k < 16; k++) {
+        for (let r = crowded ? 9 : 3; r <= Math.max(reach, crowded ? 21 : 0); r += 3) for (let k = 0; k < 16; k++) {
           const a = (k / 16) * Math.PI * 2 + r, x = who.x + Math.cos(a) * r, z = who.z + Math.sin(a) * r;
           if (blocked(x, z)) continue;
+          if (crowded && Math.hypot(x - mark[0], z - mark[1]) < 12) continue;
           let clear = true; for (let q = 1; q < 8; q++) if (blocked(lerp(who.x, x, q / 8), lerp(who.z, z, q / 8))) { clear = false; break; }
           if (!clear) continue;
           let tucked = 0; for (let q = 0; q < 8; q++) if (blocked(x + Math.cos(q * 0.785) * 3, z + Math.sin(q * 0.785) * 3)) tucked++;
