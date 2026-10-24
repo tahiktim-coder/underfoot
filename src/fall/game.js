@@ -131,7 +131,7 @@ export function createGame(canvas, opts = {}) {
     // this night's seconds in all (the banked tens leave nightScore), the bank flash, how the eye filled
     // (in the open, in the half light, under its peer) and how far you ran with the light on you: the cause on
     // the card (all counted over the stretch that ended the night: they clear once it has lost you)
-    nightSecs: 0, bankT: 0, fillLit: 0, fillShallow: 0, fillPeer: 0, runHigh: 0, cause: '',
+    nightSecs: 0, nightBanked: 0, bankT: 0, fillLit: 0, fillShallow: 0, fillPeer: 0, runHigh: 0, cause: '',
     // where the light last saw you, which trail sample its mark walks to next, where its peer began
     lastSeen: null, trailI: null, dwellAt: null,
     // how much chimney smoke is up, how many doors have slammed tonight, the light you are putting out,
@@ -162,7 +162,7 @@ export function createGame(canvas, opts = {}) {
       snd.caught(CATCH_CUT); S.hitDone = false; S.burnt = false; S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.aim = [S.player.x, S.player.z];
       // why: the share of the eye that filled under its peer, a long run with the light on you, the half light, the open
       const total = S.fillLit + S.fillShallow + S.fillPeer || 1;
-      S.cause = S.dwell > DWELL + 1 || S.fillPeer / total > 0.5 ? 'You stayed too long under it.' : S.runHigh > 20 ? 'It chased you down.' : S.fillShallow > S.fillLit ? 'Caught in the half light.' : 'Caught in the open.';
+      S.cause = S.fillPeer / total > 0.5 || (S.dwell > DWELL + 1 && S.fillPeer > 0.1 * total) ? 'You stayed too long under it.' : S.runHigh > 20 ? 'It chased you down.' : S.fillShallow > S.fillLit ? 'Caught in the half light.' : 'Caught in the open.';
     }
   }
   function startCycle() {
@@ -179,7 +179,7 @@ export function createGame(canvas, opts = {}) {
   // after the click); later nights start two plants out ('late', about 20 s), with the look up at it coming.
   function startNight(n, from = 'late') {
     S.night = Math.max(1, n); NT = night(S.night);
-    S.nightScore = 0; S.nightSecs = 0; S.bankT = 0; S.card = null; S.retry = false;
+    S.nightScore = 0; S.nightSecs = 0; S.nightBanked = 0; S.bankT = 0; S.card = null; S.retry = false;
     HM.set('calm'); S.smokeLevel = 1; S.slams = 0;
     Object.assign(S.player, { x: -12, z: 8, yaw: 0.8, seen: 0, lit: false, run: 0 });
     S.trail = []; S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.autoLook = 0; S.lookHeld = false;
@@ -210,7 +210,7 @@ export function createGame(canvas, opts = {}) {
   }
   // the run's slate: the score, the taken houses and the stains. Cleared for a new run, and at the title cut,
   // so nothing the town did to itself under the title carries into your first night
-  function resetRun() { S.score = 0; S.nightScore = 0; S.nightSecs = 0; S.bankT = 0; HM.set('reset'); R.clearStains(); S.stains = []; }
+  function resetRun() { S.score = 0; S.nightScore = 0; S.nightSecs = 0; S.nightBanked = 0; S.bankT = 0; HM.set('reset'); R.clearStains(); S.stains = []; }
   // a new run: night 1 from the plant (the walk in was the title's)
   function newRun() { resetRun(); startNight(firstNight); enterAtPlant(); S.retry = false; }
   // a night only counts, for the score and the best, once you have begun and the title has cut away
@@ -228,6 +228,7 @@ export function createGame(canvas, opts = {}) {
     S.played = true; S.auto = false; S.idle = 0;
     canvas.focus({ preventScroll: true });
     if (S.intro) S.intro.cutAt = S.intro.t + 0.5;
+    else newRun();   // (the dev page's ?nointro: a clean run, nothing the town did to itself carries in)
   }
   // the one gesture everything waits for: the title, then the cards. 'go' is Space, Enter or a click.
   function gesture(kind) {
@@ -607,7 +608,7 @@ export function createGame(canvas, opts = {}) {
       // spot. A cover is one spot however long it is: under a roof nothing resets until you step out.)
       const dm = Math.hypot(S.attn[0] - P.x, S.attn[1] - P.z), cov = inCover(P.x, P.z);
       if (dm < (cov ? DWELL_R * 2 : DWELL_R)) {
-        if (!S.dwellAt || (P.run > 0.3 && S.dwell < 1)) S.dwellAt = [P.x, P.z];
+        if (!S.dwellAt || P.run < 0.3) S.dwellAt = [P.x, P.z];   // (the anchor is where you last stood)
         if (!cov && Math.hypot(P.x - S.dwellAt[0], P.z - S.dwellAt[1]) > DWELL_MOVE) { S.dwell = 0; S.dwellAt = [P.x, P.z]; }
         else S.dwell += dt;
       } else if (!cov) { S.dwell = 0; S.dwellAt = null; }
@@ -684,7 +685,7 @@ export function createGame(canvas, opts = {}) {
       // The seconds are banked ten at a time as they tick (a chime, the plate flashes), and a catch keeps them.
       const gain = dt * (S.pt - dt > NT.search ? 0.5 : 1);
       S.nightScore += gain; S.nightSecs += dt;
-      if (S.nightScore >= BANK - 1e-9) { S.nightScore -= BANK; if (inRun()) { S.score += BANK; S.bankT = 1; snd.bank(); } }
+      if (S.nightScore >= BANK - 1e-9) { S.nightScore -= BANK; if (inRun()) { S.score += BANK; S.nightBanked += BANK; S.bankT = 1; snd.bank(); } }
       // it takes what its light finds: the search cannot end while it has you. Past its time it keeps
       // hunting until you break its line of sight (or the eye fills), with a cap so a night never stalls.
       // In the last seconds before it can end, once it has lost you, it gives up: the lantern lifts, the
@@ -701,7 +702,7 @@ export function createGame(canvas, opts = {}) {
         if (!inRun()) startCycle();
         else {
           // what is banked stays; the seconds since the last bank are lost with the night
-          const secs = Math.round(S.nightSecs), bs = best.secs(S.night);
+          const secs = Math.floor(S.nightSecs + 1e-6), bs = best.secs(S.night);   // (floored, like the bank: never a second the plate did not show)
           S.nightScore = 0; S.card = card('over', overCard(S.night, secs, bs, S.cause, S.score, best.get()));
           best.set(S.score); best.setSecs(S.night, secs);
         }
@@ -711,7 +712,8 @@ export function createGame(canvas, opts = {}) {
       if (S.pt > (S.night > 1 ? LEAVE_LATER : 15) && !S.card) {
         if (!inRun()) startCycle();
         else {
-          const rem = Math.round(S.nightScore), secs = Math.round(S.nightSecs - S.nightScore) + rem;
+          // the card counts the scored seconds (overtime at half), so its sum always matches the score
+          const rem = Math.round(S.nightScore + 1e-6), secs = S.nightBanked + rem;
           S.score += rem + NIGHT_BONUS; S.nightScore = 0;
           best.set(S.score); best.setSecs(S.night, secs);
           S.card = card('night', nightCard(S.night, S.score, secs));

@@ -19,14 +19,14 @@ export const NIGHTS = [
 // 2 s lag, full fill or the lamp at 20 m each alone made it a cliff nobody passed)
 // past the table the nights keep tightening, to a floor: a longer search, a faster fill, a thinner shallow
 // shadow, a lantern nearer overhead, a shorter lag, a quicker turn, a third townsperson. The light's speed
-// stays where night 3 left it.
+// stays where night 3 left it. (Night 4 measured no harder than 3 at a fill step of 0.05; it is 0.1.)
 export function night(n) {
   n = Math.max(1, n | 0);
   if (n < NIGHTS.length) return NIGHTS[n];
   const b = NIGHTS[NIGHTS.length - 1], k = n - (NIGHTS.length - 1);
   return {
     ...b,
-    search: Math.min(60, b.search + 4 * k), fill: Math.min(1, b.fill + 0.05 * k), k: Math.max(1.6, b.k - 0.1 * k),
+    search: Math.min(60, b.search + 4 * k), fill: Math.min(1, b.fill + 0.1 * k), k: Math.max(1.6, b.k - 0.15 * k),
     offLo: Math.max(20, b.offLo - k), lag: Math.max(12, b.lag - k), spin: Math.max(14, b.spin - k), people: Math.min(3, b.people + (k >= 2 ? 1 : 0)),
   };
 }
