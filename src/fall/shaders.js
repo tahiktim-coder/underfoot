@@ -138,7 +138,7 @@ uniform vec4 uPrints[6];       // giant footprints: x, z, yaw, side (+-1); w = 0
 uniform float uNear, uFar;
 uniform float uCloudShadow;
 uniform vec4 uCut;             // see-through near the player: screen xy, depth, radius in px
-uniform float uIsGiant;
+uniform float uIsGiant; uniform float uPlayCam;
 uniform float uEye;            // 1, rising to 3.5 as it sees you; uSeen is the eye meter 0..1
 uniform float uSeen;
 uniform float uSnow;
@@ -670,6 +670,8 @@ void main(){
     col += mix(uSkyCol, uFogSunCol, pow(max(dot(rr, uSun), 0.0), 3.0))*0.4*smoothstep(-0.1, 0.5, rr.y)*fr*spec;
   }
   if (uIsGiant > 0.5){
+    // from the play camera, nothing of it above the boots: the cloak's hem would hang across the town
+    if (uPlayCam > 0.5 && P.y > 180.0) discard;
     // the lantern lights it from below as a point light (no shadow): the forearm, the chest, the
     // underside of the helm and the face go amber while it searches
     // (weighted toward the upper body: the boots stand next to the lantern and would go solid amber)
@@ -677,6 +679,11 @@ void main(){
     vec3 vd = normalize(P - uCam);
     float rim = pow(1.0 - abs(dot(n, vd)), 7.0)*smoothstep(0.2, 0.8, dot(vd, uSun));
     col += uSunCol*rim*0.7*cloudShadow(P);
+    // its face is never seen whole: from the shoulders up it stands in cloud, a mass the colour of the sky
+    // with the embers of the eyes through it, from every camera
+    float veil = smoothstep(2250.0, 2600.0, T.y)*(0.7 + 0.3*N1(T.xz*0.02 + vec2(uTime*0.03, 0.0), 2.0));
+    col = mix(col, mix(uFogCol, uSkyCol, 0.5)*1.05, 0.92*veil);
+    emit *= 1.0 - 0.6*veil;
   }
   col += emit;
   col += vec3(1.0, 0.62, 0.28)*5.0*burnGlow;

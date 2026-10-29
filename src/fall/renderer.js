@@ -301,7 +301,7 @@ export function createRenderer(canvas, giantMesh, opts = {}) {
     drawWorld(PLv);
     drawDyn(true);
     if (scene.giant) {
-      meshU(P.giant).set('uIsGiant', 1).set('uBones', scene.giant.bones).set('uSway', scene.giant.sway);
+      meshU(P.giant).set('uIsGiant', 1).set('uPlayCam', cam.near === undefined ? 1 : 0).set('uBones', scene.giant.bones).set('uSway', scene.giant.sway);
       gl.bindVertexArray(giantVAO); gl.drawArrays(gl.TRIANGLES, 0, giantN);
     }
     meshU(P.mesh).set('uIsGiant', 0); drawBeam();

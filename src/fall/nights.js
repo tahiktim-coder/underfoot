@@ -31,13 +31,31 @@ export function night(n) {
   };
 }
 export const NIGHT_BONUS = 50;   // for a night passed, on top of its seconds (a round hundred dwarfed them)
+export const DAWN_NIGHT = 7;     // the run has somewhere to arrive: after this night's search, dawn, and it goes
+export const DAWN_BONUS = 100;   // for reaching it
 export const BANK = 10;          // the seconds are banked ten at a time as they tick, and a catch keeps what is banked
 
 export const RULE = 'It takes what its light finds.';
 
+// the knight's record, a line a night (a Verdant Knight keeps one; the game's text, a proposal in the
+// Verdant Reach bible, 19-underfoot.md, never canon on its own)
+export const RECORD = [
+  null,
+  'It came down the valley, lantern first.',
+  'The old maps mark this valley an Elder Frontier.',
+  'No order remembers who armoured it.',
+  'It does not take the ones who stay dark.',
+  'By morning it is always gone back up the valley.',
+  'One more night.',
+];
 // the words on the cards: each is a list of lines, the first drawn large
 export function nightCard(n, score, secs = 0) {
-  return [`Night ${n} passed.`, `${secs} s + ${NIGHT_BONUS}. Score ${score}.`];
+  const lines = [`Night ${n} passed.`, `${secs} s + ${NIGHT_BONUS}. Score ${score}.`];
+  if (RECORD[n]) lines.push(RECORD[n]);
+  return lines;
+}
+export function dawnCard(score, bestScore) {
+  return ['Dawn.', 'Seven nights. It went back up the valley, toward the Cavern of Giants.', score > bestScore ? `New best ${score}.` : `Score ${score}. Best ${bestScore}.`];
 }
 // the over card: how long you lasted tonight against your best on this night, why it got you, and the score
 export function overCard(n, secs, bestSecs, cause, score, bestScore) {

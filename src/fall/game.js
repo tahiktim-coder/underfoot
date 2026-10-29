@@ -13,7 +13,7 @@ import { drawWisp, measureWisp } from '../lib/wisp.js';
 import { mulberry } from '../lib/noise.js';
 import { createSound } from './sound.js';
 import { LOOKS, LOOK_ORDER } from './looks.js';
-import { NIGHTS, NIGHT_BONUS, BANK, night, RULE, nightCard, overCard, best } from './nights.js';
+import { NIGHTS, NIGHT_BONUS, BANK, DAWN_NIGHT, DAWN_BONUS, night, RULE, nightCard, overCard, dawnCard, best } from './nights.js';
 import { brain, walk, spawnPerson } from './people.js';
 import { createHomes } from './homes.js';
 
@@ -61,6 +61,7 @@ const TAKE_LIT = 1.2;         // seconds the light must hold a townsperson befor
 const TITLE_LOOP = 14;        // the title's slow push repeats every this many seconds until you begin
 const CARD_HOLD = 4;          // a night card moves on by itself after this long
 const LEAVE_LATER = 12;       // seconds of the leave from night 2 on (night 1 and the title loop keep the full 21)
+const LEAVE_DAWN = 24;        // the last leave: it walks off while the sky comes up, then the dawn card
 const GIVE_UP = 5;            // the last seconds of a search, once it has lost you: the lantern lifts and the light widens and dims
 const OVERTIME = 20;          // seconds past the search length it keeps hunting while it still has you, at most
 const LIFT = 40;              // how much higher the lantern rides when it is giving up (metres)
@@ -132,6 +133,7 @@ export function createGame(canvas, opts = {}) {
     // (in the open, in the half light, under its peer) and how far you ran with the light on you: the cause on
     // the card (all counted over the stretch that ended the night: they clear once it has lost you)
     nightSecs: 0, nightBanked: 0, bankT: 0, fillLit: 0, fillShallow: 0, fillPeer: 0, runHigh: 0, cause: '',
+    dawn: 0,   // the sky coming up after the seventh night (0 to 1)
     // where the light last saw you, which trail sample its mark walks to next, where its peer began
     lastSeen: null, trailI: null, dwellAt: null,
     // how much chimney smoke is up, how many doors have slammed tonight, the light you are putting out,
@@ -180,7 +182,7 @@ export function createGame(canvas, opts = {}) {
   // after the click); later nights start two plants out ('late', about 20 s), with the look up at it coming.
   function startNight(n, from = 'late') {
     S.night = Math.max(1, n); NT = night(S.night);
-    S.nightScore = 0; S.nightSecs = 0; S.nightBanked = 0; S.bankT = 0; S.card = null; S.retry = false;
+    S.nightScore = 0; S.nightSecs = 0; S.nightBanked = 0; S.bankT = 0; S.dawn = 0; S.card = null; S.retry = false;
     HM.set('calm'); S.smokeLevel = 1; S.slams = 0;
     Object.assign(S.player, { x: -12, z: 8, yaw: 0.8, seen: 0, lit: false, run: 0 });
     S.trail = []; S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.autoLook = 0; S.lookHeld = false;
@@ -211,7 +213,7 @@ export function createGame(canvas, opts = {}) {
   }
   // the run's slate: the score, the taken houses and the stains. Cleared for a new run, and at the title cut,
   // so nothing the town did to itself under the title carries into your first night
-  function resetRun() { S.score = 0; S.nightScore = 0; S.nightSecs = 0; S.nightBanked = 0; S.bankT = 0; HM.set('reset'); R.clearStains(); S.stains = []; }
+  function resetRun() { S.score = 0; S.nightScore = 0; S.nightSecs = 0; S.nightBanked = 0; S.bankT = 0; S.dawn = 0; HM.set('reset'); R.clearStains(); S.stains = []; }
   // a new run: night 1 from the plant (the walk in was the title's)
   function newRun() { resetRun(); startNight(firstNight); enterAtPlant(); S.retry = false; }
   // a night only counts, for the score and the best, once you have begun and the title has cut away
@@ -221,7 +223,7 @@ export function createGame(canvas, opts = {}) {
     const c = S.card; if (!c) return;
     S.card = null;
     if (c.kind === 'night') startNight(S.night + 1, 'last');   // from the last footfall: the walk in was night 1's
-    else newRun();
+    else newRun();   // the over card and the dawn card both start a new run
   }
   // the first key or click: it starts the sound, takes the town off its own autopilot for good, and cuts
   // from the title to the first night
@@ -235,7 +237,7 @@ export function createGame(canvas, opts = {}) {
   function gesture(kind) {
     snd.init();
     if (!S.played) { begin(); return true; }
-    if (S.card && S.card.t > 0.6 && (kind === 'go' || S.card.kind === 'over')) { dismissCard(); return true; }
+    if (S.card && S.card.t > 0.6 && (kind === 'go' || S.card.kind !== 'night')) { dismissCard(); return true; }
     return !!S.card;
   }
   function leavePlan() {
@@ -710,14 +712,20 @@ export function createGame(canvas, opts = {}) {
       }
     } else if (S.phase === 'leave') {
       if (S.pt > 5) HM.relight(dt);
-      if (S.pt > (S.night > 1 ? LEAVE_LATER : 15) && !S.card) {
+      // after the seventh night the sky comes up while it walks off, the birds go up, and the run arrives
+      const dawning = inRun() && S.night >= DAWN_NIGHT;
+      if (dawning) {
+        S.dawn = clamp((S.pt - 5) / 17);   // up by 22 s, so the picture is still changing when the card comes
+        if (S.pt > 10 && S.pt - dt <= 10) for (const b of S.birds) if (!b.fly) { b.fly = 0.01; b.hx = (rnd() - 0.5) * 14; b.hz = (rnd() - 0.5) * 14; }
+      }
+      if (S.pt > (dawning ? LEAVE_DAWN : S.night > 1 ? LEAVE_LATER : 15) && !S.card) {
         if (!inRun()) startCycle();
         else {
-          // the card counts the scored seconds (overtime at half), so its sum always matches the score
           const rem = Math.round(S.nightScore + 1e-6), secs = S.nightBanked + rem;
-          S.score += rem + NIGHT_BONUS; S.nightScore = 0;
+          S.score += rem + NIGHT_BONUS + (dawning ? DAWN_BONUS : 0); S.nightScore = 0;
+          const prevBest = best.get();
           best.set(S.score); best.setSecs(S.night, secs);
-          S.card = card('night', nightCard(S.night, S.score, secs));
+          S.card = dawning ? card('dawn', dawnCard(S.score, prevBest)) : card('night', nightCard(S.night, S.score, secs));
         }
       }
     }
@@ -830,7 +838,7 @@ export function createGame(canvas, opts = {}) {
     // It stepping over the town at the end of a night is seen from where you stand, on the play camera:
     // no cut to a street shot. Holding L still looks up at it.
     if (S.autoLook > 0) S.autoLook -= dt;
-    const want = (S.input.look || S.autoLook > 0) && S.phase !== 'caught' && !S.intro ? 'look' : 'play';
+    const want = (S.input.look || S.autoLook > 0) && S.phase !== 'caught' && !S.intro && S.dawn <= 0 ? 'look' : 'play';   // (not once the dawn is coming)
     if (S.dipT < 0 && want !== S.camMode) { S.dipT = 0; S.dipTo = want; }
     if (S.dipT >= 0) {
       S.dipT += dt;
@@ -877,7 +885,7 @@ export function createGame(canvas, opts = {}) {
     const plate = (x, y, w, h) => { ctx.fillStyle = C.plate; ctx.fillRect(x, y, w, h); ctx.fillStyle = C.edge; ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + h - 1, w, 1); ctx.fillRect(x, y, 1, h); ctx.fillRect(x + w - 1, y, 1, h); };
     // the three tiers of shadow in the HUD: deep is the look's cold ramp, shallow a dim amber, lit the accent
     const H = LK.palette.hues, tierCol = (t) => (t === 'lit' ? (H[3] ? H[3][4] : C.accent) : t === 'shallow' ? (H[0] ? H[0][3] : C.dim) : (H[2] ? H[2][2] : C.edge));
-    const label = S.retry && (S.phase === 'approach' || S.phase === 'plant') ? 'It is still here' : { calm: 'Quiet', approach: 'It is coming', plant: 'It is here', search: S.giveUp > 0.3 ? 'It is giving up' : 'It is looking', caught: 'It sees you', leave: 'It is passing' }[S.phase];
+    const label = S.retry && (S.phase === 'approach' || S.phase === 'plant') ? 'It is still here' : { calm: 'Quiet', approach: 'It is coming', plant: 'It is here', search: S.giveUp > 0.3 ? 'It is giving up' : 'It is looking', caught: 'It sees you', leave: S.dawn > 0.5 ? 'Dawn' : 'It is passing' }[S.phase];
     if (!S.intro && !S.card) {
       // the plates keep their places: the label plate is as wide as its widest word, the eye slot is always
       // there (an open eye only in the search), so nothing slides when the phase changes
@@ -931,11 +939,13 @@ export function createGame(canvas, opts = {}) {
       const cx = Math.round(VW * 0.69);
       shadowed(T, cx - Math.round(w / 2), 58, C.title, 3);
       const s2 = 'Something is walking the valley.';
-      shadowed(s2, cx - Math.round(measureWisp(s2) / 2), 86, C.sub);
-      shadowed(RULE, cx - Math.round(measureWisp(RULE) / 2), 102, C.sub);
+      shadowed(s2, cx - Math.round(measureWisp(s2) / 2), 88, C.sub);
+      shadowed(RULE, cx - Math.round(measureWisp(RULE) / 2), 100, C.sub);
       const s3 = 'Stay in the dark.';
       shadowed(s3, cx - Math.round(measureWisp(s3) / 2), 112, C.sub);
-      if (credit) shadowed(credit, cx - Math.round(measureWisp(credit) / 2), 132, C.sub);
+      const s4 = 'Seven nights to dawn.';
+      shadowed(s4, cx - Math.round(measureWisp(s4) / 2), 124, C.sub);
+      if (credit) shadowed(credit, cx - Math.round(measureWisp(credit) / 2), 140, C.sub);
       if (!S.played) {
         const p = isTouch ? 'tap to begin' : 'click or press any key';
         ctx.globalAlpha *= 0.55 + 0.45 * Math.sin(S.intro.t * 2.2);
@@ -947,12 +957,12 @@ export function createGame(canvas, opts = {}) {
       // a card between nights: the first line large, the rest under it, and what to press
       const L = S.card.lines, k = S.card.kind;
       ctx.globalAlpha = Math.min(1, S.card.t / 0.6);
-      const ws = L.map((l, i) => measureWisp(l, i === 0 ? 2 : 1)), w = Math.max(...ws) + 28, h = 24 + 10 * (L.length - 1) + 22;
+      const ws = L.map((l, i) => measureWisp(l, i === 0 ? 2 : 1)), w = Math.max(...ws) + 28, h = 26 + 10 * (L.length - 1) + 22;
       const x0 = Math.round((VW - w) / 2), y0 = Math.round((VH - h) / 2) - 6;
       plate(x0, y0, w, h);
       let y = y0 + 8;
-      L.forEach((l, i) => { const sc = i === 0 ? 2 : 1; drawWisp(l, Math.round((VW - ws[i]) / 2), y, plot(i === 0 ? (k === 'over' ? C.accent : C.text) : C.dim), sc); y += sc === 2 ? 16 : 10; });
-      const p = k === 'night' ? (isTouch ? 'tap: next night' : 'click or Space: next night') : (isTouch ? 'tap: again' : 'click or any key: again');
+      L.forEach((l, i) => { const sc = i === 0 ? 2 : 1; drawWisp(l, Math.round((VW - ws[i]) / 2), y, plot(i === 0 ? (k === 'over' ? C.accent : C.text) : C.dim), sc); y += sc === 2 ? 18 : 10; });
+      const p = k === 'night' ? (isTouch ? 'tap: next night' : 'click or Space: next night') : (isTouch ? 'tap: again' : 'click or any key: again');   // (the dawn card ends the run like the over card)
       if (S.card.t > 0.6) { ctx.globalAlpha *= 0.6 + 0.4 * Math.sin(S.card.t * 2.2); drawWisp(p, Math.round((VW - measureWisp(p)) / 2), y + 4, plot(C.dim)); }
       if (k === 'over' && credit) drawWisp(credit, Math.round((VW - measureWisp(credit)) / 2), VH - 18, plot(C.dim));
       ctx.globalAlpha = 1;
@@ -1084,7 +1094,12 @@ export function createGame(canvas, opts = {}) {
     const hAbove = S.lan.pos[1] - ringFloor(S.lan.pos[0], S.lan.pos[2]), down = 0.25 + 0.75 * ease(clamp(1 - (hAbove - 30) / 120));
     // looking up, the air is thicker and the sky darker: the body goes into the murk and the lantern, the
     // chain and the eyes are what you see (a colossus seen whole is a model; half seen it is a thing)
-    const Ld = dimmed(S.dim), light = S.camMode === 'look' ? { ...Ld, fogA: Ld.fogA * 3, fogB: Ld.fogB * 0.5, skyCol: scl(Ld.skyCol, 0.4), fogSunCol: scl(Ld.fogSunCol, 0.35), fogCol: scl(Ld.fogCol, 0.7) } : Ld;
+    // the dawn after the seventh night: the light goes toward a grey-gold morning, whatever the look
+    const mixC = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
+    // (a grey morning, not a sunset: the sun greyer than warm so the roofs stay tile, the ground light up
+    // so the lanes lift out of the darkest greys; the exposure stays, it is what makes everything brighter)
+    const dawnLit = (L, k) => (k <= 0 ? L : { ...L, sunCol: mixC(L.sunCol, [1.35, 1.3, 1.2], k), skyCol: mixC(L.skyCol, [0.5, 0.53, 0.6], k), gndCol: mixC(L.gndCol, [0.42, 0.42, 0.42], k), fogCol: mixC(L.fogCol, [0.52, 0.52, 0.54], k), fogSunCol: mixC(L.fogSunCol, [0.9, 0.82, 0.72], k), exposure: L.exposure * (1 + 0.15 * k) });
+    const Ld = dawnLit(dimmed(S.dim), S.dawn), light = S.camMode === 'look' ? { ...Ld, fogA: Ld.fogA * 3, fogB: Ld.fogB * 0.5, skyCol: scl(Ld.skyCol, 0.4), fogSunCol: scl(Ld.fogSunCol, 0.35), fogCol: scl(Ld.fogCol, 0.7) } : Ld;
     R.render({
       t: S.t, cam: S.cam, light,
       giant: { bones: G.bones, sway: G.sway },
@@ -1105,7 +1120,7 @@ export function createGame(canvas, opts = {}) {
       ash: S.cam.hh < 60 ? LK.ash.amount : 0, ashLum: LK.ash.lum, ashFall: S.phase === 'caught' && S.pt > 1.2 ? -LK.ash.fall * 1.6 : LK.ash.fall,
       burn: S.phase === 'caught' ? [P.x, P.z, 2.4, clamp((S.pt - CATCH_BURN) / 1.2)] : S.take && S.take.p && S.take.t >= 1.0 ? [S.take.p.x, S.take.p.z, 2.4, clamp((S.take.t - 1.0) / 1.2)] : null,
       chromaLo: LK.chroma[0], chromaHi: LK.chroma[1], contrast: LK.contrast, lift: LK.lift || 0, gamma: LK.gamma || 1, dither: LK.dither, bloom: LK.bloom,
-      stars: LK.stars, sunSize: LK.sunSize, sunDisc: LK.sunDisc, snow: LK.snow,
+      stars: LK.stars * (1 - S.dawn), sunSize: LK.sunSize, sunDisc: LK.sunDisc, snow: LK.snow,
       ui: drawUI,
     });
   }
