@@ -219,9 +219,14 @@ float lanternLight(vec3 P, vec3 n, out float sh){
     sh = acc/8.0;
   }
   float lit = sh > 0.02 ? mix(0.3, 1.0, sh) : 0.0;
+  // the beam's faint tail draws nothing, as the hiding test counts nothing there (its floor is 0.12)
+  float base = uLan.w*cone*att;
+  if (base < 0.12) return 0.0;
+  // the rim where the test says half seen (under 0.3) is one flat step, so it dithers as a tone, not as noise
+  base = base < 0.3 ? 0.3 : base;
   // two steps in the pool: only its inner third reaches full, the rest holds a step lower, so the picture
   // says the centre fills the eye faster than the rim
-  return uLan.w*cone*att*ndl*lit*(0.72 + 0.28*smoothstep(0.6, 1.0, cone));
+  return base*ndl*lit*(0.72 + 0.28*smoothstep(0.6, 1.0, cone));
 }
 
 // a taken house: soot up the walls from the eaves and a black bloom round the door
@@ -644,6 +649,9 @@ void main(){
   // the amber ramp or the greys, never the red one (red stays for the cape, Seen and the edge pulse)
   vec3 lanC = alb*uLanCol*L;
   if (m == 3 || m == 4 || m == 5 || m == 6) lanC = mix(lanC, vec3(dot(lanC, vec3(0.333))), 0.5);
+  // the pool's dim rim (where the test says half seen) goes to the greys, not to the red ramp's darkest
+  // step: before, the rim dithered red speckle against the black ground and read as noise
+  lanC = mix(lanC, vec3(dot(lanC, vec3(0.333))), 0.6*(1.0 - smoothstep(0.1, 0.25, L)));
   col += lanC;
   // candles carried through the streets: a small warm pool on the ground and the walls near them
   if (m < 30) for (int i = 0; i < 4; i++){

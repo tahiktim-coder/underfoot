@@ -140,7 +140,8 @@ export function createGame(canvas, opts = {}) {
     // the townspeople out tonight, the one the light is taking, how long since it last saw you, every stain
     people: [], take: null, spawned: 0, stains: [],
   };
-  for (let i = 0; i < 26; i++) { const a = rnd() * 6.28, r = 20 + rnd() * 60; const x = TOWN.x + Math.cos(a) * r, z = TOWN.z + Math.sin(a) * r; S.birds.push({ x, z, y: standY(x, z) + 0.3, fly: 0, ph: rnd(), hx: 0, hz: 0, seed: rnd() }); }
+  // (they roost on open ground only: a bird placed inside a house rose out of its roof when the footfalls came)
+  for (let i = 0; i < 26; i++) { let x = TOWN.x, z = TOWN.z; for (let k = 0; k < 20; k++) { const a = rnd() * 6.28, r = 20 + rnd() * 60; x = TOWN.x + Math.cos(a) * r; z = TOWN.z + Math.sin(a) * r; if (!blocked(x, z)) break; } S.birds.push({ x, z, y: standY(x, z) + 0.3, fly: 0, ph: rnd(), hx: 0, hz: 0, seed: rnd() }); }
   // the houses: lit, dark or taken (homes.js)
   const HM = createHomes(rnd);
 
@@ -856,11 +857,14 @@ export function createGame(canvas, opts = {}) {
       b.ph += dt * (b.fly ? 3.2 : 0.5);
       if (!b.fly) continue;
       b.fly += dt;
-      b.x += b.hx * dt; b.z += b.hz * dt; b.y += (b.fly < 3 ? 6 : b.fly > 12 ? -4 : 0.5) * dt;
+      // (it comes down only over open ground; over a house it holds its height and flies on)
+      b.x += b.hx * dt; b.z += b.hz * dt;
+      const over = blocked(b.x, b.z);
+      b.y += (b.fly < 3 ? 6 : b.fly > 12 ? (over ? 0 : -4) : 0.5) * dt;
       b.hx += Math.sin(S.t * 0.7 + b.seed * 9) * dt * 3; b.hz += Math.cos(S.t * 0.6 + b.seed * 7) * dt * 3;
       if (Math.hypot(b.x - TOWN.x, b.z - TOWN.z) > 160) { b.hx -= (b.x - TOWN.x) * dt * 0.05; b.hz -= (b.z - TOWN.z) * dt * 0.05; }
       const gy = standY(b.x, b.z);
-      if (b.fly > 12 && b.y <= gy + 0.3) { b.fly = 0; b.y = gy + 0.3; }
+      if (b.fly > 12 && !over && b.y <= gy + 0.3) { b.fly = 0; b.y = gy + 0.3; }
     }
   }
 
@@ -1075,10 +1079,16 @@ export function createGame(canvas, opts = {}) {
       ? (P.tier === 'lit' ? [0.75, 0.12, 0.06, (0.28 + 0.4 * P.seen) * ep] : [lcol[0] * 0.8, lcol[1] * 0.6, lcol[2] * 0.3, (0.16 + 0.3 * P.seen) * ep])
       : [0, 0, 0, 0];
     HM.sync();
+    // the drawn light grows as the lamp comes down to the streets, like the hiding test's gate (which counts
+    // nothing until the lamp is within 30 m of its floor): the town is no longer flooded amber under 'Hidden'
+    const hAbove = S.lan.pos[1] - ringFloor(S.lan.pos[0], S.lan.pos[2]), down = 0.25 + 0.75 * ease(clamp(1 - (hAbove - 30) / 120));
+    // looking up, the air is thicker and the sky darker: the body goes into the murk and the lantern, the
+    // chain and the eyes are what you see (a colossus seen whole is a model; half seen it is a thing)
+    const Ld = dimmed(S.dim), light = S.camMode === 'look' ? { ...Ld, fogA: Ld.fogA * 3, fogB: Ld.fogB * 0.5, skyCol: scl(Ld.skyCol, 0.4), fogSunCol: scl(Ld.fogSunCol, 0.35), fogCol: scl(Ld.fogCol, 0.7) } : Ld;
     R.render({
-      t: S.t, cam: S.cam, light: dimmed(S.dim),
+      t: S.t, cam: S.cam, light,
       giant: { bones: G.bones, sway: G.sway },
-      lantern: { ...ll, I: ll.I * LK.lanI / 1.5 * (1 - 0.4 * ease(S.giveUp)) }, lanGlow: LK.light.lanCol,   // giving up, the drawn light fades as it lifts
+      lantern: { ...ll, I: ll.I * LK.lanI / 1.5 * (1 - 0.4 * ease(S.giveUp)) * down }, lanGlow: LK.light.lanCol,   // giving up, the drawn light fades as it lifts
       lanShaft: ls && S.lan.on > 0 ? { ...ls, strength: (LK.lanShaft ?? 1) * LK.lanI / 1.5 } : null,
       glows,
       windows: Math.max(LK.winMin, S.windows), houses: HM.bytes, ring: ringU, candles, prints: S.prints, streetAlb: LK.streetAlb, winPool: LK.winPool, player: LK.player ? [...LK.player.armour, ...LK.player.cape, 0, 0, 0, LK.player.fill || 0, P.tier === 'deep' ? P.crouch : 0, 0] : null,
