@@ -215,6 +215,31 @@ for (let j = 0; j < COL_N; j++) for (let i = 0; i < COL_N; i++) {
     if (Math.abs(lx) > 2.2 || Math.hypot(x - BRIDGE.x, z - BRIDGE.z) > 26) COL[j * COL_N + i] = 1;
   }
 }
+// a round blocker set and cleared at run time (the giant's fingertip on the ground): the cells it covers are
+// saved, so whatever stood under it is blocked again when it lifts
+export function blockDisc(x, z, r) {
+  const saved = [];
+  for (let j = Math.floor((z - r + NEAR) / COL_S); j <= Math.ceil((z + r + NEAR) / COL_S); j++) for (let i = Math.floor((x - r + NEAR) / COL_S); i <= Math.ceil((x + r + NEAR) / COL_S); i++) {
+    if (i < 0 || j < 0 || i >= COL_N || j >= COL_N) continue;
+    if (Math.hypot(-NEAR + (i + 0.5) * COL_S - x, -NEAR + (j + 0.5) * COL_S - z) < r) { const k = j * COL_N + i; saved.push(k, COL[k]); COL[k] = 1; }
+  }
+  return saved;
+}
+export function unblockDisc(saved) { for (let k = 0; k < saved.length; k += 2) COL[saved[k]] = saved[k + 1]; }
+// how open the ground is at a point: the distance to the nearest footprint, cover or wall (capped), or -1
+// where nothing can stand; a thing that comes down on open ground crushes only what is out in the open
+export function clearance(x, z, cap = 40) {
+  if (blocked(x, z) || inCover(x, z)) return -1;
+  let best = cap;
+  const box = (B) => {
+    const c = Math.cos(B.rot), s = Math.sin(B.rot), px = x - B.x, pz = z - B.z;
+    const lx = Math.abs(px * c - pz * s) - B.w / 2, lz = Math.abs(px * s + pz * c) - B.d / 2;
+    best = Math.min(best, Math.hypot(Math.max(0, lx), Math.max(0, lz)));
+  };
+  for (const O of OCCLUDERS) if (!O.finger && !O.small) box(O);   // (stalls do not count: it comes down on them; a tree's crown does: the dark under it is a hide)
+  for (const C of COVERS) if (!C.small) box(C);
+  return best;
+}
 export function blocked(x, z) {
   const i = Math.floor((x + NEAR) / COL_S), j = Math.floor((z + NEAR) / COL_S);
   if (i < 2 || j < 2 || i >= COL_N - 2 || j >= COL_N - 2) return true;
@@ -236,7 +261,7 @@ BRIDGE.deck = (lz) => { const e = Math.max(height(BRIDGE.x + Math.sin(BRIDGE.rot
 // hall, the stalls, the arcades, the porch) block only above their eaves; tree crowns are boxes in the air.
 export const OCCLUDERS = [];
 {
-  const roofOnly = (B, eave, ridge, alongZ = false) => { const y = height(B.x, B.z); OCCLUDERS.push({ x: B.x, z: B.z, w: B.w + 1.2, d: B.d + 1.2, rot: B.rot || 0, y0: y + eave, y1: y + eave + 0.3, ridge: y + ridge, ridgeAlongZ: alongZ, roofOnly: true }); };
+  const roofOnly = (B, eave, ridge, alongZ = false, small = false) => { const y = height(B.x, B.z); OCCLUDERS.push({ x: B.x, z: B.z, w: B.w + 1.2, d: B.d + 1.2, rot: B.rot || 0, y0: y + eave, y1: y + eave + 0.3, ridge: y + ridge, ridgeAlongZ: alongZ, roofOnly: true, small }); };
   for (const H of houses) {
     const gy = height(H.x, H.z);
     const rise = H.tower ? 0.6 : H.gableFront ? (H.w / 2) * 1.35 : (H.d / 2) * 1.25;
@@ -253,7 +278,7 @@ export const OCCLUDERS = [];
   for (const C of chapels) { const gy = height(C.x, C.z); OCCLUDERS.push({ x: C.x, z: C.z, w: C.w + 0.9, d: C.d + 0.9, rot: C.rot, y0: gy - 1, y1: gy + 6, ridge: gy + 6 + (C.w / 2) * 1.3, ridgeAlongZ: true }); }
   for (const W of ruinWallList) { const gy = height(W.x, W.z); OCCLUDERS.push({ x: W.x, z: W.z, w: W.w + 0.4, d: W.d + 0.4, rot: W.rot, y0: gy - 1, y1: gy + W.h, ridge: gy + W.h, ridgeAlongZ: true }); }
   if (HALL) roofOnly(HALL, 3.3, 6.6);
-  for (const S of stalls) roofOnly(S, 2.3, 3.3);
+  for (const S of stalls) roofOnly(S, 2.3, 3.3, false, true);   // (small: a fingertip the width of a lane may come down on one)
   for (const A of arcades) roofOnly(A, 3.3, 4.4);
   for (const W of wallSegs) { const dx = W.b[0] - W.a[0], dz = W.b[1] - W.a[1]; const y = height((W.a[0] + W.b[0]) / 2, (W.a[1] + W.b[1]) / 2); OCCLUDERS.push({ x: (W.a[0] + W.b[0]) / 2, z: (W.a[1] + W.b[1]) / 2, w: 1.8, d: Math.hypot(dx, dz) + 0.4, rot: Math.atan2(dx, dz), y0: y - 1, y1: y + W.h, ridge: y + W.h, ridgeAlongZ: true }); }
   for (const W of lowWalls) { const dx = W.b[0] - W.a[0], dz = W.b[1] - W.a[1]; const y = height((W.a[0] + W.b[0]) / 2, (W.a[1] + W.b[1]) / 2); OCCLUDERS.push({ x: (W.a[0] + W.b[0]) / 2, z: (W.a[1] + W.b[1]) / 2, w: 0.6, d: Math.hypot(dx, dz), rot: Math.atan2(dx, dz), y0: y - 1, y1: y + 2.1, ridge: y + 2.1, ridgeAlongZ: true }); }
@@ -282,9 +307,12 @@ export function inCover(x, z) {
   return null;
 }
 
-// a segment from p to q blocked by any occluder (slab test against each oriented box, with the roof as a prism)
-export function segmentBlocked(p, q) {
+// a segment from p to q blocked by any occluder (slab test against each oriented box, with the roof as a prism).
+// The giant's fingertip on the ground (O.finger) is tested on its own: it stands beside the lamp, so its
+// shadow is sharp, and the hiding test gives it the centre line alone (game.js isLit)
+export function segmentBlocked(p, q, which = 'all') {
   for (const O of OCCLUDERS) {
+    if (which === 'finger' ? !O.finger : which === 'town' ? O.finger : false) continue;
     const c = Math.cos(O.rot), s = Math.sin(O.rot);
     const lp = [(p[0] - O.x) * c - (p[2] - O.z) * s, p[1], (p[0] - O.x) * s + (p[2] - O.z) * c];
     const lq = [(q[0] - O.x) * c - (q[2] - O.z) * s, q[1], (q[0] - O.x) * s + (q[2] - O.z) * c];

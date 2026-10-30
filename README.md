@@ -69,7 +69,7 @@ CLAUDE.md           short notes for working on this with Claude Code
 
 HUD, top left:
 
-- **Phase label**: Quiet, It is coming, It is here, Hide, It sees you, It is passing.
+- **Phase label**: Quiet, It is coming, It is here, It is looking, It is kneeling (night 2 on), It is reaching (night 3 on), It is giving up, It sees you, It has you, It is passing, Dawn.
 - **The eye** (during the search): opens as it notices you. Its colour is your shadow: cold in deep shadow, dim amber in shallow, the look's accent when you are lit. When it is fully open, it has you.
 - **Night N**, top right.
 
@@ -85,8 +85,8 @@ One night lasts about 85 to 120 seconds; a run is as many nights as you last. Ti
 | **Calm** ("Quiet") | 2 to 11 s | Daylight. Windows lit. Birds on the roofs. The giant is about 4.7 km away. |
 | **Approach** ("It is coming") | ~26 s | It walks in: one footfall every 8.5 s, each a long boom that arrives seconds late, a camera shake, dust, birds taking off, roof dust shaking down. Each boom puts out the windows nearest the boot and thins the chimney smoke; close booms bang the shutters and slam a door. Cloud slowly covers the sun (the world dims over 18 s). From the second night on, the camera cuts up to look at it coming for 6.5 s. In the last 4 s the play camera pulls out to show the boot coming down outside the west wall. |
 | **Plant** ("It is here") | 3.5 s | The boot lands outside the west wall, its toe about 60 m from it. Dust ring, shake, the view holds wide, then closes back in on you. |
-| **Search** ("Hide") | 30 to 60 s | It lowers the lantern on the full length of the chain until it rides 70 m over the ground, and hunts you with it (section 3). Every second counts toward the score. Townspeople come out and are taken. It cannot end while it has you; in its last seconds, once it has lost you, the lantern lifts and the light widens. |
-| **Caught** ("It sees you") | 9.5 s | If the eye fills: the light narrows and brightens on you (1.1 s), a flash and a cut to a low camera behind the town, a slow tilt from the roofs up the chain and the legs to its face, the eyes catch fire, a push in on the face, "it sees you", a flash, a fade. Then the game-over card; any key starts a new run at the plant of night 1. |
+| **Search** ("It is looking") | 30 to 60 s | It lowers the lantern on the full length of the chain until it rides 70 m over the ground, and hunts you with it (section 3). Every second counts toward the score. Townspeople come out and are taken. It cannot end while it has you; in its last seconds, once it has lost you, the lantern lifts and the light widens. **From night 2 it kneels** as the lamp comes down: the back foot slides back and turns sole up, the knee lands where the boot stood (a second boom, deeper than the boot's, the shake, dust round the knee, roof dust, the shutters, the birds), the body settles on that thigh and bends over the town; the lantern hand is held low, so the chain is short and the lamp stops sharper. **From night 3 its left hand comes down**: about 10 s into the search (once a search on nights 3 and 4, twice from night 5, three times on night 7: a reach takes 14 s and never starts in the search's last seconds), "It is reaching", a groan of iron overhead, the shake building for 3 s, then one fingertip 22 m across lands on the open ground nearest the lamp's mark (the square's middle, a plaza, a field), a slam, dust down the lanes, the lamp swinging. Under it when it lands you are caught: black at once, the hit, the card. Where it rests for 8 s it is a wall to the light and to walking, and the lamp keeps to the side of it; then it lifts (the groan, clods) and leaves a pressed print. |
+| **Caught** ("It sees you", or "It has you" under its hand) | 9.5 s (2.4 s under its hand) | If the eye fills: the light narrows and brightens on you (1.1 s), a flash and a cut to a low camera behind the town, a slow tilt from the roofs up the chain and the legs to its face, the eyes catch fire, a push in on the face, "it sees you", a flash, a fade. Then the game-over card; any key starts a new run at the plant of night 1. |
 | **Leave** ("It is passing") | 21 s | If you lasted the search: the camera cuts to the street and looks up as its boot swings over the south side of the town and lands beyond the east wall. It walks away across the picture to the south-east. The cloud lifts, the windows come back one by one (the taken stay dark), the smoke returns. Then the night card, and the next night. |
 
 ---
@@ -117,6 +117,7 @@ The whole game is where the lantern's light falls and where the shadows fall. No
 - How lit you are = cone factor x intensity x falloff x (lines that get through / 3). So a shadow's edge is a soft band where you are half seen, and the pool's middle is more dangerous than its edge.
 - **The eye meter**: while lit it fills at (0.08 + 0.17 x light) per second, 20% faster while you run. In the dark it empties at 0.3 per second. Full means caught. In the middle of the pool that is about 3 seconds; at its edge, much longer.
 - The best places: tight against the far side of a house from the lantern, in the angle of two houses, under the market hall. They stop being safe when the lantern swings round, so watch the shadows turn and move with them.
+- From night 3 its fingertip, while it rests on the ground, is a wall to the light, with one difference: it stands next to the lamp, so its shadow is sharp (a house's is drawn with a soft band because a house is far from the lamp), and the rule follows the picture: under the fingertip's shadow the centre line alone decides, and you are deep. The lamp's target keeps off the fingertip. It only ever lands where the ground is open at least 9.5 m round the tip's centre (`HAND_FIT`), so it never comes down on someone against a wall; it comes down on whoever stands in the open within 9 m of the spot (about where the iron meets the ground).
 - You crouch automatically when you stand still in the dark.
 
 ---
@@ -335,12 +336,12 @@ The same function is written again in GLSL. The face shader uses it to darken th
 `pose()`:
 
 1. **Feet** come from the step plan (below): position, yaw and toe pitch.
-2. **Pelvis** between the feet, as high as both legs can reach (so a leg never stretches).
-3. **Chest**: a forward lean and a twist.
+2. **Pelvis** between the feet, as high as both legs can reach (so a leg never stretches). Kneeling (`G.kneel`, from night 2), the director places it over the kneeling knee instead (`G.pelvisAt`) and drops it so the thigh stands on the knee; the knee cap blends off so both knees may fold.
+3. **Chest**: a forward lean and a twist. Reaching (`G.reach`, from night 3), the chest also turns half a radian toward its left hand, which brings that shoulder low enough for the fingertip to touch the square.
 4. **Head**: either a fixed pitch, or turned toward a look target. The look is limited like a neck: yaw within 1 radian and pitch between 0.3 up and 1.25 down, measured in the chest's frame.
 5. **Legs**: two-bone IK from hip to ankle, bending toward the foot's facing.
-6. **Arms**: two-bone IK toward a hand target. While it searches, the right hand's target is moved so that the **grip** (175 m past the wrist, where the chain is held) is over the spot where the lantern should hang.
-7. Useful world points are kept (`W`): neck, head, eyes, knees, ankles, toes, heels, hands, grip, shoulders, chest.
+6. **Arms**: two-bone IK toward a hand target. While it searches, the right hand's target is moved so that the **grip** (175 m past the wrist, where the chain is held) is over the spot where the lantern should hang. The left hand points (one finger straight, three curled back, every tip capped); when it reaches, the wrist is moved in six relaxed steps so that the **fingertip** (`FINGER_L`, 265 m past the wrist) lands where the director asks, within a metre.
+7. Useful world points are kept (`W`): neck, head, eyes, knees, ankles, toes, heels, hands, grip, the left fingertip and elbow, shoulders, chest.
 
 ### Walking
 
@@ -400,7 +401,8 @@ The piece itself. `createGame(canvas, opts)` (`opts.look`, `opts.noIntro`) retur
 - Input: keys, mouse (walk toward the cursor), touch (a drag stick), right button for looking up.
 - The lantern: `lanLight` (position, beam direction, cone), `isLit` (the three-ray hiding test), `stepLantern` (the spring and the hang).
 - `footfall`, `lifted`: dust, clods, shakes, prints, birds, sounds.
-- `updateGiant`: the walk, the search pose, the hunt (trail, aim, lock-on), where the lantern is held, the head's look, the chain length.
+- `kneeFall`, `kneelAmount`: the kneel from night 2. `landingSpot`, `updateHand`, `landHand`, `liftHand`, `liftFinger`, `endHand`: the hand from night 3 (the night table's `hand`): the reach, the fingertip as an occluder and a blocker (`world.js` `blockDisc`, `clearance`), the crush (`S.crush`, the card line "Its hand came down on you."), the print.
+- `updateGiant`: the walk, the search pose, the kneel, the hunt (trail, aim, lock-on), where the lantern is held, the hand, the head's look, the chain length.
 - `autopilot`, `updatePlayer`: walking, collision, the eye meter.
 - `updateStory`: phases, windows, dimming, flashes and fades, the eyes.
 - Cameras: `playCam`, `lookEye`, `tiltEye`, `introEye`, the dip cuts, `keepOut`.

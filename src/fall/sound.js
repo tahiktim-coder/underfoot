@@ -158,6 +158,38 @@ export function createSound() {
       osc('sine', 62, 26, t, 0.005, 2.5, 0.9, o);
       burst(white, t, 0.003, 1.2, 0.5, o, 'lowpass', 3000, 0.7, 120);
     },
+    // its knee comes down `d` metres away: deeper and longer than a boot, and the town rattles after it
+    knee(d, pan) {
+      if (!ctx) return;
+      const t = now() + Math.min(5, d / 343), k = 1 / (1 + d / 1400), lp = 140 + 2200 / (1 + d / 260);
+      const o = out(pan * 0.6, lp);
+      osc('sine', 38, 19, t, 0.04, 4.2, 1.0 * k, o);
+      osc('sine', 58, 27, t, 0.02, 1.6, 0.4 * k, o);
+      burst(brown, t, 0.08, 5.5, 1.2 * k, o, 'lowpass', 200, 0.7, 60);
+      burst(white, t, 0.005, 0.6, 0.45 * k, o, 'lowpass', 1200, 0.7, 260);
+      for (let i = 0; i < 12; i++) burst(white, t + 0.2 + Math.random() * 2.2, 0.004, 0.12 + Math.random() * 0.25, 0.05 + Math.random() * 0.08, o, 'bandpass', 400 + Math.random() * 2200, 2.5);
+    },
+    // it reaches: iron groaning overhead for `len` seconds, rising, with the chain's rumble under it
+    reach(len = 3, pan = 0) {
+      if (!ctx) return;
+      const t = now(), o = out(pan * 0.3, 1100);
+      const s = ctx.createOscillator(); s.type = 'sawtooth'; s.frequency.setValueAtTime(27, t); s.frequency.linearRampToValueAtTime(41, t + len);
+      const v = ctx.createOscillator(); v.frequency.value = 2.6; const vg = ctx.createGain(); vg.gain.value = 2.2; v.connect(vg); vg.connect(s.frequency);
+      const bp = filt('bandpass', 150, 3.5); bp.frequency.setValueAtTime(150, t); bp.frequency.exponentialRampToValueAtTime(340, t + len);
+      const g = ctx.createGain(); env(g, t, len * 0.75, 0.5, len * 0.3);
+      s.connect(bp); bp.connect(g); g.connect(o); s.start(t); v.start(t); s.stop(t + len + 0.4); v.stop(t + len + 0.4);
+      burst(brown, t, len * 0.6, len * 0.5, 0.35, o, 'lowpass', 90, 0.7, 180);
+    },
+    // its fingertip comes down on the ground `d` metres away: a crack, a boom, dust
+    slam(d, pan) {
+      if (!ctx) return;
+      const t = now() + Math.min(5, d / 343), k = 1 / (1 + d / 400), o = out(pan * 0.7, null);
+      burst(white, t, 0.003, 0.35, 0.8 * k, o, 'lowpass', 2600, 0.7, 220);
+      osc('sine', 54, 26, t, 0.01, 1.8, 0.9 * k, o);
+      osc('sine', 90, 40, t, 0.01, 0.6, 0.3 * k, o);
+      burst(brown, t, 0.03, 2.6, 0.9 * k, o, 'lowpass', 420, 0.7, 90);
+      for (let i = 0; i < 8; i++) burst(white, t + 0.1 + Math.random() * 1.2, 0.004, 0.1 + Math.random() * 0.2, 0.05 + Math.random() * 0.07, o, 'bandpass', 600 + Math.random() * 2000, 2.5);
+    },
     // every frame: how windy, how near the lantern is (0..1) and where, how tense
     update(dt, st) {
       if (!ctx) return;

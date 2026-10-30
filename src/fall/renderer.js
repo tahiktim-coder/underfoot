@@ -271,6 +271,9 @@ export function createRenderer(canvas, giantMesh, opts = {}) {
       const PLl = planes(LtVP);
       P.depth.use().set('uLVP', LtVP);
       drawTerrain(PLl, [1, 0, 0]); drawWorld(PLl); drawDyn();
+      // its hand, when it is down in the street, throws the lantern's light like a house (the rest of it is
+      // above the lamp and outside its cone)
+      if (scene.giant && scene.giantInLantern) { P.gdepth.use().set('uLVP', LtVP).set('uBones', scene.giant.bones).set('uSway', scene.giant.sway); gl.bindVertexArray(giantVAO); gl.drawArrays(gl.TRIANGLES, 0, giantN); }
     }
     gl.disable(gl.POLYGON_OFFSET_FILL);
 
@@ -363,6 +366,6 @@ export function createRenderer(canvas, giantMesh, opts = {}) {
     puffData.set([x, y, z, t, vx, vy, vz, life, s0, s1, Math.random(), kind], o);
     puffHead = (puffHead + 1) % PUFFS; puffDirty = true;
   }
-  const api = { gl, canvas, render, project, view, genMs, dyn, puff, PW, PH, setPicture, stain: (x, z, r, rnd) => stampStain(gl, tStain, x, z, r, rnd), clearStains: () => clearStains(gl, tStain), setPalette(greys, hues) { PAL = buildPalette(greys, hues); }, stats: { worldTris: world.verts / 3, terrTris: terr.idx.length / 3, giantTris: giantN / 3 } };
+  const api = { gl, canvas, render, project, view, genMs, dyn, puff, PW, PH, setPicture, stain: (x, z, r, rnd, peak) => stampStain(gl, tStain, x, z, r, rnd, peak), clearStains: () => clearStains(gl, tStain), setPalette(greys, hues) { PAL = buildPalette(greys, hues); }, stats: { worldTris: world.verts / 3, terrTris: terr.idx.length / 3, giantTris: giantN / 3 } };
   return api;
 }

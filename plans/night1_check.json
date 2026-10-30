@@ -1,0 +1,58 @@
+[
+  {
+    "eval": "__v16.hold=true; const g=__v16.game, S=g.S, P=S.player; const DT=1/30; window.__until=(f,max)=>{let n=0; while(!f()&&n<max){S.drive={x:0,y:0}; g.update(DT); n++;} S.drive=null; return n;}; window.__drive=(x,y,secs)=>{ for(let i=0;i<secs*30;i++){ S.drive={x,y}; g.update(DT);} S.drive=null; }; window.__toward=(wx,wz)=>{ const YAW=Math.PI/4, RX=Math.cos(YAW), RZ=-Math.sin(YAW), FX=-Math.sin(YAW), FZ=-Math.cos(YAW); const dx=wx-P.x, dz=wz-P.z, d=Math.hypot(dx,dz)||1; return [(dx*RX+dz*RZ)/d,(dx*FX+dz*FZ)/d]; }; window.__info=()=>({phase:S.phase, pt:+S.pt.toFixed(1), tier:P.tier, seen:+P.seen.toFixed(2), alert:+S.alert.toFixed(2), dwell:+S.dwell.toFixed(1), mark:[S.attn[0]|0,S.attn[1]|0], lan:S.lan.pos.map(v=>v|0), cam:S.camMode, score:S.score}); g.render(); return JSON.stringify({title:true, ...__info()})"
+  },
+  {
+    "shot": "01_title",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S; g.begin(); __until(()=>!S.intro,300); __until(()=>S.phase==='approach'&&S.pt>2,600); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "02_approach_play",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S; S.lookHeld=true; for(let i=0;i<45;i++){S.drive={x:0,y:0}; g.update(1/30);} S.drive=null; g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "03_approach_lookup_1s",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S; for(let i=0;i<60;i++){S.drive={x:0,y:0}; g.update(1/30);} S.drive=null; g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "04_approach_lookup_3s",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S; S.lookHeld=false; __until(()=>S.phase==='plant'&&S.pt>1.5,900); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "05_plant_wide",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S; __until(()=>S.phase==='search'&&S.pt>2,600); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "06_search_2s_lamp_coming",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S; __until(()=>S.pt>7,300); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "07_search_7s_hidden",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S, P=S.player; let n=0; while(P.tier==='deep' && n<600){ const t=__toward(S.attn[0],S.attn[1]); S.drive={x:t[0],y:t[1]}; g.update(1/30); n++; } S.drive=null; for(let i=0;i<8;i++){S.drive={x:0,y:0}; g.update(1/30);} S.drive=null; g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "08_half_seen_edge",
+    "sel": "canvas"
+  }
+]

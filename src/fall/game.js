@@ -5,10 +5,10 @@
 // One cycle: calm (it walks far off) -> approach (footfalls, lights go out) -> plant (a foot lands outside
 // the walls) -> search (the lantern sweeps) -> caught (the look up) or leave (it steps over the town).
 import { createRenderer, VW, VH } from './renderer.js';
-import { createGiant, buildGiantMesh, footAt } from './giant.js';
+import { createGiant, buildGiantMesh, footAt, FINGER_R } from './giant.js';
 import { chain, lantern, person, beam } from './props.js';
 import { millSails, M } from './mesh.js';
-import { standY, height, blocked, segmentBlocked, inCover, houses, OCCLUDERS, TOWN, SQUARE, STREETS, CHURCH, townR } from './world.js';
+import { standY, height, blocked, segmentBlocked, inCover, houses, OCCLUDERS, TOWN, SQUARE, STREETS, CHURCH, townR, blockDisc, unblockDisc, clearance } from './world.js';
 import { drawWisp, measureWisp } from '../lib/wisp.js';
 import { mulberry } from '../lib/noise.js';
 import { createSound } from './sound.js';
@@ -68,6 +68,37 @@ const LIFT = 40;              // how much higher the lantern rides when it is gi
 const TELL_WORDS = true;      // the word over your head in the search (Hidden, Half seen, Seen) and the eye bar under it
 const TELL_EDGE = true;       // the pulse at the screen's edges while the light has you: amber half seen, red seen
 const PUFF_KEEP_OUT = 150;    // no footfall dust ring spawns closer to you than this (metres)
+// From night 2 it kneels as the lamp comes down: the back foot slides back and turns sole up as its shin
+// lies down, the knee lands where the boot stood, the body settles on that thigh and bends over the town.
+// From night 3 (the night table's `hand`) its left hand comes down on the open ground its light is looking
+// at: a fingertip the width of a lane, with a tell before it, a wall to the light while it rests, a print after.
+const KNEEL_NIGHT = 2;
+const KNEEL_AT = 0.6;         // seconds into the search when the kneel begins
+const KNEEL_T = 3.2;          // seconds from standing to the knee on the ground
+const KNEEL_UP = 2.4;         // seconds to stand again, at the start of the leave (before the first step)
+const KNEEL_DROP = 593;       // the pelvis sits this far below standing: the kneeling thigh stands straight on its knee
+const KNEEL_LEAN = 0.85;      // how far it bends over the town on its knee (radians)
+const KNEEL_LEAN_HAND = 1.32; // deeper on the nights its hand comes down: the shoulder must reach the square
+const REACH_LEAN = 0.04;      // and a little more while the hand is out
+const KNEEL_DROP_HAND = 652;  // on those nights it also sits lower and further forward on the knee (the thigh tilts)
+const KNEEL_FWD_HAND = 267;
+const HAND_REACH_MAX = 1245;  // the shoulder to the ground: as far as the arm and the pointing finger go (metres)
+const KNEEL_SLIDE = 590;      // the kneeling foot slides back this far (metres), the shin's length, as it comes down flat
+const ARM_DROP = 500;         // kneeling, the lantern hand is held this far under the shoulder (standing it reaches to 2000 m)
+const HAND_FIRST = 10;        // seconds into the search before the first reach
+const HAND_REACH = 3.2;       // the tell: 'It is reaching', the groan, the shake building, before the fingertip lands
+const HAND_STRIKE = 0.7;      // the last part of the reach: the strike, from its poise to the ground
+const HAND_POISE = 150;       // where the fingertip waits for the strike (metres up, over the mark)
+const HAND_HIGH = 420;        // where the fingertip rests between reaches (metres up)
+const HAND_HOLD = 8;          // seconds the fingertip rests on the ground
+const HAND_LIFT = 2.4;        // seconds to lift away
+const HAND_FIT = 9.5;         // it lands only where the ground is open this far round the fingertip's centre (a little under its radius: the eaves may touch)
+const HAND_CRUSH = 9.0;       // under it: this far from the tip's centre (the open ground less the half metre a house's box pads beyond its walls)
+const HAND_ROOM = 16;         // and prefers the middle of the open: a spot with this much room round the tip beats a nearer one
+const HAND_NEAR = 26;         // how far from the light's mark it will look for open ground (metres)
+const HAND_OFF = 43;          // the lamp's target keeps at least this far from the fingertip (its radius, the lamp's half size, a margin)
+const HAND_TALL = 110;        // the fingertip blocks the light up to this high (metres): the drawn finger, and the palm over it
+const CRUSH_CUT = 0.25, CRUSH_LEN = 2.4;   // under it when it lands: the cut to black at once, the card soon after
 
 function walkPlan(t0, stepLen, back, front, far = 3500, wobble = 0) {
   // The walk in is planned backward from where it stops, so every stride is the same length: the last two
@@ -134,6 +165,9 @@ export function createGame(canvas, opts = {}) {
     // the card (all counted over the stretch that ended the night: they clear once it has lost you)
     nightSecs: 0, nightBanked: 0, bankT: 0, fillLit: 0, fillShallow: 0, fillPeer: 0, runHigh: 0, cause: '',
     dawn: 0,   // the sky coming up after the seventh night (0 to 1)
+    // the kneel (when it began; whether the knee is down) and the hand (null, or the reach in progress; when the
+    // next one is due, in search seconds); crush: the catch was its hand, not its light
+    kneelT: null, kneeDown: false, hand: null, handNext: 0, crush: false,
     // where the light last saw you, which trail sample its mark walks to next, where its peer began
     lastSeen: null, trailI: null, dwellAt: null,
     // how much chimney smoke is up, how many doors have slammed tonight, the light you are putting out,
@@ -160,16 +194,19 @@ export function createGame(canvas, opts = {}) {
       S.people = []; S.spawned = 0; S.take = null;
       S.alert = 0; S.alertLost = 0; S.dwell = 0; S.dwellAt = null; S.lastSeen = null; S.trailI = null;
       S.fillLit = 0; S.fillShallow = 0; S.fillPeer = 0; S.runHigh = 0; S.cause = '';
+      S.kneelT = null; S.kneeDown = false; endHand(); S.handNext = HAND_FIRST; S.crush = false;
     }
     if (p === 'caught') {
-      snd.caught(CATCH_CUT); S.hitDone = false; S.burnt = false; S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.aim = [S.player.x, S.player.z];
+      if (!S.crush) snd.caught(CATCH_CUT);
+      S.hitDone = false; S.burnt = false; S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.aim = [S.player.x, S.player.z];
       // why: the share of the eye that filled under its peer, a long run with the light on you, the half light, the open
       const total = S.fillLit + S.fillShallow + S.fillPeer || 1;
-      S.cause = S.fillPeer / total > 0.5 || (S.dwell > DWELL + 1 && S.fillPeer > 0.1 * total) ? 'You stayed too long under it.' : S.runHigh > 20 ? 'It chased you down.' : S.fillShallow > S.fillLit ? 'Caught in the half light.' : 'Caught in the open.';
+      S.cause = S.crush ? 'Its hand came down on you.' : S.fillPeer / total > 0.5 || (S.dwell > DWELL + 1 && S.fillPeer > 0.1 * total) ? 'You stayed too long under it.' : S.runHigh > 20 ? 'It chased you down.' : S.fillShallow > S.fillLit ? 'Caught in the half light.' : 'Caught in the open.';
     }
   }
   function startCycle() {
     S.cycle++;
+    S.kneelT = null; S.kneeDown = false; endHand(); S.crush = false; G.kneel = 0; G.pelvisAt = null; G.handL = null; G.fingerAt = null;
     S.plan = walkPlan(S.t + 3, 1000, STANCE.back, STANCE.front, 3500, 60 + rnd() * 120);
     S.lastPlant = 1; S.planEnd = Math.max(...S.plan.map((p) => p.t));
     setPhase('calm');
@@ -363,8 +400,12 @@ export function createGame(canvas, opts = {}) {
     if (inCover(p[0], p[2])) return DEEP;
     // the three points across the glass: its centre and two S.raySpread apart on a line tilted a little
     const side = nrm(crs(lp.dir, [0, 1, 0])), up = crs(side, lp.dir), h = S.raySpread * 0.5, v = S.raySpread * 0.21;
+    // (its fingertip, when it is down, stands next to the lamp, so its shadow is drawn sharp, a house's penumbra
+    // wide: the rule gives it the centre line alone, and under it you are deep)
+    // (and never when the glass itself sits inside the finger's box on a stray frame: that would make every point deep)
+    if (S.hand && S.hand.occ && !segmentBlocked(lp.pos, lp.pos, 'finger') && segmentBlocked(p, lp.pos, 'finger')) return { L, rays: 3, tier: 'deep' };
     let rays = 0;
-    for (const o of [[0, 0], [h, v], [-h, -v]]) if (segmentBlocked(p, add(lp.pos, add(scl(side, o[0]), scl(up, o[1]))))) rays++;
+    for (const o of [[0, 0], [h, v], [-h, -v]]) if (segmentBlocked(p, add(lp.pos, add(scl(side, o[0]), scl(up, o[1]))), 'town')) rays++;
     return { L, rays, tier: rays === 3 ? 'deep' : rays > 0 || L < DIM_LIT ? 'shallow' : 'lit' };
   }
   // the lowest the ring may hang over a point: LAN_Y over the ground, or clear of any roof ridge or tower
@@ -373,6 +414,7 @@ export function createGame(canvas, opts = {}) {
   function ringFloor(x, z) {
     let f = height(x, z) + LAN_Y;
     for (const O of OCCLUDERS) {
+      if (O.finger) continue;   // (its own fingertip: the lamp keeps to the side of it instead, HAND_OFF)
       const d = Math.hypot(O.x - x, O.z - z) - Math.hypot(O.w, O.d) * 0.5 - RING_REACH;
       const need = O.top !== undefined ? O.top + RING_CLEAR_TOWER : O.ridge + RING_CLEAR;
       if (need <= f) continue;
@@ -386,10 +428,22 @@ export function createGame(canvas, opts = {}) {
     // a long chain and a heavy lantern: it trails the hand, swings a little past, settles; it hangs straight
     // below the grip on the chain's length, and never lower than just over the roofs
     const n = 2, h = dt / n;
+    // (a shorter chain swings quicker and settles sooner: kneeling, the lamp stops sharper; night 1's chain is
+    // longer than 1100 m, so night 1 keeps its swing)
+    const kS = clamp(1100 / Math.max(300, L.len), 1, 1.3), kD = Math.sqrt(kS);
     for (let k = 0; k < n; k++) {
-      const ax = (grip[0] - L.pos[0]) * 0.9 - L.vel[0] * 1.25, az = (grip[2] - L.pos[2]) * 0.9 - L.vel[2] * 1.25;
+      const ax = (grip[0] - L.pos[0]) * 0.9 * kS - L.vel[0] * 1.25 * kD, az = (grip[2] - L.pos[2]) * 0.9 * kS - L.vel[2] * 1.25 * kD;
       L.vel[0] += ax * h; L.vel[2] += az * h;
       L.pos[0] += L.vel[0] * h; L.pos[2] += L.vel[2] * h;
+    }
+    // (its own fingertip: the lamp itself, not only its target, keeps off it; the chain lags the hand)
+    if (S.hand) {
+      const c = S.hand.spot || S.hand.at, dx = L.pos[0] - c[0], dz = L.pos[2] - c[1], d = Math.hypot(dx, dz);
+      if (d < HAND_OFF) {
+        const ux = d > 1e-3 ? dx / d : 1, uz = d > 1e-3 ? dz / d : 0, vin = L.vel[0] * ux + L.vel[2] * uz;
+        L.pos[0] = c[0] + ux * HAND_OFF; L.pos[2] = c[1] + uz * HAND_OFF;
+        if (vin < 0) { L.vel[0] -= vin * ux; L.vel[2] -= vin * uz; }
+      }
     }
     const hd = Math.hypot(grip[0] - L.pos[0], grip[2] - L.pos[2]);
     L.pos[1] = Math.max(grip[1] - Math.sqrt(Math.max(0, L.len * L.len - hd * hd)), ringFloor(L.pos[0], L.pos[2]));
@@ -463,8 +517,166 @@ export function createGame(canvas, opts = {}) {
     }
   }
 
+  // ---------------------------------------------------------------------------------- the knee, the hand
+  // the knee comes down: a boom deeper than the boot's, the shake, dust round the knee (never over the town,
+  // see footfall), dust off the roofs near you, the shutters, the birds
+  function kneeFall() {
+    const kp = G.W.kneeL, P = S.player, d = Math.hypot(kp[0] - P.x, kp[2] - P.z);
+    S.shake = Math.max(S.shake, 4.5);
+    snd.knee(d, panOf(kp[0], kp[2]));
+    snd.shutters(panOf(kp[0], kp[2]), false);
+    for (let k = 0; k < 48; k++) {
+      const a = (k / 48) * Math.PI * 2, u = Math.cos(a), v = Math.sin(a), r = 170 + rnd() * 70;
+      const cx = kp[0] + u * r, cz = kp[2] + v * r;
+      if (Math.hypot(cx - P.x, cz - P.z) < PUFF_KEEP_OUT || townR(cx, cz) < 1.2) continue;
+      R.puff(cx, height(cx, cz) + 12, cz, S.t, u * 40, 6 + rnd() * 9, v * 40, 7 + rnd() * 4, 30, 100 + rnd() * 90, 0);
+    }
+    for (let k = 0; k < 90; k++) {
+      const H = houses[Math.floor(rnd() * houses.length)];
+      const x = H.x + (rnd() - 0.5) * H.w, z = H.z + (rnd() - 0.5) * H.d;
+      if (Math.hypot(x - P.x, z - P.z) > 90) continue;
+      R.puff(x, (H.ridgeY || height(x, z) + 8) - rnd() * 4, z, S.t + rnd() * 0.5, 0.6 + (rnd() - 0.5) * 2, -1 - rnd() * 2, (rnd() - 0.5) * 2, 2.5 + rnd() * 2.5, 0.8, 3 + rnd() * 3, 0);
+    }
+    if (S.birds.some((b) => !b.fly)) snd.birds(0);
+    for (const b of S.birds) if (!b.fly) { b.fly = 0.01; b.hx = (rnd() - 0.5) * 14; b.hz = (rnd() - 0.5) * 14; }
+  }
+  // how far into the kneel it is (0 standing, 1 the knee down); it stands again at the start of the leave
+  function kneelAmount() {
+    if (S.kneelT === null) return 0;
+    if (S.phase === 'leave') return ease(1 - S.pt / KNEEL_UP);
+    return ease((S.t - S.kneelT) / KNEEL_T);
+  }
+  // the hand: the reach is over when its fingertip is off the ground again, or whenever the search is
+  function endHand() {
+    const H = S.hand; if (!H) return;
+    liftFinger(H);
+    S.hand = null; G.handL = null; G.fingerAt = null;
+  }
+  function liftFinger(H) {
+    if (H.occ) { const i = OCCLUDERS.indexOf(H.occ); if (i >= 0) OCCLUDERS.splice(i, 1); H.occ = null; }
+    if (H.saved) { unblockDisc(H.saved); H.saved = null; }
+  }
+  // the fingertip lands: the slam, the shake, dust down the lanes off it, the lamp swinging; under it, you are
+  // caught (and so is anyone else out there); while it rests it is a wall to the light and to walking, and it
+  // leaves a print
+  function landHand(f, wrist) {
+    const H = S.hand, P = S.player, gy = height(f[0], f[2]), d = Math.hypot(f[0] - P.x, f[2] - P.z);
+    H.state = 'down'; H.spot = [f[0], f[2]];
+    S.shake = Math.max(S.shake, 6);
+    snd.slam(d, panOf(f[0], f[2]));
+    const L = S.lan, kx = L.pos[0] - f[0], kz = L.pos[2] - f[2], kl = Math.hypot(kx, kz) || 1;
+    L.vel[0] += (kx / kl) * 18; L.vel[2] += (kz / kl) * 18;
+    // the finger stands nearly upright (it points down from the wrist): the blocker is a box along its line,
+    // the fingertip's width, HAND_TALL high
+    const dir = nrm(sub(f, wrist)), hl = Math.hypot(dir[0], dir[2]) || 1e-6, run = Math.min(25, HAND_TALL * hl / Math.max(0.2, -dir[1]));
+    const ux = dir[0] / hl, uz = dir[2] / hl;
+    H.occ = { x: f[0] - ux * run * 0.5, z: f[2] - uz * run * 0.5, w: FINGER_R * 2 + 3 + run, d: FINGER_R * 2 + 3, rot: Math.atan2(-uz, ux), y0: gy - 1, y1: gy + HAND_TALL, ridge: gy + HAND_TALL, ridgeAlongZ: true, finger: true };   // (the finger widens upward: a little wider than the tip)
+    OCCLUDERS.push(H.occ);
+    H.saved = blockDisc(f[0], f[2], HAND_CRUSH);   // (the same disc as the crush: nobody stands blocked under the rim)
+    R.stain(f[0], f[2], FINGER_R * 0.8, rnd, 0.38); S.stains.push([f[0], f[2]]);
+    for (let k = 0; k < 32; k++) {
+      const a = (k / 32) * Math.PI * 2 + rnd() * 0.2, u = Math.cos(a), v = Math.sin(a), r = FINGER_R + 1 + rnd() * 4;
+      const x = f[0] + u * r, z = f[2] + v * r, sp = 5 + rnd() * 5;
+      R.puff(x, height(x, z) + 0.8, z, S.t, u * sp, 1.2 + rnd() * 1.6, v * sp, 1.8 + rnd() * 1.4, 0.6, 2.2 + rnd() * 2.2, 0);
+    }
+    for (let k = 0; k < 10; k++) {
+      const a = rnd() * Math.PI * 2, u = Math.cos(a), v = Math.sin(a), sp = 5 + rnd() * 6;
+      R.puff(f[0] + u * (FINGER_R + 1), gy + 2, f[2] + v * (FINGER_R + 1), S.t, u * sp, 7 + rnd() * 7, v * sp, 4, 0.35 + rnd() * 0.5, 0, 1);
+    }
+    if (S.birds.some((b) => !b.fly)) snd.birds(0);
+    for (const b of S.birds) if (!b.fly) { b.fly = 0.01; b.hx = (rnd() - 0.5) * 14; b.hz = (rnd() - 0.5) * 14; }
+    // (under it: within HAND_CRUSH of the centre, about where the iron meets the ground, and less than the open
+    // ground it was allowed to land on, so someone against a wall is never under it)
+    for (const p of S.people) if (p.state === 'out' && Math.hypot(p.x - f[0], p.z - f[2]) < HAND_CRUSH) p.state = 'taken';   // (crushed, not burnt: the print is their mark)
+    if (S.phase === 'search' && d < HAND_CRUSH) { S.crush = true; setPhase('caught'); S.stats.caught++; }
+  }
+  // the fingertip lifts: the groan, dust and clods off the print
+  function liftHand(H) {
+    const f = H.spot, P = S.player, gy = height(f[0], f[1]);
+    snd.lift(Math.hypot(f[0] - P.x, f[1] - P.z), panOf(f[0], f[1]));
+    for (let k = 0; k < 14; k++) {
+      const a = (k / 14) * Math.PI * 2, u = Math.cos(a), v = Math.sin(a), r = FINGER_R * (0.3 + rnd() * 0.8);
+      R.puff(f[0] + u * r, gy + 1 + rnd() * 3, f[1] + v * r, S.t + rnd() * 0.6, u * 1.5, 1.2 + rnd() * 1.5, v * 1.5, 2.5 + rnd() * 1.5, 0.5, 2 + rnd() * 1.5, 2);
+    }
+    for (let k = 0; k < 6; k++) {
+      const a = rnd() * Math.PI * 2, r = rnd() * FINGER_R * 0.8;
+      R.puff(f[0] + Math.cos(a) * r, gy + 14 + rnd() * 30, f[1] + Math.sin(a) * r, S.t + 0.4 + rnd() * 1.2, (rnd() - 0.5) * 3, 1, (rnd() - 0.5) * 3, 5, 0.3 + rnd() * 0.5, 0, 1);
+    }
+  }
+  // where the hand comes down: the open ground nearest the light's mark, with the fingertip clear of every
+  // wall, and the middle of the open preferred (on the square that is its length, not its edges); null when
+  // there is no room near the mark
+  function landingSpot(mx, mz) {
+    let best = null, bs = 1e9;
+    const sh = G.W.shoulderL;
+    const tryAt = (x, z, dist) => {
+      if (Math.hypot(x - sh[0], height(x, z) - sh[1], z - sh[2]) > HAND_REACH_MAX) return;   // (never further than the arm goes)
+      const c = clearance(x, z, HAND_ROOM);
+      if (c < HAND_FIT) return;
+      const score = dist + 2 * (HAND_ROOM - c);
+      if (score < bs) { bs = score; best = [x, z]; }
+    };
+    tryAt(mx, mz, 0);
+    for (let r = 4; r <= HAND_NEAR; r += 4) for (let k = 0; k < 12; k++) { const a = (k / 12) * Math.PI * 2 + r * 0.37; tryAt(mx + Math.cos(a) * r, mz + Math.sin(a) * r, r); }
+    return best;
+  }
+  // where the fingertip is wanted this frame, and the hand's beat: the reach (the tell, then the strike), the
+  // rest on the ground, the lift. Between reaches the hand hovers over the town's edge; on the nights it keeps
+  // its hand to itself, it hangs
+  function updateHand(dt) {
+    let H = S.hand;
+    if (H && S.phase !== 'search' && S.phase !== 'caught') { endHand(); H = null; }
+    // (a reach starts only when it can finish before the search's last seconds, or in overtime; the leave
+    // waits for the hand, so the finger is never snatched away mid-rest)
+    const P = S.player, room = S.pt + HAND_REACH + HAND_HOLD + HAND_LIFT <= NT.search - GIVE_UP || (S.pt > NT.search && (P.lit || P.seen >= 0.2));
+    if (!H && S.phase === 'search' && NT.hand > 0 && S.kneeDown && !S.take && S.pt >= S.handNext && room) {
+      const at = landingSpot(S.attn[0], S.attn[1]);
+      if (at) {
+        H = S.hand = { at, t0: S.t, state: 'reach', occ: null, saved: null, spot: null, tip: null, short: false };
+        S.handNext = S.pt + NT.hand;   // (the next is due this long after this one began)
+        snd.reach(HAND_REACH, panOf(at[0], at[1]));
+      } else S.handNext = S.pt + 1.5;
+    }
+    if (!(NT.hand > 0) || G.kneel <= 0) { G.handL = null; G.fingerAt = null; return; }
+    const sh = G.W.shoulderL, gy0 = height(TOWN.x, TOWN.z);
+    const fingerNow = G.W.fingerL.slice(), wristNow = G.W.handL.slice();   // (where the last pose left them: the landing reads these)
+    const rest = add(sh, add(scl(G.W.fwd, 300), scl(G.W.left, -150))); rest[1] = gy0 + HAND_HIGH;
+    // (from hanging at its side, as giant.js hangs it (one pose with no target says where), to ready over the
+    // town: a blend over the kneel, both ways)
+    G.handL = null; G.fingerAt = null; G.pose();
+    const hangTip = G.W.fingerL.slice();
+    let tip = lerp3(hangTip, rest, clamp((G.kneel - 0.2) / 0.5));
+    if (H) {
+      const T = S.t - H.t0, at = H.at, gy = height(at[0], at[1]);
+      if (S.phase !== 'search') tip = H.tip || rest;
+      else if (H.state === 'reach') {
+        // (the fingertip's rounded end goes a little into the ground; if the arm stopped short, it lifts again)
+        if (T >= HAND_REACH && H.tip) { if (len(sub(fingerNow, H.tip)) < 12) landHand(fingerNow, wristNow); else { H.state = 'lift'; H.short = true; H.spot = [fingerNow[0], fingerNow[2]]; H.t0 = S.t - HAND_REACH - HAND_HOLD; } }
+        if (H.state === 'reach') {
+          const e = ease(T / (HAND_REACH - HAND_STRIKE)), st = clamp((T - (HAND_REACH - HAND_STRIKE)) / HAND_STRIKE);
+          tip = [lerp(rest[0], at[0], e), lerp(lerp(rest[1], gy + HAND_POISE, e), gy + 5, st * st), lerp(rest[2], at[1], e)];
+          S.shake = Math.max(S.shake, 0.3 + 2.0 * (T / HAND_REACH) ** 2);
+        }
+      }
+      if (H.state === 'down') {
+        tip = [H.spot[0], gy + 5 - 1.5 * ease((T - HAND_REACH) / 0.6), H.spot[1]];
+        if (T >= HAND_REACH + HAND_HOLD) { H.state = 'lift'; liftHand(H); }
+      } else if (H.state === 'lift') {
+        const u = ease((T - HAND_REACH - HAND_HOLD) / HAND_LIFT);
+        tip = [lerp(H.spot[0], rest[0], u), lerp(H.short ? gy + HAND_POISE : gy + 3.5, rest[1], u), lerp(H.spot[1], rest[2], u)];
+        if (u > 0.08) liftFinger(H);   // (the light passes under it as soon as it is off the ground)
+        if (T >= HAND_REACH + HAND_HOLD + HAND_LIFT) { endHand(); tip = rest; }
+      }
+      if (S.hand) S.hand.tip = tip;
+    }
+    // the wrist is the arm's target; the fingertip hangs a long way past it: shift the wrist so the tip lands
+    // (the finger swings with the forearm, so a full step overshoots; a relaxed one settles in a few)
+    G.fingerAt = tip; G.handL = add(tip, [0, 250, 0]);
+    for (let i = 0; i < 6; i++) { G.pose(); G.handL = add(G.handL, scl(sub(tip, G.W.fingerL), 0.65)); }
+  }
+
   // ---------------------------------------------------------------------------------- the giant
-  const pose = { search: 0 };
+  const pose = { search: 0, reach: 0 };
   function updateGiant(dt) {
     const t = S.t;
     for (const f of [0, 1]) {
@@ -477,18 +689,43 @@ export function createGame(canvas, opts = {}) {
       if (fa.swing > 0 && fa.from && !fa.from.lifted) { fa.from.lifted = true; lifted(fa.from); }
     }
     for (let i = S.lastPlant + 1; i < S.plan.length; i++) { const p = S.plan[i]; if (p.t <= t) { if (p.t > t - 0.5) footfall(p); S.lastPlant = i; } else break; }
+    // the kneel (from night 2, as the lamp comes down): the back foot slides back and turns sole up as its shin
+    // lies down, the knee lands where the boot stood, the pelvis settles on that thigh (the knees may fold)
+    if (S.phase === 'search' && S.night >= KNEEL_NIGHT && S.kneelT === null && S.pt >= KNEEL_AT) S.kneelT = S.t;
+    if (S.phase === 'leave' && S.kneelT !== null && S.pt > KNEEL_UP) S.kneelT = null;
+    const kn = kneelAmount();
+    G.kneel = kn;
+    if (kn > 0) {
+      const f = G.feet[0], fx = Math.sin(f.yaw), fz = Math.cos(f.yaw);
+      const hop = Math.max(0, 300 * Math.sin(Math.PI * kn) - 98 * (1 - Math.cos(Math.PI * kn)) + 8);   // (the toe, 300 m out, turning under)
+      f.p = [f.p[0] - fx * KNEEL_SLIDE * kn, f.p[1] + 12 * kn + hop, f.p[2] - fz * KNEEL_SLIDE * kn];
+      f.pitch = -Math.PI * kn;
+    }
     const fL = G.feet[0], fR = G.feet[1];
     G.yaw = Math.atan2(Math.sin(fL.yaw) + Math.sin(fR.yaw), Math.cos(fL.yaw) + Math.cos(fR.yaw));
     G.x = (fL.p[0] + fR.p[0]) / 2; G.z = (fL.p[2] + fR.p[2]) / 2;
+    if (kn > 0) {
+      // the pelvis moves from between the feet to over the kneeling knee: the thigh stands on it, the shin flat
+      const fwd = [Math.sin(G.yaw), 0, Math.cos(G.yaw)];
+      // (on the hand nights the pelvis sits further forward, along the body, and a little to its right, so the
+      // left shoulder comes nearer the square)
+      const fwdK = NT.hand > 0 ? KNEEL_FWD_HAND : 0, sideK = NT.hand > 0 ? 60 : 0;
+      const nat = [G.x + fwd[0] * 40, 0, G.z + fwd[2] * 40], kneel = [fL.p[0] + 603 * Math.sin(fL.yaw) + fwd[0] * fwdK, 0, fL.p[2] + 603 * Math.cos(fL.yaw) + 170 + sideK + fwd[2] * fwdK];
+      G.pelvisAt = lerp3(nat, kneel, kn);
+    } else G.pelvisAt = null;
     const search = S.phase === 'search' || S.phase === 'caught' ? 1 : 0;
     pose.search += (search - pose.search) * Math.min(1, dt * 0.4);
-    const k = ease(pose.search);
-    // it stands tall; searching, it holds the lantern out over the town on the whole length of the chain
-    G.lean = lerp(0.12, 0.2, k) + Math.sin(t * 0.21) * 0.015;
+    pose.reach += ((S.hand ? 1 : 0) - pose.reach) * Math.min(1, dt * 1.5);
+    const k = ease(pose.search), breath = Math.sin(t * 0.21) * 0.015;
+    // it stands tall; searching, it holds the lantern out over the town on the whole length of the chain;
+    // kneeling, it bends over the town (further on the nights it reaches into it)
+    G.lean = lerp(lerp(0.12, 0.2, k), (NT.hand > 0 ? KNEEL_LEAN_HAND : KNEEL_LEAN) + REACH_LEAN * pose.reach, kn) + breath;
     G.headPitch = 0.3;
-    G.pelvisDrop = lerp(15, 70, k);
+    G.pelvisDrop = lerp(lerp(15, 70, k), NT.hand > 0 ? KNEEL_DROP_HAND : KNEEL_DROP, kn);
     G.twist = Math.sin(t * (Math.PI / STEP_T)) * 0.033 * (1 - k) - 0.12 * k;
     G.roll = Math.sin(t * (Math.PI / STEP_T)) * 0.017 * (1 - k);
+    // on the hand nights it kneels half turned toward the town, and turns the rest of the way as it reaches
+    G.reach = NT.hand > 0 ? kn * (0.5 + 0.5 * pose.reach) : 0;
     G.handR = null; G.headLook = null; G.t = t;
     G.pose();
     const sh = G.W.shoulderR;
@@ -559,7 +796,14 @@ export function createGame(canvas, opts = {}) {
     const cycOff = lerp(NT.offLo, NT.offHi, 0.5 + 0.5 * Math.cos((offT / OFF_PERIOD) * Math.PI * 2)) * (1 + 0.3 * ease(S.giveUp));
     S.lanOff = lerp(cycOff, ALERT_OFF, ease((S.alert - 0.35) / 0.65));
     const lanAt = [S.aimS[0] + Math.cos(swing) * S.lanOff, S.aimS[1] + Math.sin(swing) * S.lanOff];
-    const sweep = [lanAt[0], 2000 + 40 * Math.sin(t * 0.13), lanAt[1]];
+    // (the lamp never passes through its own fingertip: while the hand is out its target is pushed out round
+    // the spot; the mark walks on, the finger stays)
+    if (S.hand) {
+      const c = S.hand.spot || S.hand.at, dx = lanAt[0] - c[0], dz = lanAt[1] - c[1], d = Math.hypot(dx, dz);
+      if (d < HAND_OFF) { const ux = d > 1e-3 ? dx / d : -G.W.fwd[0], uz = d > 1e-3 ? dz / d : -G.W.fwd[2]; lanAt[0] = c[0] + ux * HAND_OFF; lanAt[1] = c[1] + uz * HAND_OFF; }
+    }
+    // (kneeling, the lantern hand is held low, so the chain is short and the lamp stops sharper)
+    const sweep = [lanAt[0], lerp(2000, sh[1] - ARM_DROP, kn) + 40 * Math.sin(t * 0.13), lanAt[1]];
     let target = lerp3(hang, sweep, k);
     if (S.phase === 'caught') target = lerp3(target, [P.x + Math.cos(swing) * S.lanOff, 1960, P.z + Math.sin(swing) * S.lanOff], ease(S.pt / 3));
     G.handR = target;
@@ -575,7 +819,9 @@ export function createGame(canvas, opts = {}) {
     if (S.alert > 0.5) look = lerp3(look, [P.x, standY(P.x, P.z), P.z], ease((S.alert - 0.5) * 2));
     if (S.phase === 'caught') { const P = S.player; look = lerp3(look, [P.x, standY(P.x, P.z), P.z], ease(S.pt / 1.5)); }
     G.headLook = look;
+    updateHand(dt);
     G.pose();
+    if (S.kneelT !== null && !S.kneeDown && kn >= 0.96 && S.phase !== 'leave') { S.kneeDown = true; kneeFall(); }
     // the chain is paid out until the lantern rides about LAN_Y over the ground under it (higher over a tall
     // roof or the church tower, the same floor the lantern itself keeps, so the spring never fights it);
     // giving up, it draws the lantern up by LIFT, so the pool widens and dims (the hiding test reads the real
@@ -696,12 +942,12 @@ export function createGame(canvas, opts = {}) {
       const P = S.player, hasYou = P.lit || P.seen >= 0.2;
       const give = hasYou ? 0 : clamp((S.pt - (NT.search - GIVE_UP)) / GIVE_UP);
       S.giveUp += (give - S.giveUp) * Math.min(1, dt * 2.5);
-      if ((S.pt > NT.search && !hasYou) || S.pt > NT.search + OVERTIME) { setPhase('leave'); leavePlan(); S.stats.passed++; }
+      if (!S.hand && ((S.pt > NT.search && !hasYou) || S.pt > NT.search + OVERTIME)) { setPhase('leave'); leavePlan(); S.stats.passed++; }   // (never while its hand is out)
     } else if (S.phase === 'caught') {
       // it found you: the run is over; the banked tens stay, the seconds since the last bank are lost
       // the burn leaves a stain where you stood (the attract loop's too; a new run clears them)
-      if (S.pt > CATCH_BURN + 0.8 && !S.burnt) { S.burnt = true; const P = S.player; R.stain(P.x, P.z, 1.4, rnd); S.stains.push([P.x, P.z]); }
-      if (S.pt > CATCH_LEN && !S.card) {
+      if (!S.crush && S.pt > CATCH_BURN + 0.8 && !S.burnt) { S.burnt = true; const P = S.player; R.stain(P.x, P.z, 1.4, rnd); S.stains.push([P.x, P.z]); }
+      if (S.pt > (S.crush ? CRUSH_LEN : CATCH_LEN) && !S.card) {
         if (!inRun()) startCycle();
         else {
           // what is banked stays; the seconds since the last bank are lost with the night
@@ -734,10 +980,10 @@ export function createGame(canvas, opts = {}) {
     const dimT = { calm: 0, approach: clamp(S.pt / 18), plant: 1, search: 1, caught: 1, leave: 1 - clamp((S.pt - 6) / 12) }[S.phase];
     S.dim += (dimT - S.dim) * Math.min(1, dt * 0.6);
     const pulse = (c, w) => clamp(1 - Math.abs(S.pt - c) / w);
-    S.flash = S.phase === 'caught' ? Math.max(pulse(CATCH_BURN + 0.15, 0.2) * 0.5, pulse(CATCH_CUT, 0.1) * 0.7) : Math.max(0, S.flash - dt * 3);
+    S.flash = S.phase === 'caught' ? (S.crush ? pulse(CRUSH_CUT, 0.1) * 0.9 : Math.max(pulse(CATCH_BURN + 0.15, 0.2) * 0.5, pulse(CATCH_CUT, 0.1) * 0.7)) : Math.max(0, S.flash - dt * 3);
     // the catch fades to black at 7.7 s; the title's attract loop fades back up to the street, a real run
     // stays black straight into the game-over card
-    S.fade = S.phase === 'caught' ? (S.pt >= CATCH_CUT ? 1 : 0) : Math.max(0, S.fade - dt * 1.5);
+    S.fade = S.phase === 'caught' ? (S.pt >= (S.crush ? CRUSH_CUT : CATCH_CUT) ? 1 : 0) : Math.max(0, S.fade - dt * 1.5);
     if (S.card && S.card.kind === 'over') S.fade = 1;
     if (S.intro) {
       // the title loops through a dip to dark; when you begin, one more dip and the cut to the first night
@@ -773,8 +1019,11 @@ export function createGame(canvas, opts = {}) {
       return { eye: [P.x + 26, py + 16, P.z + 26], tgt: lookAim.p, fov: 1.45 };
     }
     lookAim.p = null;
-    const d = nrm([P.x - G.x, 0, P.z - G.z]), k = ease(S.lookT / 3), r = 270 - 30 * k;
-    return { eye: [P.x + d[0] * r, py + 110 - 10 * k, P.z + d[2] * r], tgt: add(G.W.chest, [0, -150, 0]), fov: 1.3 - 0.04 * k };
+    // (kneeling, it is nearer and lower: the camera stands further back and takes in the knee, the body bent
+    // over the town and the head)
+    const kn = G.kneel, d = nrm([P.x - G.x, 0, P.z - G.z]), k = ease(S.lookT / 3), r = 270 - 30 * k + 60 * kn;
+    const tgt = lerp3(add(G.W.chest, [0, -150, 0]), add(lerp3(G.pelvis, G.W.head, 0.55), [0, -150, 0]), kn);
+    return { eye: [P.x + d[0] * r, py + 110 - 10 * k + 20 * kn, P.z + d[2] * r], tgt, fov: 1.3 - 0.04 * k + 0.1 * kn };
   }
   // keep a real camera out of the legs and boots (it never needs to be there; this is a guard)
   function keepOut(cam) {
@@ -885,7 +1134,7 @@ export function createGame(canvas, opts = {}) {
     const plate = (x, y, w, h) => { ctx.fillStyle = C.plate; ctx.fillRect(x, y, w, h); ctx.fillStyle = C.edge; ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + h - 1, w, 1); ctx.fillRect(x, y, 1, h); ctx.fillRect(x + w - 1, y, 1, h); };
     // the three tiers of shadow in the HUD: deep is the look's cold ramp, shallow a dim amber, lit the accent
     const H = LK.palette.hues, tierCol = (t) => (t === 'lit' ? (H[3] ? H[3][4] : C.accent) : t === 'shallow' ? (H[0] ? H[0][3] : C.dim) : (H[2] ? H[2][2] : C.edge));
-    const label = S.retry && (S.phase === 'approach' || S.phase === 'plant') ? 'It is still here' : { calm: 'Quiet', approach: 'It is coming', plant: 'It is here', search: S.giveUp > 0.3 ? 'It is giving up' : 'It is looking', caught: 'It sees you', leave: S.dawn > 0.5 ? 'Dawn' : 'It is passing' }[S.phase];
+    const label = S.retry && (S.phase === 'approach' || S.phase === 'plant') ? 'It is still here' : { calm: 'Quiet', approach: 'It is coming', plant: 'It is here', search: S.hand && S.hand.state === 'reach' ? 'It is reaching' : S.giveUp > 0.3 ? 'It is giving up' : S.kneelT !== null && !S.kneeDown ? 'It is kneeling' : 'It is looking', caught: S.crush ? 'It has you' : 'It sees you', leave: S.dawn > 0.5 ? 'Dawn' : 'It is passing' }[S.phase];
     if (!S.intro && !S.card) {
       // the plates keep their places: the label plate is as wide as its widest word, the eye slot is always
       // there (an open eye only in the search), so nothing slides when the phase changes
@@ -967,7 +1216,7 @@ export function createGame(canvas, opts = {}) {
       if (k === 'over' && credit) drawWisp(credit, Math.round((VW - measureWisp(credit)) / 2), VH - 18, plot(C.dim));
       ctx.globalAlpha = 1;
     }
-    if (S.phase === 'caught' && S.pt > 1.0 && S.pt < CATCH_CUT) {
+    if (S.phase === 'caught' && !S.crush && S.pt > 1.0 && S.pt < CATCH_CUT) {
       ctx.globalAlpha = ease((S.pt - 1.0) / 0.6) * (1 - ease((S.pt - CATCH_BURN - 0.6) / 0.6));
       const T = 'it sees you';
       drawWisp(T, Math.round((VW - measureWisp(T, 2)) / 2), VH - 40, plot(C.accent), 2);
@@ -1002,7 +1251,7 @@ export function createGame(canvas, opts = {}) {
     for (const p of S.people) if (p.state === 'out') { const cp = R.project([p.x + Math.sin(p.yaw) * 0.4, standY(p.x, p.z) + 1.0, p.z + Math.cos(p.yaw) * 0.4]); if (cp[2] && out.length < 4) out.push([cp[0], cp[1], cp[3], 2.2, 0.35, 1]); }
     // the catch: you flare before you come apart, a glow over the knight that swells and goes out; a take
     // flares the same way over whoever the light has
-    if (S.phase === 'caught' && S.pt > 1.2) {
+    if (S.phase === 'caught' && !S.crush && S.pt > 1.2) {
       const P = S.player, fl = ease((S.pt - 1.2) / 1.2) * (1 - ease((S.pt - CATCH_BURN - 0.6) / 1.2));
       const kp = R.project([P.x, standY(P.x, P.z) + 1.4, P.z]);
       if (kp[2] && fl > 0.01) out.unshift([kp[0], kp[1], kp[3], 3 + 7 * fl, 1.4 * fl, 1]);
@@ -1040,7 +1289,7 @@ export function createGame(canvas, opts = {}) {
     updateCamera(dt);
     S.shake = Math.max(0, S.shake - dt * (S.shake * 1.8 + 0.2));
     // sound
-    if (S.phase === 'caught' && S.pt > CATCH_CUT - 0.05 && !S.hitDone) { S.hitDone = true; snd.hit(); }
+    if (S.phase === 'caught' && S.pt > (S.crush ? CRUSH_CUT : CATCH_CUT) - 0.05 && !S.hitDone) { S.hitDone = true; snd.hit(); }
     const Pp = S.player, lp = S.lan.pos, dl = Math.hypot(lp[0] - Pp.x, lp[1] - standY(Pp.x, Pp.z), lp[2] - Pp.z);
     const tension = { search: 1 - 0.5 * S.giveUp, caught: S.pt < 6.5 ? 1 : 0, plant: 0.7, approach: 0.25, leave: 1 - clamp(S.pt / 8), calm: 0 }[S.phase];
     snd.update(dt, { wind: 0.25 + 0.7 * S.dim, roar: clamp(1 - (dl - 50) / 380), tension: clamp(tension + 0.5 * S.alert), chain: clamp(1 - dl / 700), move: clamp(Math.hypot(S.lan.vel[0], S.lan.vel[2]) / 10 + S.alert), lanPan: panOf(lp[0], lp[2]), tick: Pp.tier === 'shallow' ? clamp(Pp.seen) : 0 });
@@ -1102,7 +1351,7 @@ export function createGame(canvas, opts = {}) {
     const Ld = dawnLit(dimmed(S.dim), S.dawn), light = S.camMode === 'look' ? { ...Ld, fogA: Ld.fogA * 3, fogB: Ld.fogB * 0.5, skyCol: scl(Ld.skyCol, 0.4), fogSunCol: scl(Ld.fogSunCol, 0.35), fogCol: scl(Ld.fogCol, 0.7) } : Ld;
     R.render({
       t: S.t, cam: S.cam, light,
-      giant: { bones: G.bones, sway: G.sway },
+      giant: { bones: G.bones, sway: G.sway }, giantInLantern: !!S.hand,
       lantern: { ...ll, I: ll.I * LK.lanI / 1.5 * (1 - 0.4 * ease(S.giveUp)) * down }, lanGlow: LK.light.lanCol,   // giving up, the drawn light fades as it lifts
       lanShaft: ls && S.lan.on > 0 ? { ...ls, strength: (LK.lanShaft ?? 1) * LK.lanI / 1.5 } : null,
       glows,
@@ -1118,7 +1367,7 @@ export function createGame(canvas, opts = {}) {
       fade: Math.max(S.fade, S.dipT < 0 ? 0 : S.dipT < DIP_OUT ? S.dipT / DIP_OUT : 1 - (S.dipT - DIP_OUT) / DIP_IN), flash: S.flash * 0.85, eye: S.eye, seen: S.player.seen,
       birds: S.birds.map((b) => [b.x, b.y + 0.4, b.z, b.fly ? b.ph : 0.25]),
       ash: S.cam.hh < 60 ? LK.ash.amount : 0, ashLum: LK.ash.lum, ashFall: S.phase === 'caught' && S.pt > 1.2 ? -LK.ash.fall * 1.6 : LK.ash.fall,
-      burn: S.phase === 'caught' ? [P.x, P.z, 2.4, clamp((S.pt - CATCH_BURN) / 1.2)] : S.take && S.take.p && S.take.t >= 1.0 ? [S.take.p.x, S.take.p.z, 2.4, clamp((S.take.t - 1.0) / 1.2)] : null,
+      burn: S.phase === 'caught' && !S.crush ? [P.x, P.z, 2.4, clamp((S.pt - CATCH_BURN) / 1.2)] : S.take && S.take.p && S.take.t >= 1.0 ? [S.take.p.x, S.take.p.z, 2.4, clamp((S.take.t - 1.0) / 1.2)] : null,
       chromaLo: LK.chroma[0], chromaHi: LK.chroma[1], contrast: LK.contrast, lift: LK.lift || 0, gamma: LK.gamma || 1, dither: LK.dither, bloom: LK.bloom,
       stars: LK.stars * (1 - S.dawn), sunSize: LK.sunSize, sunDisc: LK.sunDisc, snow: LK.snow,
       ui: drawUI,
@@ -1129,7 +1378,7 @@ export function createGame(canvas, opts = {}) {
   updateGiant(0);
 
   const api = {
-    R, G, S, gmesh, snd, LOOKS, LOOK_ORDER, NIGHTS, nightTable: night, isLit, inCover, blocked, standY, height, lanLight, segmentBlocked, OCCLUDERS, houses, brain, HM, ringFloor, CHURCH, LAN_BODY,
+    R, G, S, gmesh, snd, LOOKS, LOOK_ORDER, NIGHTS, nightTable: night, isLit, inCover, blocked, standY, height, lanLight, segmentBlocked, OCCLUDERS, houses, brain, HM, ringFloor, CHURCH, LAN_BODY, clearance, landingSpot,
     setPicture: (w, h) => R.setPicture(w, h),
     get look() { return lookName; },
     get night() { return S.night; },
@@ -1174,6 +1423,9 @@ export function createGame(canvas, opts = {}) {
         hero: { x: -650, y: 1450, z: -120, yaw: Math.PI / 2 + 0.3, pitch: -0.12, hh: 1900, D: 3900, near: 20, far: 60000, snap: 0 },
         hero2: { x: -700, y: 1400, z: -120, yaw: Math.PI / 2 + 0.55, pitch: 0.18, hh: 2400, D: 7800, near: 30, far: 60000, snap: 0 },
         valley: { x: -1000, y: 600, z: 0, yaw: Math.PI / 4, pitch: 0.6, hh: 4200, D: 9000, near: 50, far: 60000, snap: 0 },
+        knee: { ...lookFrom([900, 520, 1500], add(G.pelvis, [0, -150, 0]), 1.2), near: 2, far: 60000, snap: 0 },
+        knee2: { ...lookFrom([-900, 380, 1900], add(G.pelvis, [200, -250, 0]), 1.15), near: 2, far: 60000, snap: 0 },
+        hand: { ...lookFrom(add(G.W.fingerL || [0, 0, 0], [70, 38, 95]), add(G.W.fingerL || [0, 0, 0], [0, 30, 0]), 0.95), near: 2, far: 60000, snap: 0 },
       }[name];
       S.view = v || null;
     },

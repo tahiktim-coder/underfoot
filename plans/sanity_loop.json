@@ -1,0 +1,12 @@
+[
+  {
+    "eval": "__v16.hold=true; const g=__v16.game, S=g.S; let hands=0, kneels=0, crush=0, maxOcc=0, n=0; let hadHand=false, hadKneel=false; while(n<30*240){ S.drive=null; g.update(1/30); n++; if(S.hand&&!hadHand){hands++;} hadHand=!!S.hand; if(S.kneeDown&&!hadKneel){kneels++;} hadKneel=S.kneeDown; if(S.crush) crush++; maxOcc=Math.max(maxOcc,g.OCCLUDERS.filter(o=>o.finger).length); } return JSON.stringify({night:S.night, phase:S.phase, cycle:S.cycle, hands, kneels, crushFrames:crush, maxOcc, occNow:g.OCCLUDERS.filter(o=>o.finger).length, stats:S.stats, errors:__v16.errors})"
+  },
+  {
+    "shot": "title_loop_night3",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S; __v16.force('caught'); for(let i=0;i<30*8;i++){S.drive={x:0,y:0}; g.update(1/30);} g.dismissCard(); for(let i=0;i<30*40;i++){S.drive={x:0,y:0}; g.update(1/30);} return JSON.stringify({night:S.night, phase:S.phase, pt:+S.pt.toFixed(1), kneel:+g.G.kneel.toFixed(2), hand:!!S.hand, occ:g.OCCLUDERS.filter(o=>o.finger).length, spawnBlocked:g.blocked(-12,8), errors:__v16.errors})"
+  }
+]

@@ -8,12 +8,15 @@
 // (0.25 s each) it aims behind you. people: townspeople out in the search. walk: how fast the light's mark
 // moves along your trail, hunt: once it has seen you. Both stay under your 4.6, on every night: a light that
 // outruns you makes hiding pointless, so the nights ask more by the search's length, the trail's lag, the
-// fill and the thinner shallow shadow instead.
+// fill and the thinner shallow shadow instead. hand: seconds from one reach of its hand to the next, on the open
+// ground where its light looks (0: it keeps its hand to itself); a reach needs about 14 s and never starts in
+// the search's last seconds, so night 3 and 4 get one, night 5 and 6 two, night 7 three. It kneels from night 2
+// (game.js KNEEL_NIGHT).
 export const NIGHTS = [
   null,
-  { search: 30, fill: 0.55, k: 1.6, offLo: 30, offHi: 60, lag: 25, people: 1, walk: 3.6, hunt: 4.2, spin: 26 },
-  { search: 35, fill: 0.75, k: 1.9, offLo: 25, offHi: 60, lag: 16, people: 2, walk: 3.9, hunt: 4.3, spin: 22 },
-  { search: 40, fill: 0.8, k: 2.2, offLo: 25, offHi: 60, lag: 16, people: 2, walk: 4.0, hunt: 4.4, spin: 22 },
+  { search: 30, fill: 0.55, k: 1.6, offLo: 30, offHi: 60, lag: 25, people: 1, walk: 3.6, hunt: 4.2, spin: 26, hand: 0 },
+  { search: 35, fill: 0.75, k: 1.9, offLo: 25, offHi: 60, lag: 16, people: 2, walk: 3.9, hunt: 4.3, spin: 22, hand: 0 },
+  { search: 40, fill: 0.8, k: 2.2, offLo: 25, offHi: 60, lag: 16, people: 2, walk: 4.0, hunt: 4.4, spin: 22, hand: 20 },
 ];
 // (night 3 measured: with night 2's row and a 40 s search a careful player passes about half the time; a
 // 2 s lag, full fill or the lamp at 20 m each alone made it a cliff nobody passed)
@@ -28,6 +31,7 @@ export function night(n) {
     ...b,
     search: Math.min(60, b.search + 4 * k), fill: Math.min(1, b.fill + 0.1 * k), k: Math.max(1.6, b.k - 0.15 * k),
     offLo: Math.max(20, b.offLo - k), lag: Math.max(12, b.lag - k), spin: Math.max(14, b.spin - k), people: Math.min(3, b.people + (k >= 2 ? 1 : 0)),
+    hand: Math.max(12, b.hand - 2 * k),
   };
 }
 export const NIGHT_BONUS = 50;   // for a night passed, on top of its seconds (a round hundred dwarfed them)

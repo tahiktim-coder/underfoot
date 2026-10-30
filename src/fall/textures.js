@@ -78,7 +78,10 @@ export const STAIN_S = 1024;
 export function stainMap(gl) {
   return texture(gl, STAIN_S, STAIN_S, { data: new Uint8Array(STAIN_S * STAIN_S), fmt: 'r8', filter: 'linear' });
 }
-export function stampStain(gl, t, x, z, r = 1.5, rnd = Math.random) {
+// (peak below 0.5 is a pressed print: the ground darkened, no burn in the middle; a stamp only ever darkens,
+// so a wide print never wipes the stains under it: the map is mirrored here)
+const STAIN_MIR = new Uint8Array(STAIN_S * STAIN_S);
+export function stampStain(gl, t, x, z, r = 1.5, rnd = Math.random, peak = 1) {
   const k = (NEAR * 2) / STAIN_S, R = r * 2.1, n = Math.ceil(R / k) * 2 + 2;
   const i0 = Math.max(0, Math.floor((x - R + NEAR) / k)), j0 = Math.max(0, Math.floor((z - R + NEAR) / k));
   const w = Math.min(n, STAIN_S - i0), h = Math.min(n, STAIN_S - j0);
@@ -89,11 +92,12 @@ export function stampStain(gl, t, x, z, r = 1.5, rnd = Math.random) {
     const px = -NEAR + (i0 + i + 0.5) * k - x, pz = -NEAR + (j0 + j + 0.5) * k - z;
     let inside = false; for (const [lx, lz, lr] of lobes) if (Math.hypot(px - lx, pz - lz) < lr) inside = true;
     const dd = Math.hypot(px, pz);
-    d[j * w + i] = inside ? 255 : dd < R ? 110 : 0;
+    const idx = (j0 + j) * STAIN_S + (i0 + i), v = Math.max(STAIN_MIR[idx], Math.round((inside ? 255 : dd < R ? 110 : 0) * peak));
+    STAIN_MIR[idx] = v; d[j * w + i] = v;
   }
   upload(gl, t, d, i0, j0, w, h);
 }
-export function clearStains(gl, t) { upload(gl, t, new Uint8Array(STAIN_S * STAIN_S)); }
+export function clearStains(gl, t) { STAIN_MIR.fill(0); upload(gl, t, new Uint8Array(STAIN_S * STAIN_S)); }
 
 export function farMap(gl) {
   const S = 512, H = 9216, k = (H * 2) / S, d = new Uint8Array(S * S * 4);

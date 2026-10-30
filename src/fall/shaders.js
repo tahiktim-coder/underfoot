@@ -37,7 +37,7 @@ ${SKIN}
 ${OUT}
 void main(){
   vec3 n; vec3 w = skinP(aPos, n, aNor);
-  vP = w; vN = n; vM = aMat; vUV = vec2(0.0); vS = 0.0; vT = aPos; vTN = aNor;
+  vP = w; vN = n; vM = aMat; vUV = aUV; vS = 0.0; vT = aPos; vTN = aNor;   // (vUV carries the bones: the hand is told apart from the rest)
   gl_Position = uVP*vec4(w, 1.0);
 }`;
 export const VS_GIANT_DEPTH = `#version 300 es
@@ -343,7 +343,9 @@ void main(){
     }
   }
   // see-through round the player when the town would hide them (never the player's own figure)
-  if (uCut.w > 0.0 && m != 0 && uIsGiant < 0.5 && (m < 50 || m > 59)){
+  // (its left hand, bone 11, is the one part of it that comes down into the street: it is cut like a house)
+  bool hand = uIsGiant > 0.5 && int(vUV.x + 0.5) == 11;
+  if (uCut.w > 0.0 && m != 0 && (uIsGiant < 0.5 || hand) && (m < 50 || m > 59)){
     // the lantern and its chain get a much wider hole: they must never hide you
     bool lan = (m >= 37 && m <= 40) || m == 60;
     vec2 dd = (gl_FragCoord.xy - uCut.xy)/(vec2(1.0, 1.25)*uCut.w*(lan ? 7.0 : 1.0));
@@ -671,18 +673,20 @@ void main(){
   }
   if (uIsGiant > 0.5){
     // from the play camera, nothing of it above the boots: the cloak's hem would hang across the town
-    if (uPlayCam > 0.5 && P.y > 180.0) discard;
+    // (its left hand excepted: it comes down into the street, and is drawn whole)
+    if (uPlayCam > 0.5 && P.y > 180.0 && !hand) discard;
     // the lantern lights it from below as a point light (no shadow): the forearm, the chest, the
     // underside of the helm and the face go amber while it searches
     // (weighted toward the upper body: the boots stand next to the lantern and would go solid amber)
-    if (uLan.w > 0.0){ vec3 ld = uLan.xyz - P; float dl = length(ld); col += alb*uLanCol*uLan.w*0.5*(0.12 + 0.88*smoothstep(300.0, 1500.0, T.y))*max(dot(n, ld/dl), 0.0)/(1.0 + (dl/1400.0)*(dl/1400.0)); }
+    // (only above the lamp: a hand down in the street is lit by the lantern itself, with its shadow)
+    if (uLan.w > 0.0){ vec3 ld = uLan.xyz - P; float dl = length(ld); col += alb*uLanCol*uLan.w*0.5*(0.12 + 0.88*smoothstep(300.0, 1500.0, T.y))*(hand ? smoothstep(-60.0, 140.0, P.y - uLan.y) : 1.0)*max(dot(n, ld/dl), 0.0)/(1.0 + (dl/1400.0)*(dl/1400.0)); }
     vec3 vd = normalize(P - uCam);
     float rim = pow(1.0 - abs(dot(n, vd)), 7.0)*smoothstep(0.2, 0.8, dot(vd, uSun));
     col += uSunCol*rim*0.7*cloudShadow(P);
     // its face is never seen whole: from the shoulders up it stands in cloud, a mass the colour of the sky
     // with the embers of the eyes through it, from every camera
-    float veil = smoothstep(2250.0, 2600.0, T.y)*(0.7 + 0.3*N1(T.xz*0.02 + vec2(uTime*0.03, 0.0), 2.0));
-    col = mix(col, mix(uFogCol, uSkyCol, 0.5)*1.05, 0.92*veil);
+    float veil = smoothstep(2250.0, 2600.0, T.y)*(0.8 + 0.2*N1(T.xz*0.02 + vec2(uTime*0.03, 0.0), 2.0));
+    col = mix(col, mix(uFogCol, uSkyCol, 0.5)*1.05, 0.96*veil);
     emit *= 1.0 - 0.6*veil;
   }
   col += emit;

@@ -1,0 +1,29 @@
+[
+  {
+    "eval": "__v16.hold=true; const g=__v16.game, S=g.S, P=S.player; const DT=1/30; window.__until=(f,max)=>{let n=0; while(!f()&&n<max){S.drive={x:0,y:0}; g.update(DT); n++;} S.drive=null; return n;}; window.__drive=(x,y,secs)=>{ for(let i=0;i<secs*30;i++){ S.drive={x,y}; g.update(DT);} S.drive=null; }; window.__toward=(wx,wz)=>{ const YAW=Math.PI/4, RX=Math.cos(YAW), RZ=-Math.sin(YAW), FX=-Math.sin(YAW), FZ=-Math.cos(YAW); const dx=wx-P.x, dz=wz-P.z, d=Math.hypot(dx,dz)||1; return [(dx*RX+dz*RZ)/d,(dx*FX+dz*FZ)/d]; }; window.__info=()=>({phase:S.phase, pt:+S.pt.toFixed(1), night:S.night, cam:S.camMode, tier:P.tier, seen:+P.seen.toFixed(2), kneel:+g.G.kneel.toFixed(2), kneeDown:S.kneeDown, hand:S.hand&&{state:S.hand.state, T:+(S.t-S.hand.t0).toFixed(2), at:S.hand.at.map(v=>+v.toFixed(1)), tip:S.hand.tip&&S.hand.tip.map(v=>+v.toFixed(1))}, finger:g.G.W.fingerL&&g.G.W.fingerL.map(v=>+v.toFixed(1)), pelvis:g.G.pelvis&&g.G.pelvis.map(v=>v|0), kneeL:g.G.W.kneeL&&g.G.W.kneeL.map(v=>v|0), kneeR:g.G.W.kneeR&&g.G.W.kneeR.map(v=>v|0), ankleL:g.G.W.ankleL&&g.G.W.ankleL.map(v=>v|0), shL:g.G.W.shoulderL&&g.G.W.shoulderL.map(v=>v|0), head:g.G.W.head&&g.G.W.head.map(v=>v|0), lan:S.lan.pos.map(v=>v|0), len:S.lan.len|0, player:[+P.x.toFixed(1),+P.z.toFixed(1)], mark:S.attn.map(v=>+v.toFixed(1)), occ:g.OCCLUDERS.filter(o=>o.finger).length, cause:S.cause, card:S.card&&S.card.lines, shake:+S.shake.toFixed(2), errors:__v16.errors}); window.__hold=(f,max)=>{ let n=0; while(!f()&&n<max){ P.seen=Math.min(P.seen,0.4); S.dwell=0; S.drive={x:0,y:0}; g.update(DT); n++; } S.drive=null; return n; }; window.__gotoH=(tx,tz,max)=>{ let n=0; while(Math.hypot(P.x-tx,P.z-tz)>1.2 && n<max){ P.seen=Math.min(P.seen,0.4); S.dwell=0; const a=__toward(tx,tz); S.drive={x:a[0],y:a[1]}; g.update(DT); n++; } S.drive=null; return n; }; window.__goto=(tx,tz,max)=>{ let n=0; while(Math.hypot(P.x-tx,P.z-tz)>1.2 && n<max){ const a=__toward(tx,tz); S.drive={x:a[0],y:a[1]}; g.update(DT); n++; } S.drive=null; return n; }; g.render(); return JSON.stringify({ok:true})"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S; g.begin(); __until(()=>!S.intro,300); return 'begun'"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S, P=S.player; g.startNight(3,'last'); __hold(()=>S.phase==='search',900); __goto(-14,18.6,300); __hold(()=>!!S.hand||S.phase!=='search',900); if(S.hand){ __gotoH(S.hand.at[0],S.hand.at[1],120); } __hold(()=>S.hand&&(S.t-S.hand.t0)>3.0,100); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "n3_13_strike_on_you",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S; __hold(()=>S.phase==='caught',100); for(let i=0;i<3;i++){S.drive={x:0,y:0}; g.update(1/30);} g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "n3_14_crushed",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S; __hold(()=>!!S.card,200); __hold(()=>S.card&&S.card.t>1,100); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "n3_15_crush_card",
+    "sel": "canvas"
+  }
+]

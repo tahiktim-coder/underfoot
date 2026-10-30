@@ -203,8 +203,12 @@ export function buildGiantMesh() {
     // the cuff flares over the wrist
     loft(wr[1] - 80, wr[1] + 30, 16, 2, (t) => [wr[0], wr[2], 112 - 26 * t, 108 - 24 * t], I, one(bH));
   }
+  // a flat disc closing a tube's end (the gauntlets' cuffs and palms: seen end-on from the street when a hand
+  // comes down, an open tube is a hole)
+  // (`up` is the side the tube is on: the disc faces the other way)
+  const disc = (c, rx, rz, nseg, mat, skin, up) => surface(B, nseg, 1, (i, j) => (j ? [c[0], c[1], c[2]] : [c[0] + Math.cos((i / nseg) * TAU) * rx, c[1], c[2] + Math.sin((i / nseg) * TAU) * rz]), () => mat, skin, true, () => [c[0], c[1] + up * 50, c[2]]);
   // gauntlets: the back of the hand a plate; the right closes round the chain
-  const finger = (pts, r0, r1, b, mat) => {
+  const finger = (pts, r0, r1, b, mat, cap = false) => {
     const n = pts.length - 1, ring = 6;
     surface(B, ring, n, (i, j) => {
       const c = pts[j], nx = pts[Math.min(n, j + 1)], pv = pts[Math.max(0, j - 1)];
@@ -212,17 +216,35 @@ export function buildGiantMesh() {
       const a = (i / ring) * TAU, r = r0 + (r1 - r0) * (j / n);
       return add(c, add(scl(u0, Math.cos(a) * r), scl(v0, Math.sin(a) * r)));
     }, () => mat, () => [b, b, 0], true, (p) => { let best = pts[0], bd = 1e9; for (const q of pts) { const dd = Math.hypot(...sub(p, q)); if (dd < bd) { bd = dd; best = q; } } return best; });
+    // a rounded end, so a fingertip seen end-on (from the street, when it comes down) is iron, not a hole
+    if (cap) {
+      const c = pts[n], d = nrm(sub(pts[n], pts[n - 1])), u0 = nrm(crs(d, Math.abs(d[1]) > 0.9 ? [1, 0, 0] : [0, 1, 0])), v0 = crs(d, u0);
+      surface(B, ring, 3, (i, j) => {
+        const a = (i / ring) * TAU, th = (j / 3) * Math.PI * 0.5, r = r1 * Math.cos(th), h = r1 * 0.7 * Math.sin(th);
+        return add(c, add(scl(d, h), add(scl(u0, Math.cos(a) * r), scl(v0, Math.sin(a) * r))));
+      }, () => mat, () => [b, b, 0], true, () => c);
+    }
   };
   {
     const wr = REST[14], g = [wr[0] - 10, wr[1] - 175, wr[2]];
     loft(g[1] + 20, wr[1] - 70, 12, 2, () => [wr[0], wr[2], 70, 85], I, one(14));
+    disc([wr[0], g[1] + 20, wr[2]], 70, 85, 12, I, one(14), 1);
+    disc([wr[0], wr[1] + 30, wr[2]], 86, 84, 16, I, one(14), -1);
     for (let k = 0; k < 4; k++) { const y = g[1] + 45 - k * 30, pts = []; for (let q = 0; q <= 6; q++) { const a = -2.2 + (q / 6) * 3.6; pts.push([g[0] + Math.cos(a) * 38, y - q * 1.5, g[2] + Math.sin(a) * 38]); } finger(pts, 17, 13, 14, I); }
     finger([[g[0] + 25, g[1] + 55, g[2] + 32], [g[0] + 32, g[1] + 25, g[2] + 42], [g[0] + 22, g[1] + 5, g[2] + 44]], 17, 13, 14, I);
   }
   {
     const wr = REST[11];
     loft(wr[1] - 170, wr[1] - 70, 12, 2, () => [wr[0], wr[2], 68, 84], I, one(11));
-    for (let k = 0; k < 4; k++) { const x = wr[0] + 12, z = wr[2] - 48 + k * 32, y0 = wr[1] - 165; finger([[x, y0, z], [x + 5, y0 - 50, z + 4], [x + 2, y0 - 92 + k * 6, z + 12]], 16, 11, 11, I); }
+    disc([wr[0], wr[1] - 170, wr[2]], 68, 84, 12, I, one(11), 1);
+    disc([wr[0], wr[1] + 30, wr[2]], 86, 84, 16, I, one(11), -1);
+    // the left hand points: the first finger straight and a little longer, the other three curled back toward
+    // the palm, so one fingertip comes down on the town and the rest stay well above the roofs
+    for (let k = 0; k < 4; k++) {
+      const x = wr[0] + 12, z = wr[2] - 48 + k * 32, y0 = wr[1] - 165;
+      if (k === 0) finger([[x, y0, z], [x + 5, y0 - 50, z + 4], [x + 2, y0 - 100, z + 12]], 16, 11, 11, I, true);
+      else finger([[x, y0, z], [x - 4, y0 - 38, z + 4], [x - 30, y0 - 52, z + 8], [x - 58, y0 - 36 - k * 3, z + 10]], 16, 12, 11, I, true);
+    }
   }
   // ---- faulds and tassets
   for (let k = 0; k < 2; k++) {
@@ -348,6 +370,19 @@ function ik(root, target, a, b, pole, cap = 0) {
   return { mid, end: add(root, d) };
 }
 const KNEE_CAP = 35 * Math.PI / 180;
+// a rotation (as columns) taking unit a onto unit b
+function rotTo(a, b) {
+  const v = crs(a, b), c = dot(a, b), s2 = dot(v, v);
+  if (s2 < 1e-12) return [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  const k = (1 - c) / s2, col = (e) => { const ke = crs(v, e); return add(add(e, ke), scl(crs(v, ke), k)); };
+  return [col([1, 0, 0]), col([0, 1, 0]), col([0, 0, 1])];
+}
+const REACH_YAW = -0.5;   // reaching down with its left hand, the chest turns this far toward it (radians), which brings that shoulder low
+// the left hand's longest finger: its tip, from the wrist, in the rest pose (the director lands it on the ground)
+export const FINGER_L = [14, -265, -36], FINGER_R = 11;
+// the pointing finger is not on the wrist's axis: this turns the hand so the finger's own line runs down the
+// frame's -Y, which limbFrame then points where the director wants the tip
+const FINGER_Q = rotTo(nrm(FINGER_L), [0, -1, 0]);
 
 export function createGiant() {
   const bones = new Float32Array(16 * 16);
@@ -358,6 +393,9 @@ export function createGiant() {
     feet: [{ p: [0, 0, 0], yaw: 0, pitch: 0 }, { p: [0, 0, 0], yaw: 0, pitch: 0 }], // L, R: ankle on the ground, yaw, toe pitch
     pelvisDrop: 0, lean: 0.12, twist: 0, roll: 0, headPitch: 0.15, headYaw: 0, headLook: null,
     handR: null, handL: null, sway: [0, 0, 0], t: 0,
+    kneel: 0,   // one knee down: the knees may fold all the way (standing, they read as nearly straight)
+    reach: 0,   // the chest turned toward its left hand (0 to 1)
+    fingerAt: null,   // where the left fingertip is wanted: the hand then bends at the wrist to point there
     W, bones,
   };
   function setBone(i, R, p) {
@@ -387,7 +425,7 @@ export function createGiant() {
     G.pelvis = pel;
     setBone(0, pelR, pel);
     // chest: lean forward and twist
-    const chestR = mulR(pelR, mulR(rotX(G.lean), rotY(-G.twist * 1.6)));
+    const chestR = mulR(pelR, mulR(rotX(G.lean), rotY(-G.twist * 1.6 + REACH_YAW * G.reach)));
     const chestJ = add(pel, apply(pelR, sub(REST[1], REST[0])));
     setBone(1, chestR, chestJ);
     // head: from the chest, pitched down, turned
@@ -413,7 +451,7 @@ export function createGiant() {
       const ankle = add(f.p, [0, 98, 0]);
       const footFwd = [Math.sin(f.yaw), 0, Math.cos(f.yaw)];
       const pole = add(footFwd, [0, 0.15, 0]);
-      const sol = ik(hip, ankle, THIGH, SHIN, pole, KNEE_CAP);
+      const sol = ik(hip, ankle, THIGH, SHIN, pole, KNEE_CAP * (1 - G.kneel));
       setBone(hb, limbFrame(sub(sol.mid, hip), pole), hip);
       setBone(hb + 1, limbFrame(sub(sol.end, sol.mid), pole), sol.mid);
       const footR = mulR(rotY(f.yaw), rotX(-f.pitch));
@@ -434,10 +472,14 @@ export function createGiant() {
       setBone(sb, limbFrame(sub(sol.mid, sh), pole), sh);
       const foreR = limbFrame(sub(sol.end, sol.mid), pole);
       setBone(sb + 1, foreR, sol.mid);
-      setBone(sb + 2, foreR, sol.end);
+      // the hand follows the forearm, except the left one reaching: it bends at the wrist to point its finger
+      // at the wanted tip, so the finger stands straight over the spot and not slanted through the roofs
+      const handR = !s && G.fingerAt ? mulR(limbFrame(sub(G.fingerAt, sol.end), pole), FINGER_Q) : foreR;
+      setBone(sb + 2, handR, sol.end);
       W[s ? 'handR' : 'handL'] = sol.end;
       W[s ? 'gripR' : 'gripL'] = add(sol.end, apply(foreR, [-10, -175, 0]));
       W[s ? 'shoulderR' : 'shoulderL'] = sh;
+      if (!s) { W.fingerL = add(sol.end, apply(handR, FINGER_L)); W.elbowL = sol.mid; }
     }
     W.chest = chestJ; W.chestR = chestR; W.root = [G.x, 0, G.z]; W.fwd = fwd; W.left = leftV;
     // the wind: the cloak's hem drifts to the side and trails behind, in slow gusts (the skin shader
