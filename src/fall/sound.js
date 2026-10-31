@@ -180,6 +180,25 @@ export function createSound() {
       s.connect(bp); bp.connect(g); g.connect(o); s.start(t); v.start(t); s.stop(t + len + 0.4); v.stop(t + len + 0.4);
       burst(brown, t, len * 0.6, len * 0.5, 0.35, o, 'lowpass', 90, 0.7, 180);
     },
+    // its fingertip takes hold of a roof `d` metres away: the timber creaks under it
+    creak(d, pan) {
+      if (!ctx || d > 600) return;
+      const t = now() + Math.min(2, d / 343), k = 1 / (1 + d / 150), o = out(pan * 0.6, 1800);
+      const s = ctx.createOscillator(); s.type = 'sawtooth'; s.frequency.setValueAtTime(70, t); s.frequency.linearRampToValueAtTime(96, t + 0.7);
+      const bp = filt('bandpass', 420, 6); const g = ctx.createGain(); env(g, t, 0.15, 0.22 * k, 0.6);
+      s.connect(bp); bp.connect(g); g.connect(o); s.start(t); s.stop(t + 1);
+      burst(white, t, 0.1, 0.6, 0.08 * k, o, 'bandpass', 700, 3);
+    },
+    // a roof torn off its posts `d` metres away: timber cracking, a thud through the frame, then tiles falling
+    crack(d, pan) {
+      if (!ctx || d > 600) return;
+      const t = now() + Math.min(2, d / 343), k = 1 / (1 + d / 120), o = out(pan * 0.7, 3000);
+      burst(white, t, 0.002, 0.18, 0.6 * k, o, 'bandpass', 900, 1.2, 300);
+      osc('sine', 110, 50, t, 0.005, 0.5, 0.4 * k, o);
+      for (let i = 0; i < 6; i++) burst(white, t + 0.05 + Math.random() * 0.5, 0.003, 0.05 + Math.random() * 0.08, 0.2 * k, o, 'bandpass', 500 + Math.random() * 1500, 4);
+      for (let i = 0; i < 7; i++) burst(white, t + 0.6 + Math.random() * 1.4, 0.002, 0.03 + Math.random() * 0.04, 0.08 * k, o, 'bandpass', 1500 + Math.random() * 2500, 6);
+      burst(brown, t, 0.05, 1.4, 0.5 * k, o, 'lowpass', 300, 0.7, 80);
+    },
     // its fingertip comes down on the ground `d` metres away: a crack, a boom, dust
     slam(d, pan) {
       if (!ctx) return;

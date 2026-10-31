@@ -33,7 +33,7 @@ Pages open straight from disk. Address options: `?look=<id>`, `?night=<1-3>`, `?
 | Any GLSL: materials and lighting (`FS_MESH`), sky, clouds, palette snap (`FS_QUANT`), post (`FS_POST`) | `src/fall/shaders.js` |
 | The giant's mesh, rig, face, walking | `src/fall/giant.js` |
 | The town: which house stands where, the lanes, plazas, covers, landmarks | `src/fall/townmap.js` (the map, one character per 2 m cell; the legend is at the top), read by `src/fall/town.js` |
-| Terrain, roads, what stands outside the walls, collision, hiding occluders, the covers | `src/fall/world.js`, `src/fall/mesh.js` (geometry, material ids `M`) |
+| Terrain, roads, what stands outside the walls, collision, hiding occluders, the covers, the wooden roofs on posts its hand lifts (`ROOFS`, their hook points) | `src/fall/world.js`, `src/fall/mesh.js` (geometry, material ids `M`, `roofPiece`) |
 | Lantern, chain, the player's figure | `src/fall/props.js` |
 | Sound | `src/fall/sound.js` (all synthesized) |
 | Page wiring: look bar, contact sheet, large view, buttons | `src/main.js`, `page/*.html` |
@@ -47,6 +47,7 @@ Pages open straight from disk. Address options: `?look=<id>`, `?night=<1-3>`, `?
 - Palette uniforms are fixed-size: 8 greys and 4 ramps of 5. `buildPalette()` pads; `uNGrey` and `uNHue` say how many are real.
 - Material ids in `mesh.js` `M` must match the `m ==` branches in `FS_MESH`.
 - `maskZ` / `maskRelief` exist in both `giant.js` and `shaders.js`. Change them together.
+- The wooden roofs on posts (the hall, the arcade, the church porch) are not in the static town: `roofPiece()` draws them into the per-frame mesh from `ROOFS`, so the hand can lift them from night 4. Unlifted they must draw to the pixel what the static roofs drew (the night 1 to 3 plans check it), and a lifted roof's cover and occluder are skipped through `roof.off`, never removed from the lists.
 - The town is the map in `townmap.js`; nothing inside the walls is placed at random. The spawn (-12, 8) in game.js must stay on an open cell (it is on the square). The seed decides only roof type, jetty, chimney, stone, tile and sub-metre jitter, keyed by the house's cell.
 - Runs are deterministic: the game's random numbers come from `mulberry(4242)`. Shots boot with `?hold` so the frame loop does not advance time before the plan, and each look gets a fresh page. Do not add `Math.random()` to game logic. (Dust in `renderer.js` uses it, so frames with fresh dust can differ slightly between runs.)
 - No runtime dependencies. esbuild bundles `src/main.js` into one IIFE at `__SCRIPT__` in a template.

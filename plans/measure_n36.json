@@ -1,0 +1,104 @@
+[
+  {
+    "eval": "__v16.hold=true; const g=__v16.game, S=g.S; g.begin(); let n=0; while(S.intro && n<400){S.drive={x:0,y:0}; g.update(1/30); n++;} return 'begun'"
+  },
+  {
+    "eval": "// Underfoot measurement harness (loaded as the first eval step of a tools/shot.mjs plan).\n// Runs one search through the real flow with a scripted player and returns what happened.\n// window.measureRun(driver, night, seed, opts) -> object (JSON-able)\n//   driver: 'still' | 'hider' | 'runner' | 'evader' | 'camper' | 'dasher' | a function (P, S, g, mem, dt, rnd) => [ix, iy]\n//   night: 1.. ; seed: integer for the driver's own choices (the game's own random draws advance across\n//   runs within one page, so a driver and seed can differ by their place in the sequence)\n//   opts.maxT: seconds to run at most (default 90); opts.every: timeline step in s (default 3)\n// Input is in screen space: +x right, +y up the screen; toward(x, z) converts a world direction.\n(() => {\n  const g = __v16.game, S = g.S, P = S.player;\n  const DT = 1 / 30;\n  const YAW = Math.PI / 4, RX = Math.cos(YAW), RZ = -Math.sin(YAW), FX = -Math.sin(YAW), FZ = -Math.cos(YAW);\n  const toward = (x, z) => { const dx = x - P.x, dz = z - P.z, d = Math.hypot(dx, dz) || 1; return [(dx * RX + dz * RZ) / d, (dx * FX + dz * FZ) / d]; };\n  const mulberry = (a) => () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };\n  const until = (f, max) => { let n = 0; while (!f() && n < max) { S.drive = { x: 0, y: 0 }; g.update(DT); n++; } S.drive = null; return n; };\n  // a deep cell near a point, away from the light's mark: for the evader and the dasher\n  // (before the lamp is down the whole town reads deep, so nothing is chosen until the search is 6 s old)\n  const lampDown = () => S.phase === 'search' && S.pt > 6;\n  const deepNear = (x, z, r, rnd, avoid, minFromPlayer = 0) => {\n    if (!lampDown()) return null;\n    let best = null, bd = 1e9;\n    for (let i = 0; i < 80; i++) {\n      const a = rnd() * 6.283, d = 3 + rnd() * r, cx = x + Math.cos(a) * d, cz = z + Math.sin(a) * d;\n      if (g.blocked(cx, cz)) continue;\n      if (Math.hypot(cx - P.x, cz - P.z) < minFromPlayer) continue;\n      const li = g.isLit([cx, g.standY(cx, cz) + 1.6, cz]);\n      if (li.tier !== 'deep') continue;\n      const da = avoid ? Math.hypot(cx - avoid[0], cz - avoid[1]) : 99;\n      if (da < 14) continue;\n      const score = d - da * 0.5;\n      if (score < bd) { bd = score; best = [cx, cz]; }\n    }\n    return best;\n  };\n  // the open direction nearest a wanted world angle: 16 headings probed 2.5 m and 5 m ahead for walls\n  const steer = (ang) => {\n    let best = null, bs = -1e9;\n    for (let k = 0; k < 16; k++) {\n      const a = ang + (k - 8) * (Math.PI / 8), cx = Math.cos(a), sz = Math.sin(a);\n      const open = (g.blocked(P.x + cx * 2.5, P.z + sz * 2.5) ? 0 : 1) + (g.blocked(P.x + cx * 5, P.z + sz * 5) ? 0 : 1);\n      const sc = open * 10 - Math.abs(k - 8);\n      if (sc > bs) { bs = sc; best = a; }\n    }\n    return toward(P.x + Math.cos(best) * 10, P.z + Math.sin(best) * 10);\n  };\n  window.measureSteer = steer;\n  const DRIVERS = {\n    still: () => [0, 0],\n    hider: (P, S, g, mem, dt, rnd) => { mem.env = mem.env || { get aimS() { return S.aimS; }, get attn() { return S.attn; }, get pt() { return S.pt; }, isLit: g.isLit, rnd }; mem.ap = mem.ap || { goal: null, t: 0 }; return g.brain(P, mem.ap, 'hider', mem.env, dt); },\n    // always away from the light's centre, round the walls\n    runner: (P, S) => steer(Math.atan2(P.z - S.attn[1], P.x - S.attn[0])),\n    // stands in deep shadow; when half seen, seen, or the peer is coming (dwell > 2.5 s) or the mark is within 12 m,\n    // walks to a deep cell 10 to 22 m away on the far side from the mark, then stands again; with no deep cell\n    // in reach it runs away from the mark and looks again every half second\n    evader: (P, S, g, mem, dt, rnd) => {\n      const dm = Math.hypot(S.attn[0] - P.x, S.attn[1] - P.z);\n      if (mem.goal) { mem.goalT = (mem.goalT || 0) + dt; if (Math.hypot(mem.goal[0] - P.x, mem.goal[1] - P.z) < 1.2 || mem.goalT > 6) { mem.goal = null; mem.goalT = 0; } }\n      const threatened = P.tier !== 'deep' || S.dwell > 2.5 || dm < 12;\n      const away = Math.atan2(P.z - S.attn[1], P.x - S.attn[0]);\n      if (dm < 6) mem.fleeUntil = S.pt + 2;\n      if (mem.fleeUntil && S.pt < mem.fleeUntil) { mem.goal = null; return steer(away); }\n      if (!mem.goal && threatened) {\n        mem.goal = deepNear(P.x + Math.cos(away) * 14, P.z + Math.sin(away) * 14, 10, rnd, S.attn, 10) || deepNear(P.x, P.z, 24, rnd, S.attn, 10);\n        if (!mem.goal) return steer(away);\n      }\n      if (!mem.goal) return [0, 0];\n      return steer(Math.atan2(mem.goal[1] - P.z, mem.goal[0] - P.x));\n    },\n    // picks the best deep spot within 18 m at the start and never moves\n    camper: (P, S, g, mem, dt, rnd) => { if (!lampDown()) return [0, 0]; if (!mem.goal) mem.goal = deepNear(P.x, P.z, 18, rnd, null) || [P.x, P.z]; mem.goalT = (mem.goalT || 0) + dt; if (Math.hypot(mem.goal[0] - P.x, mem.goal[1] - P.z) < 1 || mem.goalT > 8) return [0, 0]; return steer(Math.atan2(mem.goal[1] - P.z, mem.goal[0] - P.x)); },\n    // holds a deep spot until the mark is within 14 m, then dashes 15 m to the next deep cell away from it\n    dasher: (P, S, g, mem, dt, rnd) => {\n      const dm = Math.hypot(S.attn[0] - P.x, S.attn[1] - P.z);\n      if (mem.goal) { mem.goalT = (mem.goalT || 0) + dt; if (Math.hypot(mem.goal[0] - P.x, mem.goal[1] - P.z) < 1.2 || mem.goalT > 6) { mem.goal = null; mem.goalT = 0; } }\n      if (!mem.goal && (dm < 14 || P.tier === 'lit')) { const away = Math.atan2(P.z - S.attn[1], P.x - S.attn[0]); mem.goal = deepNear(P.x + Math.cos(away) * 15, P.z + Math.sin(away) * 15, 8, rnd, S.attn); if (!mem.goal) return steer(away); }\n      if (!mem.goal) return [0, 0];\n      return steer(Math.atan2(mem.goal[1] - P.z, mem.goal[0] - P.x));\n    },\n  };\n  window.measureDrivers = DRIVERS;\n  window.measureToward = toward;\n  window.measureDeepNear = deepNear;\n  window.measureRun = (driver, night, seed = 1, opts = {}) => {\n    __v16.hold = true;\n    const maxT = opts.maxT || 90, every = opts.every || 3;\n    const fn = typeof driver === 'function' ? driver : DRIVERS[driver];\n    if (!fn) return { error: 'no driver ' + driver };\n    const rnd = mulberry(1000 + seed * 7919 + night);\n    // the real flow: the title, the first night's plant, or a later night started from the last footfall\n    if (!S.played) { g.begin(); until(() => !S.intro, 200); }\n    if (S.card) g.dismissCard();\n    if (night !== S.night || S.phase === 'leave' || S.phase === 'caught' || S.phase === 'calm') { g.startNight(night, 'last'); }\n    until(() => S.phase === 'search', 3000);\n    const mem = {}, log = [], ev = [];\n    let maxSeen = 0, litT = 0, shalT = 0, peerT = 0, deepT = 0, last = -1, alertUp = false, episodes = 0, escapes = 0, dist = 0, moves = 0, wasMoving = false, lastBank = S.score, start = S.pt;\n    for (let i = 0; i < maxT * 30; i++) {\n      const [ix, iy] = fn(P, S, g, mem, DT, rnd);\n      const px = P.x, pz = P.z;\n      S.drive = { x: ix || 0, y: iy || 0 }; g.update(DT); S.drive = null;\n      if (S.phase !== 'search') break;\n      dist += Math.hypot(P.x - px, P.z - pz);\n      const moving = Math.hypot(ix || 0, iy || 0) > 0.1; if (moving && !wasMoving) moves++; wasMoving = moving;\n      maxSeen = Math.max(maxSeen, P.seen);\n      if (P.tier === 'lit') litT += DT; else if (P.tier === 'shallow') { shalT += DT; if (S.dwell > 4) peerT += DT; } else deepT += DT;\n      if (S.alert > 0.8 && !alertUp) { alertUp = true; episodes++; ev.push('alert@' + S.pt.toFixed(1)); }\n      if (S.alert < 0.3 && alertUp) { alertUp = false; escapes++; ev.push('lost@' + S.pt.toFixed(1)); }\n      if (S.score !== lastBank) { lastBank = S.score; }\n      const t = Math.floor(S.pt);\n      if (t !== last && t % every === 0) { last = t; log.push(t + ':' + P.tier[0] + P.seen.toFixed(2) + ' m' + Math.hypot(S.attn[0] - P.x, S.attn[1] - P.z).toFixed(0) + ' a' + S.alert.toFixed(1) + ' dw' + S.dwell.toFixed(0)); }\n    }\n    const caught = S.phase === 'caught';\n    if (caught) until(() => !!S.card, 400);\n    return {\n      driver: typeof driver === 'function' ? 'custom' : driver, night, seed, result: caught ? 'caught' : S.phase === 'search' ? 'timeout' : 'passed',\n      at: +S.pt.toFixed(1), secs: +S.nightSecs.toFixed(1), score: S.score, cause: S.cause, card: S.card ? S.card.lines : null,\n      maxSeen: +maxSeen.toFixed(2), litT: +litT.toFixed(1), shallowT: +shalT.toFixed(1), peerT: +peerT.toFixed(1), deepT: +deepT.toFixed(1),\n      alertEpisodes: episodes, escapes, dist: dist | 0, moves, events: ev.slice(0, 16), log, errors: __v16.errors.slice(0, 3),\n    };\n  };\n  return 'harness ready: ' + Object.keys(DRIVERS).join(', ');\n})();\n\nreturn 'harness'"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('hider', 3, 1, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('hider', 3, 2, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('evader', 3, 1, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('evader', 3, 2, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('runner', 3, 1, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('runner', 3, 2, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('camper', 3, 1, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('camper', 3, 2, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('hider', 4, 1, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('hider', 4, 2, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('evader', 4, 1, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('evader', 4, 2, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('runner', 4, 1, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('runner', 4, 2, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('camper', 4, 1, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('camper', 4, 2, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('hider', 5, 1, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('hider', 5, 2, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('evader', 5, 1, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('evader', 5, 2, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('runner', 5, 1, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('runner', 5, 2, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('camper', 5, 1, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('camper', 5, 2, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('hider', 6, 1, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('hider', 6, 2, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('evader', 6, 1, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('evader', 6, 2, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('runner', 6, 1, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('runner', 6, 2, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('camper', 6, 1, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  },
+  {
+    "eval": "__v16.game.resetRoofs(); const r = measureRun('camper', 6, 2, {maxT: 90}); return JSON.stringify({driver:r.driver, night:r.night, seed:r.seed, result:r.result, secs:r.secs, cause:r.cause, events:r.events, roofs:__v16.game.ROOFS.filter(q=>q.gone).map(q=>q.kind), errors:r.errors})"
+  }
+]

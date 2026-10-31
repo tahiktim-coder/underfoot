@@ -1,0 +1,57 @@
+[
+  {
+    "eval": "__v16.hold=true; const g=__v16.game, S=g.S, P=S.player; const DT=1/30; window.__until=(f,max)=>{let n=0; while(!f()&&n<max){S.drive={x:0,y:0}; g.update(DT); n++;} S.drive=null; return n;}; window.__drive=(x,y,secs)=>{ for(let i=0;i<secs*30;i++){ S.drive={x,y}; g.update(DT);} S.drive=null; }; window.__toward=(wx,wz)=>{ const YAW=Math.PI/4, RX=Math.cos(YAW), RZ=-Math.sin(YAW), FX=-Math.sin(YAW), FZ=-Math.cos(YAW); const dx=wx-P.x, dz=wz-P.z, d=Math.hypot(dx,dz)||1; return [(dx*RX+dz*RZ)/d,(dx*FX+dz*FZ)/d]; }; window.__info=()=>({phase:S.phase, pt:+S.pt.toFixed(1), night:S.night, cam:S.camMode, tier:P.tier, seen:+P.seen.toFixed(2), kneeDown:S.kneeDown, hand:S.hand&&{state:S.hand.state, T:+(S.t-S.hand.t0).toFixed(2), roof:S.hand.roof?S.hand.roof.kind:null, at:S.hand.at.map(v=>+v.toFixed(1)), tip:S.hand.tip&&S.hand.tip.map(v=>+v.toFixed(1))}, finger:g.G.W.fingerL&&g.G.W.fingerL.map(v=>+v.toFixed(1)), roofs:g.ROOFS.map(r=>r.kind+':'+(r.gone?'gone':r.off?'off':r.short?'short':'on')+(r.dy?'+'+r.dy.toFixed(1):'')), roofDwell:+S.roofDwell.toFixed(1), roofOffT:S.roofOffT===null?null:+(S.t-S.roofOffT).toFixed(1), fingerScr:g.G.W.fingerL&&g.R.project(g.G.W.fingerL).slice(0,3).map(v=>typeof v==='number'?v|0:v), under:(g.inCover(P.x,P.z)||{}).name||null, lan:S.lan.pos.map(v=>v|0), player:[+P.x.toFixed(1),+P.z.toFixed(1)], mark:S.attn.map(v=>+v.toFixed(1)), lit:g.HM.lit().length, people:S.people.length, smoke:+S.smokeLevel.toFixed(2), windows:+S.windows.toFixed(2), cause:S.cause, card:S.card&&S.card.lines, shake:+S.shake.toFixed(2), errors:__v16.errors}); window.__hold=(f,max)=>{ let n=0; while(!f()&&n<max){ P.seen=Math.min(P.seen,0.4); S.dwell=0; S.drive={x:0,y:0}; g.update(DT); n++; } S.drive=null; return n; }; window.__gotoH=(tx,tz,max)=>{ let n=0; while(Math.hypot(P.x-tx,P.z-tz)>0.8 && n<max){ P.seen=Math.min(P.seen,0.4); S.dwell=0; const a=__toward(tx,tz); S.drive={x:a[0],y:a[1]}; g.update(DT); n++; } S.drive=null; return n; }; window.__goto=(tx,tz,max)=>{ let n=0; while(Math.hypot(P.x-tx,P.z-tz)>0.8 && n<max){ const a=__toward(tx,tz); S.drive={x:a[0],y:a[1]}; g.update(DT); n++; } S.drive=null; return n; }; window.__frames=(n)=>{ for(let i=0;i<n;i++){S.drive={x:0,y:0}; g.update(DT);} S.drive=null; }; g.render(); return JSON.stringify({ok:true, hook: g.ROOFS.map(r=>[r.kind, r.hook&&r.hook.map(v=>+v.toFixed(1)), +r.top.toFixed(1), g.clearance(r.hook?r.hook[0]:r.x, r.hook?r.hook[1]:r.z)])})"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S; g.begin(); __until(()=>!S.intro,300); return 'begun'"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S, P=S.player; g.startNight(5,'late'); __until(()=>S.phase==='approach'&&S.pt>2,300); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "n5_01_approach_lookup",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S, P=S.player; S.autoLook=0; S.lookHeld=false; __frames(20); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "n5_02_approach_street",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S, P=S.player; __until(()=>S.phase==='plant'&&S.pt>1.5,900); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "n5_03_plant_wide",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S, P=S.player; __hold(()=>S.phase==='search'&&S.pt>8,900); S.handNext=1e9; g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "n5_04_search_8s",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S, P=S.player; __hold(()=>S.pt>20,600); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "n5_05_search_20s",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S, P=S.player; S.pt=100; __until(()=>S.phase==='leave',300); __until(()=>S.phase==='leave'&&S.pt>9.5,600); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "n5_06_leave_relight",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S, P=S.player; g.startNight(4,'late'); __until(()=>S.phase==='approach'&&S.pt>2,300); S.autoLook=0; S.lookHeld=false; __frames(20); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "n5_07_night4_approach_contrast",
+    "sel": "canvas"
+  }
+]

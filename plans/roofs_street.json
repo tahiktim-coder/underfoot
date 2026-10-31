@@ -1,0 +1,50 @@
+[
+  {
+    "eval": "__v16.hold=true; const g=__v16.game, S=g.S, P=S.player; const DT=1/30; window.__until=(f,max)=>{let n=0; while(!f()&&n<max){S.drive={x:0,y:0}; g.update(DT); n++;} S.drive=null; return n;}; window.__drive=(x,y,secs)=>{ for(let i=0;i<secs*30;i++){ S.drive={x,y}; g.update(DT);} S.drive=null; }; window.__toward=(wx,wz)=>{ const YAW=Math.PI/4, RX=Math.cos(YAW), RZ=-Math.sin(YAW), FX=-Math.sin(YAW), FZ=-Math.cos(YAW); const dx=wx-P.x, dz=wz-P.z, d=Math.hypot(dx,dz)||1; return [(dx*RX+dz*RZ)/d,(dx*FX+dz*FZ)/d]; }; window.__info=()=>({phase:S.phase, pt:+S.pt.toFixed(1), night:S.night, cam:S.camMode, tier:P.tier, seen:+P.seen.toFixed(2), kneeDown:S.kneeDown, hand:S.hand&&{state:S.hand.state, T:+(S.t-S.hand.t0).toFixed(2), roof:S.hand.roof?S.hand.roof.kind:null, at:S.hand.at.map(v=>+v.toFixed(1)), tip:S.hand.tip&&S.hand.tip.map(v=>+v.toFixed(1))}, finger:g.G.W.fingerL&&g.G.W.fingerL.map(v=>+v.toFixed(1)), roofs:g.ROOFS.map(r=>r.kind+':'+(r.gone?'gone':r.off?'off':r.short?'short':'on')+(r.dy?'+'+r.dy.toFixed(1):'')), roofDwell:+S.roofDwell.toFixed(1), roofOffT:S.roofOffT===null?null:+(S.t-S.roofOffT).toFixed(1), fingerScr:g.G.W.fingerL&&g.R.project(g.G.W.fingerL).slice(0,3).map(v=>typeof v==='number'?v|0:v), under:(g.inCover(P.x,P.z)||{}).name||null, lan:S.lan.pos.map(v=>v|0), player:[+P.x.toFixed(1),+P.z.toFixed(1)], mark:S.attn.map(v=>+v.toFixed(1)), lit:g.HM.lit().length, people:S.people.length, smoke:+S.smokeLevel.toFixed(2), windows:+S.windows.toFixed(2), cause:S.cause, card:S.card&&S.card.lines, shake:+S.shake.toFixed(2), errors:__v16.errors}); window.__hold=(f,max)=>{ let n=0; while(!f()&&n<max){ P.seen=Math.min(P.seen,0.4); S.dwell=0; S.drive={x:0,y:0}; g.update(DT); n++; } S.drive=null; return n; }; window.__gotoH=(tx,tz,max)=>{ let n=0; while(Math.hypot(P.x-tx,P.z-tz)>0.8 && n<max){ P.seen=Math.min(P.seen,0.4); S.dwell=0; const a=__toward(tx,tz); S.drive={x:a[0],y:a[1]}; g.update(DT); n++; } S.drive=null; return n; }; window.__goto=(tx,tz,max)=>{ let n=0; while(Math.hypot(P.x-tx,P.z-tz)>0.8 && n<max){ const a=__toward(tx,tz); S.drive={x:a[0],y:a[1]}; g.update(DT); n++; } S.drive=null; return n; }; window.__frames=(n)=>{ for(let i=0;i<n;i++){S.drive={x:0,y:0}; g.update(DT);} S.drive=null; }; g.render(); return JSON.stringify({ok:true, hook: g.ROOFS.map(r=>[r.kind, r.hook&&r.hook.map(v=>+v.toFixed(1)), +r.top.toFixed(1), g.clearance(r.hook?r.hook[0]:r.x, r.hook?r.hook[1]:r.z)])})"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S; g.begin(); __until(()=>!S.intro,300); return 'begun'"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S, P=S.player; window.__street=(eye,tgt,fov)=>{ const d=[eye[0]-tgt[0],eye[1]-tgt[1],eye[2]-tgt[2]], D=Math.hypot(...d), o=d.map(v=>v/D); return { x:tgt[0], y:tgt[1], z:tgt[2], pitch:Math.asin(o[1]), yaw:Math.atan2(o[0],o[2]), D, hh:D*Math.tan(fov/2), near:2, far:60000, snap:0 }; }; g.startNight(4,'last'); __hold(()=>S.phase==='search',900); __hold(()=>S.hand&&S.hand.state==='grip',600); __frames(3); S.view=__street([4,13.5,20],[-24,15,-1],0.9); __frames(1); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "s4_01_hall_grip_street",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S, P=S.player; S.view=null; __hold(()=>S.hand&&S.hand.roof&&S.hand.roof.dy>4,200); S.view=__street([4,13.5,20],[-24,17,-1],0.9); __frames(1); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "s4_02_hall_roof_up_4m_street",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S, P=S.player; S.view=null; __hold(()=>S.hand&&S.hand.roof&&S.hand.roof.dy>11,200); S.view=__street([4,13.5,20],[-24,21,-1],0.95); __frames(1); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "s4_03_hall_roof_up_11m_street",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S, P=S.player; S.view=null; __hold(()=>S.hand&&S.hand.roof&&S.hand.roof.dy>22,200); S.view=__street([4,13.5,20],[-24,28,-1],1.1); __frames(1); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "s4_04_hall_roof_up_22m_street",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S, P=S.player; S.view=null; __hold(()=>!S.hand,300); __frames(20); S.view=__street([4,13.5,20],[-24,13,-1],0.9); __frames(1); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "s4_05_hall_bare_street",
+    "sel": "canvas"
+  },
+  {
+    "eval": "const g=__v16.game, S=g.S, P=S.player; S.view=null; __frames(1); g.render(); return JSON.stringify(__info())"
+  },
+  {
+    "shot": "s4_06_hall_bare_play",
+    "sel": "canvas"
+  }
+]

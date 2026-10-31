@@ -11,18 +11,24 @@
 // fill and the thinner shallow shadow instead. hand: seconds from one reach of its hand to the next, on the open
 // ground where its light looks (0: it keeps its hand to itself); a reach needs about 14 s and never starts in
 // the search's last seconds, so night 3 and 4 get one, night 5 and 6 two, night 7 three. It kneels from night 2
-// (game.js KNEEL_NIGHT).
+// (game.js KNEEL_NIGHT). roof: seconds under a wooden roof on posts (the market hall, the arcade, the church
+// porch) with the light on it before its hand comes for that roof (0: it leaves the roofs alone); from night 4,
+// when the hall's roof also goes as the search begins. A roof taken is gone for the run.
 export const NIGHTS = [
   null,
-  { search: 30, fill: 0.55, k: 1.6, offLo: 30, offHi: 60, lag: 25, people: 1, walk: 3.6, hunt: 4.2, spin: 26, hand: 0 },
-  { search: 35, fill: 0.75, k: 1.9, offLo: 25, offHi: 60, lag: 16, people: 2, walk: 3.9, hunt: 4.3, spin: 22, hand: 0 },
-  { search: 40, fill: 0.8, k: 2.2, offLo: 25, offHi: 60, lag: 16, people: 2, walk: 4.0, hunt: 4.4, spin: 22, hand: 20 },
+  { search: 30, fill: 0.55, k: 1.6, offLo: 30, offHi: 60, lag: 25, people: 1, walk: 3.6, hunt: 4.2, spin: 26, hand: 0, roof: 0 },
+  { search: 35, fill: 0.75, k: 1.9, offLo: 25, offHi: 60, lag: 16, people: 2, walk: 3.9, hunt: 4.3, spin: 22, hand: 0, roof: 0 },
+  { search: 40, fill: 0.8, k: 2.2, offLo: 25, offHi: 60, lag: 16, people: 2, walk: 4.0, hunt: 4.4, spin: 22, hand: 20, roof: 0 },
 ];
+// from this night the town has learned: it walks in over a town already black (no window to put out, no
+// smoke, no doors banging) and nobody is out, so there is no take. The lantern's pool is the only light.
+export const DARK_NIGHT = 5;
 // (night 3 measured: with night 2's row and a 40 s search a careful player passes about half the time; a
 // 2 s lag, full fill or the lamp at 20 m each alone made it a cliff nobody passed)
 // past the table the nights keep tightening, to a floor: a longer search, a faster fill, a thinner shallow
-// shadow, a lantern nearer overhead, a shorter lag, a quicker turn, a third townsperson. The light's speed
-// stays where night 3 left it. (Night 4 measured no harder than 3 at a fill step of 0.05; it is 0.1.)
+// shadow, a lantern nearer overhead, a shorter lag, a quicker turn, the hand sooner, the roofs quicker (4 s
+// under one, 3 s from night 6). The light's speed stays where night 3 left it, and from DARK_NIGHT nobody is
+// out. (Night 4 measured no harder than 3 at a fill step of 0.05; it is 0.1.)
 export function night(n) {
   n = Math.max(1, n | 0);
   if (n < NIGHTS.length) return NIGHTS[n];
@@ -30,8 +36,8 @@ export function night(n) {
   return {
     ...b,
     search: Math.min(60, b.search + 4 * k), fill: Math.min(1, b.fill + 0.1 * k), k: Math.max(1.6, b.k - 0.15 * k),
-    offLo: Math.max(20, b.offLo - k), lag: Math.max(12, b.lag - k), spin: Math.max(14, b.spin - k), people: Math.min(3, b.people + (k >= 2 ? 1 : 0)),
-    hand: Math.max(12, b.hand - 2 * k),
+    offLo: Math.max(20, b.offLo - k), lag: Math.max(12, b.lag - k), spin: Math.max(14, b.spin - k), people: n >= DARK_NIGHT ? 0 : b.people,
+    hand: Math.max(12, b.hand - 2 * k), roof: k >= 3 ? 3 : 4,
   };
 }
 export const NIGHT_BONUS = 50;   // for a night passed, on top of its seconds (a round hundred dwarfed them)

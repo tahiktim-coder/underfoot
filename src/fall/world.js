@@ -257,11 +257,38 @@ export function standY(x, z) {
 BRIDGE.len = 44;
 BRIDGE.deck = (lz) => { const e = Math.max(height(BRIDGE.x + Math.sin(BRIDGE.rot) * -22, BRIDGE.z + Math.cos(BRIDGE.rot) * -22), height(BRIDGE.x + Math.sin(BRIDGE.rot) * 22, BRIDGE.z + Math.cos(BRIDGE.rot) * 22)); return e + 1.6 - (lz / 22) ** 2 * 1.4; };
 
+// the wooden roofs on posts: the market hall, the arcades, the church porch. From night 4 its hand lifts them
+// off (game.js), so each is its own piece: mesh.js draws it every frame at its lift (`dy` up, a small `tilt`),
+// and once `off` (a couple of metres up) the cover and the occluder under it no longer count; `gone` is for
+// the run. `x, z` is the roof's centre, `fx, fz, rot, gy` the frame mesh.js builds it in (the church's for the
+// porch), `cz` the roof's centre along that frame, `ey` its eaves, `top` its ridge (the arcade's high edge).
+// `hook` is where the fingertip comes down to take it: nowhere for the hall (from above, on the ridge); beside
+// the arcade's end nearer the square and in front of the porch, since a fingertip 22 m across cannot come down
+// on a 2 m lean-to without going through the house behind it. The eaves and ridges are the mesh's.
+export const ROOF_DIMS = { hall: { sink: 0.2, eave: 3.6, top: 6.8 }, arcade: { sink: 0.2, eave: 3.3, top: 4.5 }, porch: { sink: 0.3, eave: 3.4, top: 5.0 } };
+export const ROOF_HOOK = 10;   // the fingertip's centre this far out from the roof's edge it hooks
+export const ROOFS = [];
+{
+  const mk = (kind, name, B, fx, fz, rot, cz, hook) => {
+    const D = ROOF_DIMS[kind], gy = height(fx, fz) - D.sink;
+    return { kind, name, B, fx, fz, rot, gy, cz, ey: D.eave, top: gy + D.top, x: fx + Math.sin(rot) * cz, z: fz + Math.cos(rot) * cz, hook, gone: false, off: false, short: false, dx: 0, dy: 0, dz: 0, tilt: 0 };
+  };
+  if (HALL) ROOFS.push(mk('hall', 'the market hall', HALL, HALL.x, HALL.z, 0, 0, null));
+  for (const A of arcades) ROOFS.push(mk('arcade', 'the arcade', A, A.x, A.z, A.rot, 0, null));   // (its hook is chosen below, once the covers are known)
+  if (CHURCH && CHURCH.porch) {
+    // (the porch's open side is away from the tower, along the church's local +z)
+    const Pc = CHURCH.porch, ox = Math.sin(CHURCH.rot), oz = Math.cos(CHURCH.rot), px = CHURCH.x + ox * Pc.pz, pz = CHURCH.z + oz * Pc.pz;
+    ROOFS.push(mk('porch', 'the church porch', Pc, CHURCH.x, CHURCH.z, CHURCH.rot, Pc.pz, [px + ox * (Pc.d / 2 + ROOF_HOOK), pz + oz * (Pc.d / 2 + ROOF_HOOK)]));
+  }
+}
+const roofFor = (B) => ROOFS.find((Rf) => Rf.B === B) || null;
+
 // what the town is made of, for the hiding test: boxes with their roof ridge height. Roofs on posts (the
 // hall, the stalls, the arcades, the porch) block only above their eaves; tree crowns are boxes in the air.
+// A roof its hand has lifted (`roof.off`) blocks nothing.
 export const OCCLUDERS = [];
 {
-  const roofOnly = (B, eave, ridge, alongZ = false, small = false) => { const y = height(B.x, B.z); OCCLUDERS.push({ x: B.x, z: B.z, w: B.w + 1.2, d: B.d + 1.2, rot: B.rot || 0, y0: y + eave, y1: y + eave + 0.3, ridge: y + ridge, ridgeAlongZ: alongZ, roofOnly: true, small }); };
+  const roofOnly = (B, eave, ridge, alongZ = false, small = false, roof = null) => { const y = height(B.x, B.z); OCCLUDERS.push({ x: B.x, z: B.z, w: B.w + 1.2, d: B.d + 1.2, rot: B.rot || 0, y0: y + eave, y1: y + eave + 0.3, ridge: y + ridge, ridgeAlongZ: alongZ, roofOnly: true, small, roof }); };
   for (const H of houses) {
     const gy = height(H.x, H.z);
     const rise = H.tower ? 0.6 : H.gableFront ? (H.w / 2) * 1.35 : (H.d / 2) * 1.25;
@@ -273,13 +300,13 @@ export const OCCLUDERS = [];
     // `top` is the spire's iron tip as the mesh builds it (a spire two half-widths tall, a 2.4 m finial): the
     // lantern keeps clear of it; the hiding test uses `ridge` as before
     OCCLUDERS.push({ x: T.x, z: T.z, w: T.w + 0.4, d: T.d + 0.4, rot: T.rot, y0: cy - 1, y1: cy + CHURCH.towerH, ridge: cy + CHURCH.towerH + 9, ridgeAlongZ: true, top: cy + CHURCH.towerH + 2 * CHURCH.tw + 2.4 });
-    if (CHURCH.porch) roofOnly({ ...CHURCH.porch, rot: CHURCH.rot }, 3.3, 5.0, true);
+    if (CHURCH.porch) roofOnly({ ...CHURCH.porch, rot: CHURCH.rot }, 3.3, 5.0, true, false, roofFor(CHURCH.porch));
   }
   for (const C of chapels) { const gy = height(C.x, C.z); OCCLUDERS.push({ x: C.x, z: C.z, w: C.w + 0.9, d: C.d + 0.9, rot: C.rot, y0: gy - 1, y1: gy + 6, ridge: gy + 6 + (C.w / 2) * 1.3, ridgeAlongZ: true }); }
   for (const W of ruinWallList) { const gy = height(W.x, W.z); OCCLUDERS.push({ x: W.x, z: W.z, w: W.w + 0.4, d: W.d + 0.4, rot: W.rot, y0: gy - 1, y1: gy + W.h, ridge: gy + W.h, ridgeAlongZ: true }); }
-  if (HALL) roofOnly(HALL, 3.3, 6.6);
+  if (HALL) roofOnly(HALL, 3.3, 6.6, false, false, roofFor(HALL));
   for (const S of stalls) roofOnly(S, 2.3, 3.3, false, true);   // (small: a fingertip the width of a lane may come down on one)
-  for (const A of arcades) roofOnly(A, 3.3, 4.4);
+  for (const A of arcades) roofOnly(A, 3.3, 4.4, false, false, roofFor(A));
   for (const W of wallSegs) { const dx = W.b[0] - W.a[0], dz = W.b[1] - W.a[1]; const y = height((W.a[0] + W.b[0]) / 2, (W.a[1] + W.b[1]) / 2); OCCLUDERS.push({ x: (W.a[0] + W.b[0]) / 2, z: (W.a[1] + W.b[1]) / 2, w: 1.8, d: Math.hypot(dx, dz) + 0.4, rot: Math.atan2(dx, dz), y0: y - 1, y1: y + W.h, ridge: y + W.h, ridgeAlongZ: true }); }
   for (const W of lowWalls) { const dx = W.b[0] - W.a[0], dz = W.b[1] - W.a[1]; const y = height((W.a[0] + W.b[0]) / 2, (W.a[1] + W.b[1]) / 2); OCCLUDERS.push({ x: (W.a[0] + W.b[0]) / 2, z: (W.a[1] + W.b[1]) / 2, w: 0.6, d: Math.hypot(dx, dz), rot: Math.atan2(dx, dz), y0: y - 1, y1: y + 2.1, ridge: y + 2.1, ridgeAlongZ: true }); }
   for (const T of towers) { if (T.gate) continue; const y = height(T.x, T.z); OCCLUDERS.push({ x: T.x, z: T.z, w: T.r * 1.8, d: T.r * 1.8, rot: 0, y0: y - 1, y1: y + T.h, ridge: y + T.h + 5, ridgeAlongZ: true }); }
@@ -290,16 +317,28 @@ export const OCCLUDERS = [];
 
 // the covers: under a roof with no walls, where the light never reaches whatever the lantern does. The
 // market hall, the arcades, the church porch, the two gate arches, and the banks under the bridge. Oriented
-// rectangles {x, z, w, d, rot}, tested like the houses' footprints.
+// rectangles {x, z, w, d, rot}, tested like the houses' footprints. The wooden ones carry their `roof`: once
+// its hand has lifted it, the cover is open ground (clearance() still counts its posts, so the fingertip never
+// comes down on them).
 export const COVERS = [];
-if (HALL) COVERS.push({ x: HALL.x, z: HALL.z, w: HALL.w - 0.4, d: HALL.d - 0.4, rot: 0, name: 'the market hall' });
-for (const A of arcades) COVERS.push({ x: A.x, z: A.z, w: A.w - 0.3, d: A.d, rot: A.rot, name: 'the arcade' });
-if (CHURCH && CHURCH.porch) COVERS.push({ x: CHURCH.porch.x, z: CHURCH.porch.z, w: CHURCH.porch.w + 0.6, d: CHURCH.porch.d + 0.4, rot: CHURCH.rot, name: 'the church porch' });
+if (HALL) COVERS.push({ x: HALL.x, z: HALL.z, w: HALL.w - 0.4, d: HALL.d - 0.4, rot: 0, name: 'the market hall', roof: roofFor(HALL) });
+for (const A of arcades) COVERS.push({ x: A.x, z: A.z, w: A.w - 0.3, d: A.d, rot: A.rot, name: 'the arcade', roof: roofFor(A) });
+if (CHURCH && CHURCH.porch) COVERS.push({ x: CHURCH.porch.x, z: CHURCH.porch.z, w: CHURCH.porch.w + 0.6, d: CHURCH.porch.d + 0.4, rot: CHURCH.rot, name: 'the church porch', roof: roofFor(CHURCH.porch) });
 COVERS.push({ x: BRIDGE.x + Math.cos(BRIDGE.rot) * 3.9, z: BRIDGE.z - Math.sin(BRIDGE.rot) * 3.9, w: 2.6, d: 10, rot: BRIDGE.rot, name: 'under the bridge' });
 COVERS.push({ x: BRIDGE.x - Math.cos(BRIDGE.rot) * 3.9, z: BRIDGE.z + Math.sin(BRIDGE.rot) * 3.9, w: 2.6, d: 10, rot: BRIDGE.rot, name: 'under the bridge' });
 for (const T of towers) if (T.gate) COVERS.push({ x: T.x, z: T.z, w: 4.2, d: 9, rot: -T.rot, name: 'the gate' });
+// the arcades' hook: out on the open side (the frame's local +z, the square's), ROOF_HOOK beyond the eaves, at
+// the point along the arcade with the most open ground round it, so the fingertip never comes down on the
+// well or a stall (chosen here, once the covers and the occluders it measures against exist)
+for (const Rf of ROOFS) {
+  if (Rf.kind !== 'arcade') continue;
+  const A = Rf.B, ox = Math.sin(A.rot), oz = Math.cos(A.rot), ax = Math.cos(A.rot), az = -Math.sin(A.rot), out = A.d / 2 + ROOF_HOOK;
+  let best = -1;
+  for (let u = -A.w / 2 + 2; u <= A.w / 2 - 2; u += 2) { const x = A.x + ax * u + ox * out, z = A.z + az * u + oz * out, c = clearance(x, z, 12); if (c > best) { best = c; Rf.hook = [x, z]; } }
+}
 export function inCover(x, z) {
   for (const C of COVERS) {
+    if (C.roof && C.roof.off) continue;
     const c = Math.cos(C.rot), s = Math.sin(C.rot), px = x - C.x, pz = z - C.z;
     const lx = px * c - pz * s, lz = px * s + pz * c;
     if (Math.abs(lx) < C.w / 2 && Math.abs(lz) < C.d / 2) return C;
@@ -313,6 +352,7 @@ export function inCover(x, z) {
 export function segmentBlocked(p, q, which = 'all') {
   for (const O of OCCLUDERS) {
     if (which === 'finger' ? !O.finger : which === 'town' ? O.finger : false) continue;
+    if (O.roof && O.roof.off) continue;
     const c = Math.cos(O.rot), s = Math.sin(O.rot);
     const lp = [(p[0] - O.x) * c - (p[2] - O.z) * s, p[1], (p[0] - O.x) * s + (p[2] - O.z) * c];
     const lq = [(q[0] - O.x) * c - (q[2] - O.z) * s, q[1], (q[0] - O.x) * s + (q[2] - O.z) * c];

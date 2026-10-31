@@ -7,13 +7,13 @@
 import { createRenderer, VW, VH } from './renderer.js';
 import { createGiant, buildGiantMesh, footAt, FINGER_R } from './giant.js';
 import { chain, lantern, person, beam } from './props.js';
-import { millSails, M } from './mesh.js';
-import { standY, height, blocked, segmentBlocked, inCover, houses, OCCLUDERS, TOWN, SQUARE, STREETS, CHURCH, townR, blockDisc, unblockDisc, clearance } from './world.js';
+import { millSails, roofPiece, M } from './mesh.js';
+import { standY, height, blocked, segmentBlocked, inCover, houses, OCCLUDERS, ROOFS, TOWN, SQUARE, STREETS, CHURCH, townR, blockDisc, unblockDisc, clearance } from './world.js';
 import { drawWisp, measureWisp } from '../lib/wisp.js';
 import { mulberry } from '../lib/noise.js';
 import { createSound } from './sound.js';
 import { LOOKS, LOOK_ORDER } from './looks.js';
-import { NIGHTS, NIGHT_BONUS, BANK, DAWN_NIGHT, DAWN_BONUS, night, RULE, nightCard, overCard, dawnCard, best } from './nights.js';
+import { NIGHTS, NIGHT_BONUS, BANK, DAWN_NIGHT, DARK_NIGHT, DAWN_BONUS, night, RULE, nightCard, overCard, dawnCard, best } from './nights.js';
 import { brain, walk, spawnPerson } from './people.js';
 import { createHomes } from './homes.js';
 
@@ -99,6 +99,20 @@ const HAND_NEAR = 26;         // how far from the light's mark it will look for 
 const HAND_OFF = 43;          // the lamp's target keeps at least this far from the fingertip (its radius, the lamp's half size, a margin)
 const HAND_TALL = 110;        // the fingertip blocks the light up to this high (metres): the drawn finger, and the palm over it
 const CRUSH_CUT = 0.25, CRUSH_LEN = 2.4;   // under it when it lands: the cut to black at once, the card soon after
+// From night 4 (the night table's `roof`) its hand lifts the wooden roofs off their posts: the market hall's
+// as the search begins, then any roof you have stood under for NT.roof seconds with the light on it. The
+// hall's it takes from above, the fingertip on the ridge; the arcade's and the porch's it hooks from beside
+// (world.js ROOFS.hook), since a fingertip 22 m across cannot come down on a 2 m lean-to without going through
+// the house behind. The roof rises with the fingertip out of the top of the picture, the lamp's light falls
+// in where the shade was, and the posts stand bare for the run.
+const ROOF_GRIP = 0.8;        // seconds the fingertip rests on the roof before it tears it off
+const ROOF_LIFT = 3.0;        // seconds from the roof's eaves to the hand's rest 400 m up (slow at first, so the roof is seen going)
+const ROOF_PRESS = 0.8;       // the fingertip's rounded end sits this far into the ridge (the hall) or the ground (hooking)
+const ROOF_OFF = 2;           // a roof this far up shades nothing: its cover and its occluder go
+const ROOF_GONE = 200;        // and this far up it is no longer drawn
+const ROOF_BLAME = 12;        // caught within this many seconds of the roof over you going, without having lost it between: 'It took the roof off you.'
+const ROOF_BREATH = 6;        // seconds after a roof before the finger may come for the ground
+const CAP_H = FINGER_R * 0.7; // the fingertip's rounded end reaches this far past the finger's spine (giant.js finger())
 
 function walkPlan(t0, stepLen, back, front, far = 3500, wobble = 0) {
   // The walk in is planned backward from where it stops, so every stride is the same length: the last two
@@ -168,6 +182,9 @@ export function createGame(canvas, opts = {}) {
     // the kneel (when it began; whether the knee is down) and the hand (null, or the reach in progress; when the
     // next one is due, in search seconds); crush: the catch was its hand, not its light
     kneelT: null, kneeDown: false, hand: null, handNext: 0, crush: false,
+    // the roofs (from night 4): how long you have been under a wooden roof with the light on it, which, and
+    // when the roof over you went (the cause on the card if it finds you soon after)
+    roofDwell: 0, roofUnder: null, roofOffT: null,
     // where the light last saw you, which trail sample its mark walks to next, where its peer began
     lastSeen: null, trailI: null, dwellAt: null,
     // how much chimney smoke is up, how many doors have slammed tonight, the light you are putting out,
@@ -195,13 +212,15 @@ export function createGame(canvas, opts = {}) {
       S.alert = 0; S.alertLost = 0; S.dwell = 0; S.dwellAt = null; S.lastSeen = null; S.trailI = null;
       S.fillLit = 0; S.fillShallow = 0; S.fillPeer = 0; S.runHigh = 0; S.cause = '';
       S.kneelT = null; S.kneeDown = false; endHand(); S.handNext = HAND_FIRST; S.crush = false;
+      S.roofDwell = 0; S.roofUnder = null; S.roofOffT = null;
     }
     if (p === 'caught') {
       if (!S.crush) snd.caught(CATCH_CUT);
       S.hitDone = false; S.burnt = false; S.camMode = 'play'; S.dipT = -1; S.dipTo = null; S.aim = [S.player.x, S.player.z];
-      // why: the share of the eye that filled under its peer, a long run with the light on you, the half light, the open
+      // why: its hand, the roof it took off you, the share of the eye that filled under its peer, a long run
+      // with the light on you, the half light, the open
       const total = S.fillLit + S.fillShallow + S.fillPeer || 1;
-      S.cause = S.crush ? 'Its hand came down on you.' : S.fillPeer / total > 0.5 || (S.dwell > DWELL + 1 && S.fillPeer > 0.1 * total) ? 'You stayed too long under it.' : S.runHigh > 20 ? 'It chased you down.' : S.fillShallow > S.fillLit ? 'Caught in the half light.' : 'Caught in the open.';
+      S.cause = S.crush ? 'Its hand came down on you.' : S.roofOffT !== null && S.t - S.roofOffT < ROOF_BLAME ? 'It took the roof off you.' : S.fillPeer / total > 0.5 || (S.dwell > DWELL + 1 && S.fillPeer > 0.1 * total) ? 'You stayed too long under it.' : S.runHigh > 20 ? 'It chased you down.' : S.fillShallow > S.fillLit ? 'Caught in the half light.' : 'Caught in the open.';
     }
   }
   function startCycle() {
@@ -233,6 +252,8 @@ export function createGame(canvas, opts = {}) {
     } else if (from === 'late') {
       S.t = S.planEnd - 2 * STEP_T; setPhase('approach'); S.autoLook = 6.5;
     }
+    // from DARK_NIGHT the town has learned: every window dark before it comes, no smoke, nothing left to bang
+    if (S.night >= DARK_NIGHT) { HM.set('plant'); S.smokeLevel = 0; S.windows = 0.16; S.slams = 2; }
     updateGiant(0); stepLantern(0.016);
     Object.assign(smoothCam, playCam());
   }
@@ -250,7 +271,7 @@ export function createGame(canvas, opts = {}) {
   }
   // the run's slate: the score, the taken houses and the stains. Cleared for a new run, and at the title cut,
   // so nothing the town did to itself under the title carries into your first night
-  function resetRun() { S.score = 0; S.nightScore = 0; S.nightSecs = 0; S.nightBanked = 0; S.bankT = 0; S.dawn = 0; HM.set('reset'); R.clearStains(); S.stains = []; }
+  function resetRun() { S.score = 0; S.nightScore = 0; S.nightSecs = 0; S.nightBanked = 0; S.bankT = 0; S.dawn = 0; HM.set('reset'); R.clearStains(); S.stains = []; endHand(); ROOFS.forEach(restoreRoof); }
   // a new run: night 1 from the plant (the walk in was the title's)
   function newRun() { resetRun(); startNight(firstNight); enterAtPlant(); S.retry = false; }
   // a night only counts, for the score and the best, once you have begun and the title has cut away
@@ -460,7 +481,7 @@ export function createGame(canvas, opts = {}) {
     if (S.phase === 'approach') {
       HM.out(Math.ceil(HM.lit().length * 0.45), [pl.x, pl.z]);
       S.smokeLevel *= 0.5;
-      if (d < 1600) { snd.shutters(panOf(pl.x, pl.z), S.slams < 2); S.slams++; }
+      if (d < 1600 && S.night < DARK_NIGHT) { snd.shutters(panOf(pl.x, pl.z), S.slams < 2); S.slams++; }   // (from DARK_NIGHT the town was bolted before it came)
     } else if (S.phase === 'plant') { HM.set('plant'); S.smokeLevel = 0; }
     const fx = Math.sin(pl.yaw), fz = Math.cos(pl.yaw);
     for (let k = 0; k < 40; k++) {
@@ -524,7 +545,7 @@ export function createGame(canvas, opts = {}) {
     const kp = G.W.kneeL, P = S.player, d = Math.hypot(kp[0] - P.x, kp[2] - P.z);
     S.shake = Math.max(S.shake, 4.5);
     snd.knee(d, panOf(kp[0], kp[2]));
-    snd.shutters(panOf(kp[0], kp[2]), false);
+    if (S.night < DARK_NIGHT) snd.shutters(panOf(kp[0], kp[2]), false);
     for (let k = 0; k < 48; k++) {
       const a = (k / 48) * Math.PI * 2, u = Math.cos(a), v = Math.sin(a), r = 170 + rnd() * 70;
       const cx = kp[0] + u * r, cz = kp[2] + v * r;
@@ -547,14 +568,63 @@ export function createGame(canvas, opts = {}) {
     return ease((S.t - S.kneelT) / KNEEL_T);
   }
   // the hand: the reach is over when its fingertip is off the ground again, or whenever the search is
+  // (a roof it had lifted is gone; one it had only taken hold of is left where it was)
   function endHand() {
     const H = S.hand; if (!H) return;
     liftFinger(H);
+    if (H.roof) { if (H.roof.off) { H.roof.gone = true; H.roof.dy = ROOF_GONE; } else restoreRoof(H.roof); }
     S.hand = null; G.handL = null; G.fingerAt = null;
   }
   function liftFinger(H) {
     if (H.occ) { const i = OCCLUDERS.indexOf(H.occ); if (i >= 0) OCCLUDERS.splice(i, 1); H.occ = null; }
     if (H.saved) { unblockDisc(H.saved); H.saved = null; }
+  }
+  // ---- the roofs
+  function restoreRoof(Rf) { Rf.gone = false; Rf.off = false; Rf.short = false; Rf.dx = 0; Rf.dy = 0; Rf.dz = 0; Rf.tilt = 0; }
+  // where the fingertip takes hold of a roof: on the hall's ridge from above; beside the arcade's end and in
+  // front of the porch, the rounded end sunk a little into the ground with its rim under the eaves
+  function roofGrab(Rf) {
+    if (!Rf.hook) return [Rf.x, Rf.z, Rf.top + CAP_H - ROOF_PRESS];
+    return [Rf.hook[0], Rf.hook[1], height(Rf.hook[0], Rf.hook[1]) + CAP_H - ROOF_PRESS];
+  }
+  function startRoof(Rf) {
+    const g = roofGrab(Rf);
+    S.hand = { at: [g[0], g[1]], grabY: g[2], roof: Rf, t0: S.t, state: 'reach', occ: null, saved: null, spot: null, tip: null, short: false };
+    S.roofDwell = 0;
+    snd.reach(HAND_REACH, panOf(g[0], g[1]));
+  }
+  // the fingertip takes hold: the timber creaks, the shake (no crush: hooking, it comes down beside the roof,
+  // and the way out from under is the roof's open side, where it lands)
+  function gripRoof(f) {
+    const H = S.hand, P = S.player;
+    H.state = 'grip'; H.spot = [f[0], f[2]];
+    S.shake = Math.max(S.shake, 2);
+    snd.creak(Math.hypot(f[0] - P.x, f[2] - P.z), panOf(f[0], f[2]));
+  }
+  // the roof comes off its posts: the crack of timber, dust off the eaves, a few tiles down, the birds
+  function tearRoof(H) {
+    const Rf = H.roof, P = S.player;
+    S.shake = Math.max(S.shake, 3);
+    snd.crack(Math.hypot(Rf.x - P.x, Rf.z - P.z), panOf(Rf.x, Rf.z));
+    const c = Math.cos(Rf.rot), s = Math.sin(Rf.rot), hw = Rf.B.w / 2 + 0.5, hd = Rf.B.d / 2 + 0.5, ey = Rf.gy + Rf.ey;
+    const at = (lx, lz) => [Rf.x + lx * c + lz * s, Rf.z - lx * s + lz * c];
+    for (let k = 0; k < 24; k++) {
+      const edge = rnd() < 0.5, u = (rnd() - 0.5) * 2, [lx, lz] = edge ? [u * hw, (rnd() < 0.5 ? -1 : 1) * hd] : [(rnd() < 0.5 ? -1 : 1) * hw, u * hd];
+      const [x, z] = at(lx, lz);
+      R.puff(x, ey + 0.3, z, S.t + rnd() * 0.3, (rnd() - 0.5) * 3, 0.6 + rnd() * 1.6, (rnd() - 0.5) * 3, 1.6 + rnd() * 1.2, 0.5, 2 + rnd() * 2, 0);
+    }
+    for (let k = 0; k < 8; k++) {
+      const [x, z] = at((rnd() - 0.5) * 2 * hw, (rnd() - 0.5) * 2 * hd);
+      R.puff(x, ey + 0.5 + rnd() * 2, z, S.t + rnd() * 0.8, (rnd() - 0.5) * 3, 1 + rnd() * 2, (rnd() - 0.5) * 3, 3, 0.25 + rnd() * 0.3, 0, 1);
+    }
+    if (S.birds.some((b) => !b.fly)) snd.birds(0);
+    for (const b of S.birds) if (!b.fly) { b.fly = 0.01; b.hx = (rnd() - 0.5) * 14; b.hz = (rnd() - 0.5) * 14; }
+  }
+  // the roof is up off its posts: it shades nothing now, and if you were under it the card will say so
+  function roofOff(Rf) {
+    const P = S.player, under = inCover(P.x, P.z);
+    if (under && under.roof === Rf) S.roofOffT = S.t;
+    Rf.off = true;
   }
   // the fingertip lands: the slam, the shake, dust down the lanes off it, the lamp swinging; under it, you are
   // caught (and so is anyone else out there); while it rests it is a wall to the light and to walking, and it
@@ -628,14 +698,25 @@ export function createGame(canvas, opts = {}) {
     if (H && S.phase !== 'search' && S.phase !== 'caught') { endHand(); H = null; }
     // (a reach starts only when it can finish before the search's last seconds, or in overtime; the leave
     // waits for the hand, so the finger is never snatched away mid-rest)
-    const P = S.player, room = S.pt + HAND_REACH + HAND_HOLD + HAND_LIFT <= NT.search - GIVE_UP || (S.pt > NT.search && (P.lit || P.seen >= 0.2));
-    if (!H && S.phase === 'search' && NT.hand > 0 && S.kneeDown && !S.take && S.pt >= S.handNext && room) {
-      const at = landingSpot(S.attn[0], S.attn[1]);
-      if (at) {
-        H = S.hand = { at, t0: S.t, state: 'reach', occ: null, saved: null, spot: null, tip: null, short: false };
-        S.handNext = S.pt + NT.hand;   // (the next is due this long after this one began)
-        snd.reach(HAND_REACH, panOf(at[0], at[1]));
-      } else S.handNext = S.pt + 1.5;
+    const P = S.player, late = S.pt > NT.search && (P.lit || P.seen >= 0.2), room = (secs) => S.pt + secs <= NT.search - GIVE_UP || late;
+    if (!H && S.phase === 'search' && S.kneeDown && !S.take) {
+      // the roofs first (from night 4): the hall's as the search begins, then the one you have been under too
+      // long with the light on it; else the finger, when it is due
+      let Rf = null;
+      if (NT.roof > 0 && room(HAND_REACH + ROOF_GRIP + ROOF_LIFT)) {
+        const hall = ROOFS.find((r) => !r.hook && !r.gone && !r.short);
+        if (hall) Rf = hall;
+        else if (S.roofUnder && !S.roofUnder.gone && !S.roofUnder.short && S.roofDwell >= NT.roof) Rf = S.roofUnder;
+      }
+      if (Rf) { startRoof(Rf); H = S.hand; S.handNext = Math.max(S.handNext, S.pt + HAND_REACH + ROOF_GRIP + ROOF_LIFT + ROOF_BREATH); }
+      else if (NT.hand > 0 && S.pt >= S.handNext && room(HAND_REACH + HAND_HOLD + HAND_LIFT)) {
+        const at = landingSpot(S.attn[0], S.attn[1]);
+        if (at) {
+          H = S.hand = { at, roof: null, t0: S.t, state: 'reach', occ: null, saved: null, spot: null, tip: null, short: false };
+          S.handNext = S.pt + NT.hand;   // (the next is due this long after this one began)
+          snd.reach(HAND_REACH, panOf(at[0], at[1]));
+        } else S.handNext = S.pt + 1.5;
+      }
     }
     if (!(NT.hand > 0) || G.kneel <= 0) { G.handL = null; G.fingerAt = null; return; }
     const sh = G.W.shoulderL, gy0 = height(TOWN.x, TOWN.z);
@@ -647,20 +728,41 @@ export function createGame(canvas, opts = {}) {
     const hangTip = G.W.fingerL.slice();
     let tip = lerp3(hangTip, rest, clamp((G.kneel - 0.2) / 0.5));
     if (H) {
-      const T = S.t - H.t0, at = H.at, gy = height(at[0], at[1]);
+      const T = S.t - H.t0, at = H.at, gy = height(at[0], at[1]), Rf = H.roof;
+      // (the fingertip's rounded end goes a little into the ground; onto a roof it stops at the ridge, or on
+      // the ground beside the roof it hooks)
+      const landY = Rf ? H.grabY : gy + 5, hold = Rf ? ROOF_GRIP : HAND_HOLD;
       if (S.phase !== 'search') tip = H.tip || rest;
       else if (H.state === 'reach') {
-        // (the fingertip's rounded end goes a little into the ground; if the arm stopped short, it lifts again)
-        if (T >= HAND_REACH && H.tip) { if (len(sub(fingerNow, H.tip)) < 12) landHand(fingerNow, wristNow); else { H.state = 'lift'; H.short = true; H.spot = [fingerNow[0], fingerNow[2]]; H.t0 = S.t - HAND_REACH - HAND_HOLD; } }
+        // (if the arm stopped short, it lifts again, and a roof it could not reach it leaves alone)
+        if (T >= HAND_REACH && H.tip) {
+          if (len(sub(fingerNow, H.tip)) < 12) { if (Rf) gripRoof(fingerNow); else landHand(fingerNow, wristNow); }
+          else { H.state = 'lift'; H.short = true; H.spot = [fingerNow[0], fingerNow[2]]; H.t0 = S.t - HAND_REACH - hold; if (Rf) Rf.short = true; }
+        }
         if (H.state === 'reach') {
           const e = ease(T / (HAND_REACH - HAND_STRIKE)), st = clamp((T - (HAND_REACH - HAND_STRIKE)) / HAND_STRIKE);
-          tip = [lerp(rest[0], at[0], e), lerp(lerp(rest[1], gy + HAND_POISE, e), gy + 5, st * st), lerp(rest[2], at[1], e)];
+          // (the strike quickens to the ground; onto a roof the fingertip settles)
+          const sk = Rf ? 1 - (1 - st) * (1 - st) : st * st;
+          tip = [lerp(rest[0], at[0], e), lerp(lerp(rest[1], gy + HAND_POISE, e), landY, sk), lerp(rest[2], at[1], e)];
           S.shake = Math.max(S.shake, 0.3 + 2.0 * (T / HAND_REACH) ** 2);
         }
       }
       if (H.state === 'down') {
         tip = [H.spot[0], gy + 5 - 1.5 * ease((T - HAND_REACH) / 0.6), H.spot[1]];
         if (T >= HAND_REACH + HAND_HOLD) { H.state = 'lift'; liftHand(H); }
+      } else if (H.state === 'grip') {
+        tip = [H.spot[0], landY, H.spot[1]];
+        if (T >= HAND_REACH + ROOF_GRIP) { H.state = 'lift'; tearRoof(H); }
+      } else if (H.state === 'lift' && Rf) {
+        // the roof rises with the fingertip: straight up and slowly at first (so the roof is seen going), then
+        // away toward the hand's rest; it is gone once the hand is there
+        const u = clamp((T - HAND_REACH - ROOF_GRIP) / ROOF_LIFT), e = ease(u), up = H.short ? e : u * u * u, side = H.short ? e : up * up;
+        tip = [lerp(H.spot[0], rest[0], side), lerp(H.short ? gy + HAND_POISE : landY, rest[1], up), lerp(H.spot[1], rest[2], side)];
+        if (!H.short) {
+          Rf.dx = tip[0] - H.spot[0]; Rf.dz = tip[2] - H.spot[1]; Rf.dy = Math.max(0, tip[1] - landY); Rf.tilt = clamp(Rf.dy / 60) * 0.25;
+          if (Rf.dy > ROOF_OFF && !Rf.off) roofOff(Rf);
+        }
+        if (u >= 1) { endHand(); tip = rest; }
       } else if (H.state === 'lift') {
         const u = ease((T - HAND_REACH - HAND_HOLD) / HAND_LIFT);
         tip = [lerp(H.spot[0], rest[0], u), lerp(H.short ? gy + HAND_POISE : gy + 3.5, rest[1], u), lerp(H.spot[1], rest[2], u)];
@@ -775,7 +877,7 @@ export function createGame(canvas, opts = {}) {
       // (it lets go faster once you are properly dark than while it still half sees you)
       else { S.alertLost += dt; if (S.alertLost > ALERT_LOST) S.alert += (aT - S.alert) * Math.min(1, dt / (P.tier === 'deep' && P.seen <= 0.1 ? 1.5 : 3)); }
       // once it has lost you the cause counters start over: the card describes the stretch that ended the night
-      if (S.alert < 0.3 && P.seen <= 0) { S.runHigh = 0; S.fillLit = 0; S.fillShallow = 0; S.fillPeer = 0; }
+      if (S.alert < 0.3 && P.seen <= 0) { S.runHigh = 0; S.fillLit = 0; S.fillShallow = 0; S.fillPeer = 0; S.roofOffT = null; }
       // the light hunts a little round that point, as if looking; on a take it holds still; giving up, it
       // wanders wider and slower
       const g = ease(S.giveUp), w = (S.take ? Math.max(0, 1 - S.take.t * 2) : 1) * (1 + 1.5 * g);
@@ -861,7 +963,12 @@ export function createGame(canvas, opts = {}) {
         if (!cov && Math.hypot(P.x - S.dwellAt[0], P.z - S.dwellAt[1]) > DWELL_MOVE) { S.dwell = 0; S.dwellAt = [P.x, P.z]; }
         else S.dwell += dt;
       } else if (!cov) { S.dwell = 0; S.dwellAt = null; }
-      if (li.tier === 'deep' && S.dwell > DWELL) li = { L: Math.max(li.L, 0.5), rays: 2, tier: 'shallow', peer: true };
+      // from night 4 a wooden roof is no shelter for long: the light on it for NT.roof seconds and its hand
+      // comes for the roof (updateHand), so under one the peer gives way to the roof going
+      const roofed = NT.roof > 0 && cov && cov.roof ? cov.roof : null;
+      if (roofed && dm < DWELL_R * 2) { S.roofDwell = S.roofUnder === roofed ? S.roofDwell + dt : dt; S.roofUnder = roofed; }
+      else { S.roofDwell = 0; S.roofUnder = null; }
+      if (li.tier === 'deep' && S.dwell > DWELL && !roofed) li = { L: Math.max(li.L, 0.5), rays: 2, tier: 'shallow', peer: true };
     }
     const was = P.tier;
     P.lit = li.tier === 'lit'; P.tier = li.tier;
@@ -1305,6 +1412,9 @@ export function createGame(canvas, opts = {}) {
     chain(A, add(S.lan.pos, scl(up_, 4)), grip, 20, 4.2);
     lantern(A, S.lan.pos, up_, LAN, S.t);
     millSails(A, S.t);
+    // the wooden roofs on posts, each its own piece: in place until its hand lifts it, rising with the
+    // fingertip, gone for the run once it is off the top of the picture
+    for (const Rf of ROOFS) if (!Rf.gone && Rf.dy < ROOF_GONE) roofPiece(A, Rf);
     const P = S.player, py = standY(P.x, P.z);
     // you: the figure, a pale ring on the ground under your feet (stronger when you crouch in the dark), and
     // an inverted hull just over a pixel wide in the darkest grey, so the figure reads on any ground
@@ -1378,7 +1488,7 @@ export function createGame(canvas, opts = {}) {
   updateGiant(0);
 
   const api = {
-    R, G, S, gmesh, snd, LOOKS, LOOK_ORDER, NIGHTS, nightTable: night, isLit, inCover, blocked, standY, height, lanLight, segmentBlocked, OCCLUDERS, houses, brain, HM, ringFloor, CHURCH, LAN_BODY, clearance, landingSpot,
+    R, G, S, gmesh, snd, LOOKS, LOOK_ORDER, NIGHTS, nightTable: night, isLit, inCover, blocked, standY, height, lanLight, segmentBlocked, OCCLUDERS, ROOFS, resetRoofs: () => ROOFS.forEach(restoreRoof), houses, brain, HM, ringFloor, CHURCH, LAN_BODY, clearance, landingSpot,
     setPicture: (w, h) => R.setPicture(w, h),
     get look() { return lookName; },
     get night() { return S.night; },

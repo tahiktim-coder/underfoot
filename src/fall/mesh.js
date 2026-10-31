@@ -1,6 +1,6 @@
 // UNDERFOOT — static geometry. Flat-shaded triangles in world space, sorted into chunks with bounding boxes
 // so each pass draws only what its camera can see. Vertex: position 3, normal 3, material 1, uv 2, seed 1.
-import { NEAR, height, houses, towers, wallSegs, trees, props, CHURCH, HALL, wells, MILL, BRIDGE, TOWN, houseKey, stalls, arcades, chapels, ruinWallList, lowWalls, stairs, bushes, arcadePosts, stallPosts } from './world.js';
+import { NEAR, height, houses, towers, wallSegs, trees, props, CHURCH, HALL, wells, MILL, BRIDGE, TOWN, houseKey, stalls, arcades, chapels, ruinWallList, lowWalls, stairs, bushes, arcadePosts, stallPosts, ROOF_DIMS } from './world.js';
 import { mulberry } from '../lib/noise.js';
 
 export const STRIDE = 10;
@@ -174,19 +174,23 @@ function church(A) {
   for (let k = 0; k < 4; k++) tri(A, co[k], co[(k + 1) % 4], ap, M.SLATE, [0, 0], [1, 0], [0.5, 1], 3, tc);
   box(A, P, -0.1, top + sh, tz - 0.1, 0.1, top + sh + 2.4, tz + 0.1, M.IRON, 0);
   box(A, P, -0.75, top + sh + 1.5, tz - 0.08, 0.75, top + sh + 1.7, tz + 0.08, M.IRON, 0);
-  // the porch: a gabled slate roof on four stone posts over the step up to the tower door
+  // the porch: four stone posts over the step up to the tower door (its gabled slate roof is its own piece:
+  // porchRoof, drawn each frame so its hand can lift it off)
   if (C.porch) {
-    const pw = C.porch.w / 2, pd = C.porch.d / 2, pz = C.porch.pz, ey = 3.4, ry = 5.0, pc = P(0, ey, pz);
+    const pw = C.porch.w / 2, pd = C.porch.d / 2, pz = C.porch.pz, ey = ROOF_DIMS.porch.eave;
     box(A, P, -pw + 0.1, -0.4, pz - pd + 0.1, pw - 0.1, 0.5, pz + pd - 0.1, M.STONE, 7);
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(A, P, sx * (pw - 0.4) - 0.25, 0.4, pz + sz * (pd - 0.4) - 0.25, sx * (pw - 0.4) + 0.25, ey, pz + sz * (pd - 0.4) + 0.25, M.STONE, 7);
     box(A, P, -pw - 0.3, ey - 0.35, pz - pd - 0.3, pw + 0.3, ey, pz + pd + 0.3, M.TIMBER, 2);
-    const c0 = P(-pw - 0.5, ey - 0.1, pz - pd - 0.5), c1 = P(pw + 0.5, ey - 0.1, pz - pd - 0.5), c2 = P(pw + 0.5, ey - 0.1, pz + pd + 0.5), c3 = P(-pw - 0.5, ey - 0.1, pz + pd + 0.5);
-    const r0 = P(0, ry, pz - pd - 0.5), r1 = P(0, ry, pz + pd + 0.5);
-    tri(A, c0, c1, r0, M.SLATE, [0, 0], [1, 0], [0.5, 1], 3, pc);
-    quad(A, c3, c0, r0, r1, M.SLATE, [0, 0], [pw * 2, 0], [pw * 2, 3], [0, 3], 3, pc);
-    quad(A, c1, c2, r1, r0, M.SLATE, [0, 0], [pw * 2, 0], [pw * 2, 3], [0, 3], 3, pc);
-    tri(A, c2, c3, r1, M.SLATE, [0, 0], [1, 0], [0.5, 1], 3, pc);
   }
+}
+function porchRoof(A, P, Pc) {
+  const pw = Pc.w / 2, pd = Pc.d / 2, pz = Pc.pz, ey = ROOF_DIMS.porch.eave, ry = ROOF_DIMS.porch.top, pc = P(0, ey, pz);
+  const c0 = P(-pw - 0.5, ey - 0.1, pz - pd - 0.5), c1 = P(pw + 0.5, ey - 0.1, pz - pd - 0.5), c2 = P(pw + 0.5, ey - 0.1, pz + pd + 0.5), c3 = P(-pw - 0.5, ey - 0.1, pz + pd + 0.5);
+  const r0 = P(0, ry, pz - pd - 0.5), r1 = P(0, ry, pz + pd + 0.5);
+  tri(A, c0, c1, r0, M.SLATE, [0, 0], [1, 0], [0.5, 1], 3, pc);
+  quad(A, c3, c0, r0, r1, M.SLATE, [0, 0], [pw * 2, 0], [pw * 2, 3], [0, 3], 3, pc);
+  quad(A, c1, c2, r1, r0, M.SLATE, [0, 0], [pw * 2, 0], [pw * 2, 3], [0, 3], 3, pc);
+  tri(A, c2, c3, r1, M.SLATE, [0, 0], [1, 0], [0.5, 1], 3, pc);
 }
 
 function wall(A, W) {
@@ -217,12 +221,16 @@ function tower(A, T) {
   cyl(A, P, 0, -1, 0, T.r, T.h, T.r * 0.96, 14, M.STONE, 11.3, false);
   cyl(A, P, 0, T.h, 0, T.r + 0.6, T.h + T.r * 1.5, 0.01, 14, M.SLATE, 4, false);
 }
-// an arcade: a lean-to roof over a walk along a house front, on stone posts along the open side
+// an arcade: a lean-to roof over a walk along a house front, on stone posts along the open side (the roof is
+// its own piece: arcadeRoof)
 function arcade(A, Ar, ps) {
-  const gy = height(Ar.x, Ar.z) - 0.2, P = frame(Ar.x, gy, Ar.z, Ar.rot), hw = Ar.w / 2, hd = Ar.d / 2, ey = 3.3, by = 4.5;
+  const gy = height(Ar.x, Ar.z) - 0.2, P = frame(Ar.x, gy, Ar.z, Ar.rot), hw = Ar.w / 2, hd = Ar.d / 2, ey = ROOF_DIMS.arcade.eave;
   const c = Math.cos(Ar.rot), s = Math.sin(Ar.rot);
   for (const [px, pz] of ps) { const lx = (px - Ar.x) * c - (pz - Ar.z) * s, lz = (px - Ar.x) * s + (pz - Ar.z) * c; box(A, P, lx - 0.25, -0.3, lz - 0.25, lx + 0.25, ey, lz + 0.25, M.STONE, 7); }
   box(A, P, -hw - 0.2, ey - 0.3, hd - 0.6, hw + 0.2, ey, hd + 0.2, M.TIMBER, 2);
+}
+function arcadeRoof(A, P, Ar) {
+  const hw = Ar.w / 2, hd = Ar.d / 2, ey = ROOF_DIMS.arcade.eave, by = ROOF_DIMS.arcade.top;
   const roofM = Ar.seed < 0.5 ? M.TILE : M.SHINGLE, ctr = P(0, ey - 2, 0);
   quad(A, P(-hw - 0.4, ey, hd + 0.5), P(hw + 0.4, ey, hd + 0.5), P(hw + 0.4, by, -hd), P(-hw - 0.4, by, -hd), roofM, [0, 0], [Ar.w, 0], [Ar.w, 3], [0, 3], Ar.seed, ctr);
   for (const sx of [-1, 1]) tri(A, P(sx * (hw + 0.4), ey, hd + 0.5), P(sx * (hw + 0.4), by, -hd), P(sx * (hw + 0.4), ey, -hd), M.TIMBER, [0, 0], [1, 1], [1, 0], 0, ctr);
@@ -280,23 +288,41 @@ function lowWall(A, W) {
   const P = frame(mx, gy, mz, Math.atan2(dx, dz));
   box(A, P, -0.25, -0.5, -L / 2, 0.25, 2.1, L / 2, { side: M.STONE, top: M.WALLTOP }, 11.3);
 }
+// the market hall: a stone floor, ten timber posts and a plate; its hipped tile roof is its own piece (hallRoof)
 function hall(A) {
   const Hh = HALL; if (!Hh) return;
   const gy = height(Hh.x, Hh.z) - 0.2, P = frame(Hh.x, gy, Hh.z, 0);
-  const hw = Hh.w / 2, hd = Hh.d / 2, y = 3.6;
+  const hw = Hh.w / 2, hd = Hh.d / 2, y = ROOF_DIMS.hall.eave;
   box(A, P, -hw + 0.2, -0.6, -hd + 0.2, hw - 0.2, 0.25, hd - 0.2, M.STONE, 7);
   for (let i = 0; i <= 4; i++) for (const sz of [-1, 1]) { const x = -hw + 0.4 + i * (Hh.w - 0.8) / 4; box(A, P, x - 0.22, 0, sz * (hd - 0.4) - 0.22, x + 0.22, y, sz * (hd - 0.4) + 0.22, M.TIMBER, 1); }
   box(A, P, -hw, y - 0.3, -hd, hw, y, hd, M.TIMBER, 2);
-  const ctr = P(0, y, 0), rise = 3.2;
+  // stalls and crates under it
+  box(A, P, -hw + 1.2, 0.25, -1.2, -hw + 4.2, 1.1, 0.4, M.PLANK, 3);
+  box(A, P, hw - 4.5, 0.25, 0.2, hw - 1.4, 1.0, 1.6, M.PLANK, 4);
+}
+function hallRoof(A, P, Hh) {
+  const hw = Hh.w / 2, hd = Hh.d / 2, y = ROOF_DIMS.hall.eave;
+  const ctr = P(0, y, 0), rise = 3.2;   // (the literal, as the static hall had it: the roof must draw to the pixel as before)
   const c = [P(-hw - 0.8, y - 0.2, -hd - 0.8), P(hw + 0.8, y - 0.2, -hd - 0.8), P(hw + 0.8, y - 0.2, hd + 0.8), P(-hw - 0.8, y - 0.2, hd + 0.8)];
   const r0 = P(-hw + hd, y + rise, 0), r1 = P(hw - hd, y + rise, 0);
   quad(A, c[0], c[1], r1, r0, M.TILE, [0, 0], [Hh.w, 0], [Hh.w - 4, 5], [4, 5], 2.2, ctr);
   quad(A, c[2], c[3], r0, r1, M.TILE, [0, 0], [Hh.w, 0], [Hh.w - 4, 5], [4, 5], 2.2, ctr);
   tri(A, c[1], c[2], r1, M.TILE, [0, 0], [Hh.d, 0], [Hh.d / 2, 5], 2.2, ctr);
   tri(A, c[3], c[0], r0, M.TILE, [0, 0], [Hh.d, 0], [Hh.d / 2, 5], 2.2, ctr);
-  // stalls and crates under it
-  box(A, P, -hw + 1.2, 0.25, -1.2, -hw + 4.2, 1.1, 0.4, M.PLANK, 3);
-  box(A, P, hw - 4.5, 0.25, 0.2, hw - 1.4, 1.0, 1.6, M.PLANK, 4);
+}
+// a wooden roof on posts (world.js ROOFS), drawn each frame by the game so its hand can lift it: moved with
+// the fingertip (`dx, dy, dz`) and tilted `tilt` about its eaves line. With no lift the points are the
+// frame's own, so until night 4 the roofs draw to the pixel what they drew as part of the town.
+export function roofPiece(A, Rf) {
+  const P0 = frame(Rf.fx, Rf.gy, Rf.fz, Rf.rot);
+  let P = P0;
+  if (Rf.dy !== 0 || Rf.tilt !== 0) {
+    const c = Math.cos(Rf.tilt), s = Math.sin(Rf.tilt), ey = Rf.ey, cz = Rf.cz;
+    P = (lx, ly, lz) => { const p = P0(lx, ey + (ly - ey) * c - (lz - cz) * s, cz + (ly - ey) * s + (lz - cz) * c); p[0] += Rf.dx; p[1] += Rf.dy; p[2] += Rf.dz; return p; };
+  }
+  if (Rf.kind === 'hall') hallRoof(A, P, Rf.B);
+  else if (Rf.kind === 'arcade') arcadeRoof(A, P, Rf.B);
+  else porchRoof(A, P, Rf.B);
 }
 function well(A, WELL) {
   const gy = height(WELL.x, WELL.z), P = frame(WELL.x, gy, WELL.z, 0.3);
