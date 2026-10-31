@@ -37,7 +37,7 @@ Pages open straight from disk. Address options: `?look=<id>`, `?night=<1-3>`, `?
 | Lantern, chain, the player's figure | `src/fall/props.js` |
 | Sound | `src/fall/sound.js` (all synthesized) |
 | Page wiring: look bar, contact sheet, large view, buttons | `src/main.js`, `page/*.html` |
-| The itch page: overlay buttons, the 60 Hz loop, sound on hide, the error messages, the credit (`AUTHOR`) | `src/itch.js`, `page/itch.html` |
+| The itch page: overlay buttons, the 60 Hz loop, sound off when the tab hides or the frames stop, the error messages, the credit (`AUTHOR`) | `src/itch.js`, `page/itch.html` |
 
 ## Things that must stay true
 

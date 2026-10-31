@@ -76,10 +76,13 @@ export function createSound() {
   const api = {
     get on() { return !!ctx && !S.muted; },
     get muted() { return S.muted; },
+    get state() { return ctx ? ctx.state : 'none'; },
     init,
-    // the tab hidden or the picture off screen: quiet; back: on again (also after iOS 'interrupted')
+    // the tab hidden, the picture off screen or the frames stopped: quiet; back: on again (also after iOS
+    // 'interrupted'). resume() does not look at the state first: Firefox and Safari report 'running' for a
+    // few ms after suspend() is called, and a resume() in that window must still land
     suspend() { if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {}); },
-    resume() { if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {}); },
+    resume() { if (ctx) ctx.resume().catch(() => {}); },
     setMuted(m) { S.muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : 0.85, now(), 0.05); },
     // a foot comes down `d` metres away
     footfall(d, pan) {

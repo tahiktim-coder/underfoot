@@ -1,12 +1,12 @@
 // Boot for the itch.io page (page/itch.html): the game alone, under the Night look, with a sound button, a
 // fullscreen button and, on touch screens, a hold-to-look button. The loop runs fixed 1/60 s steps capped at
-// 60 Hz. The sound stops when the tab is hidden; a lost graphics context or a frame error shows a message
-// instead of a frozen picture. window.__v16 is the same test hook as the dev page's.
+// 60 Hz. The sound stops when the tab is hidden or the frames stop coming; a lost graphics context or a
+// frame error shows a message instead of a frozen picture. window.__v16 is the same test hook as the dev page's.
 import { createGame } from './fall/game.js';
 
 export const AUTHOR = 'by ____';   // the credit on the title and the game-over card; fill it in before upload
 const LOOK = 'night';
-const STEP = 1 / 60, MAX_STEPS = 4, SLACK = 0.002, STALE_MS = 100;
+const STEP = 1 / 60, MAX_STEPS = 4, SLACK = 0.002, STALE_MS = 100, STARVE_MS = 1500;
 
 const $ = (id) => document.getElementById(id);
 const V = (window.__v16 = { ready: false, hold: /[?&]hold/.test(location.search), errors: [], game: null });
@@ -49,7 +49,9 @@ function boot() {
   // the buttons: sound (the game starts it on the first key or click; this flips it), fullscreen, look up
   const sb = $('soundBtn');
   const syncSound = () => sb.setAttribute('aria-pressed', game.snd.on ? 'true' : 'false');
-  sb.addEventListener('click', () => { game.snd.init(); if (!game.snd.on) game.snd.setMuted(false); else game.snd.setMuted(true); syncSound(); canvas.focus({ preventScroll: true }); });
+  // read the state before init: as the first gesture on the page, init starts the context on, and the button
+  // must then leave it on, not flip it off
+  sb.addEventListener('click', () => { const was = game.snd.on; game.snd.init(); game.snd.setMuted(was); syncSound(); canvas.focus({ preventScroll: true }); });
   // after the first gesture the overlay buttons fade back so they never sit over the pool; they wake on hover
   const quiet = () => { const ov = document.querySelector('.ov'); if (ov) ov.classList.add('quiet'); };
   canvas.addEventListener('pointerdown', () => { setTimeout(syncSound, 0); quiet(); });
@@ -74,6 +76,18 @@ function boot() {
   const audio = () => { if (document.hidden || !visible) game.snd.suspend(); else if (game.S.played) game.snd.resume(); };
   document.addEventListener('visibilitychange', audio);
   new IntersectionObserver((es) => { visible = es[0].isIntersecting; audio(); }, { rootMargin: '60px' }).observe(canvas);
+  // a host that takes the page off screen without hiding the tab (an app's browser pane, closed) stops the
+  // frames but never says so, and the wind and the drone would play on: when the frames stop coming for a
+  // while, quiet; when they come back, sound again. Two stale checks in a row are needed: after one long
+  // stall of the whole thread the first check runs just before the frame that ends it, and that is not
+  // starvation. The check never skips on the flag, so a resume from elsewhere (a visibility event, a key)
+  // while the frames are still off is quieted again.
+  let tick = performance.now(), starved = false, stale = 0;
+  setInterval(() => {
+    if (dead || performance.now() - tick < STARVE_MS || game.snd.state !== 'running') { stale = 0; return; }
+    if (++stale < 2) return;
+    starved = true; game.snd.suspend();
+  }, STARVE_MS / 3);
 
   // the loop: fixed steps, at most 60 a second, a few at once after a hitch, never a catch-up of seconds.
   // A frame a hair short of a step still steps (the slack), so a 60 Hz display steps exactly once a frame
@@ -85,6 +99,8 @@ function boot() {
   function loop(now) {
     if (dead) return;
     requestAnimationFrame(loop);
+    tick = now;
+    if (starved) { starved = false; if (!document.hidden && visible) game.snd.resume(); }
     const gap = now - last;
     if (!document.hidden && visible && !V.hold) { probeN++; if (probeN > 30) probeMs += gap; if (!rq && probeN === 130 && res[0] > 480 && probeMs / 100 > 20) { res = [480, 270]; game.setPicture(480, 270); fit(); } }
     acc = Math.min(acc + Math.max(0, gap / 1000), 0.12); last = now;
